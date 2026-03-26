@@ -1254,13 +1254,13 @@ app.get('/api/auth/google/callback', async (req, res) => {
           .eq('id', byEmail.id);
         user = { ...byEmail, google_id: gUser.sub };
       } else {
-        // Create new user
+        // Create new user (google users have no password – store unusable hash)
         const { data: created, error: createErr } = await supabase
           .from('users')
           .insert({
             name:          gUser.name || gUser.email.split('@')[0],
             email:         gUser.email.toLowerCase(),
-            password_hash: null,
+            password_hash: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10),
             google_id:     gUser.sub,
             provider:      'google',
             role:          'user',
