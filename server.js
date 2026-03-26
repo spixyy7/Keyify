@@ -96,6 +96,14 @@ function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+function generateTempPassword() {
+  // Avoids confusable chars: 0/O, 1/l/I
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let pass = '';
+  for (let i = 0; i < 10; i++) pass += chars[Math.floor(Math.random() * chars.length)];
+  return pass;
+}
+
 function getClientIP(req) {
   return (
     req.headers['x-forwarded-for']?.split(',')[0].trim() ||
@@ -1063,7 +1071,7 @@ function escHTML(str) {
 /**
  * POST /api/forgot-password
  * Body: { email }
- * Sends reset link. Always returns success to prevent email enumeration.
+ * Logs a reset request in audit_logs for admin to handle.
  */
 app.post('/api/forgot-password', authLimiter, async (req, res) => {
   const { email } = req.body;
@@ -1075,75 +1083,221 @@ app.post('/api/forgot-password', authLimiter, async (req, res) => {
     .eq('email', email.toLowerCase().trim())
     .maybeSingle();
 
-  const genericMsg = { message: 'Ako je email registrovan, poslan je link za reset lozinke.' };
-  if (!user) return res.json(genericMsg);
-
-  const token   = crypto.randomBytes(32).toString('hex');
-  const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
-
-  await supabase
-    .from('users')
-    .update({ reset_token: token, reset_expires: expires })
-    .eq('id', user.id);
-
-  const frontendUrl = (process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
-  const resetLink   = `${frontendUrl}/login.html?reset=${token}`;
-
-  const html = `
-    <div style="font-family:'Inter',Arial,sans-serif;max-width:440px;margin:0 auto;background:#0f0f1a;border-radius:16px;overflow:hidden">
-      <div style="background:linear-gradient(135deg,#1D6AFF,#A259FF);padding:24px 32px">
-        <h1 style="color:#fff;margin:0;font-size:22px;font-weight:700">🔑 Keyify Reset Lozinke</h1>
-      </div>
-      <div style="padding:32px">
-        <p style="color:#aaa;margin:0 0 8px">Zdravo, <strong style="color:#fff">${user.name}</strong>!</p>
-        <p style="color:#aaa;margin:0 0 24px">Primili smo zahtjev za reset lozinke. Kliknite dugme ispod:</p>
-        <div style="text-align:center;margin:24px 0">
-          <a href="${resetLink}" style="background:linear-gradient(135deg,#1D6AFF,#A259FF);color:#fff;text-decoration:none;padding:14px 32px;border-radius:12px;font-weight:700;font-size:15px;display:inline-block">Resetuj lozinku</a>
-        </div>
-        <p style="color:#666;font-size:12px;margin:20px 0 0;text-align:center">Link je važeći <strong style="color:#aaa">1 sat</strong>. Ako niste vi iniciirali, zanemarite ovaj email.</p>
-      </div>
-    </div>`;
-
-  try {
-    await sendMailSafe({
-      from:    process.env.RESEND_FROM || 'Keyify <onboarding@resend.dev>',
-      to:      user.email,
-      subject: 'Keyify – Reset lozinke',
-      html,
+  if (user) {
+    await supabase.from('audit_logs').insert({
+      user_id:    user.id,
+      action:     'password_reset_request',
+      ip:         getClientIP(req),
+      created_at: new Date().toISOString(),
     });
-  } catch (err) {
-    console.error('Reset email failed:', err.message);
   }
 
-  return res.json(genericMsg);
+  // Always return same message
+  return res.json({ message: 'Vaš zahtjev je primljen. Admin će vas kontaktirati uskoro.' });
 });
 
 /**
- * POST /api/reset-password
- * Body: { token, password }
+ * GET /api/admin/reset-requests
+ * Returns recent password reset requests with user info.
  */
-app.post('/api/reset-password', authLimiter, async (req, res) => {
-  const { token, password } = req.body;
-  if (!token || !password) return res.status(400).json({ error: 'Nedostaju podaci' });
-  if (password.length < 8)  return res.status(400).json({ error: 'Lozinka mora biti min. 8 karaktera' });
+app.get('/api/admin/reset-requests', authenticateToken, requireAdmin, async (req, res) => {
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .select('id, user_id, created_at, users(name, email)')
+    .eq('action', 'password_reset_request')
+    .order('created_at', { ascending: false })
+    .limit(50);
 
+  if (error) return res.status(500).json({ error: 'Greška' });
+
+  const result = (data || []).map(r => ({
+    id:         r.id,
+    user_id:    r.user_id,
+    created_at: r.created_at,
+    name:       r.users?.name  || '–',
+    email:      r.users?.email || '–',
+  }));
+
+  return res.json(result);
+});
+
+/* ─────────────────────────────────────────
+   GOOGLE OAUTH
+───────────────────────────────────────── */
+
+/** Build the Google authorization URL */
+function buildGoogleAuthUrl(state) {
+  const params = new URLSearchParams({
+    client_id:     process.env.GOOGLE_CLIENT_ID,
+    redirect_uri:  process.env.GOOGLE_REDIRECT_URI,
+    response_type: 'code',
+    scope:         'openid email profile',
+    access_type:   'online',
+    prompt:        'select_account',
+    state:         JSON.stringify(state),
+  });
+  return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+}
+
+/** Exchange code for tokens, fetch userinfo */
+async function exchangeGoogleCode(code) {
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      code,
+      client_id:     process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uri:  process.env.GOOGLE_REDIRECT_URI,
+      grant_type:    'authorization_code',
+    }).toString(),
+  });
+  const tokenData = await tokenRes.json();
+  if (!tokenData.access_token) throw new Error('Google token exchange failed');
+
+  const infoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: `Bearer ${tokenData.access_token}` },
+  });
+  return infoRes.json(); // { sub, email, name, picture, ... }
+}
+
+/** Issue a Keyify JWT for a user row */
+function issueJWT(user, req) {
+  return jwt.sign(
+    {
+      id:   user.id,
+      role: user.role,
+      ip:   getClientIP(req),
+      ua:   hashUA(req.headers['user-agent']),
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: '2h' }
+  );
+}
+
+/** GET /api/auth/google – start login/register flow */
+app.get('/api/auth/google', (req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_REDIRECT_URI) {
+    return res.status(503).json({ error: 'Google OAuth nije konfigurisan' });
+  }
+  res.redirect(buildGoogleAuthUrl({ type: 'login' }));
+});
+
+/** GET /api/auth/google/link – start account-linking flow (requires JWT) */
+app.get('/api/auth/google/link', authenticateToken, (req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_REDIRECT_URI) {
+    return res.status(503).json({ error: 'Google OAuth nije konfigurisan' });
+  }
+  res.redirect(buildGoogleAuthUrl({ type: 'link', user_id: req.user.id }));
+});
+
+/** GET /api/auth/google/callback – handle both login and link */
+app.get('/api/auth/google/callback', async (req, res) => {
+  const FRONTEND = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+  const { code, state, error: oauthError } = req.query;
+
+  if (oauthError) {
+    return res.redirect(`${FRONTEND}/login.html?google_error=${encodeURIComponent(oauthError)}`);
+  }
+  if (!code) {
+    return res.redirect(`${FRONTEND}/login.html?google_error=no_code`);
+  }
+
+  let parsedState = { type: 'login' };
+  try { parsedState = JSON.parse(state || '{}'); } catch (_) {}
+
+  try {
+    const gUser = await exchangeGoogleCode(code);
+    if (!gUser.email || !gUser.sub) throw new Error('Google did not return email');
+
+    // ── LINK flow ──────────────────────────────────────────────
+    if (parsedState.type === 'link' && parsedState.user_id) {
+      // Check if google_id already used by another account
+      const { data: existing } = await supabase
+        .from('users')
+        .select('id')
+        .eq('google_id', gUser.sub)
+        .maybeSingle();
+
+      if (existing && existing.id !== parsedState.user_id) {
+        return res.redirect(`${FRONTEND}/profile.html?google_error=already_linked`);
+      }
+
+      await supabase
+        .from('users')
+        .update({ google_id: gUser.sub, provider: 'google' })
+        .eq('id', parsedState.user_id);
+
+      return res.redirect(`${FRONTEND}/profile.html?google_linked=1`);
+    }
+
+    // ── LOGIN / REGISTER flow ──────────────────────────────────
+    let { data: user } = await supabase
+      .from('users')
+      .select('*')
+      .eq('google_id', gUser.sub)
+      .maybeSingle();
+
+    if (!user) {
+      // Try matching by email (existing email/password account)
+      const { data: byEmail } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', gUser.email.toLowerCase())
+        .maybeSingle();
+
+      if (byEmail) {
+        // Link google_id to existing account
+        await supabase
+          .from('users')
+          .update({ google_id: gUser.sub, provider: byEmail.provider || 'email' })
+          .eq('id', byEmail.id);
+        user = { ...byEmail, google_id: gUser.sub };
+      } else {
+        // Create new user
+        const { data: created, error: createErr } = await supabase
+          .from('users')
+          .insert({
+            name:          gUser.name || gUser.email.split('@')[0],
+            email:         gUser.email.toLowerCase(),
+            password_hash: null,
+            google_id:     gUser.sub,
+            provider:      'google',
+            role:          'user',
+            permissions:   {},
+          })
+          .select('*')
+          .single();
+
+        if (createErr) throw new Error(createErr.message);
+        user = created;
+      }
+    }
+
+    const token = issueJWT(user, req);
+    const params = new URLSearchParams({
+      token,
+      name:  user.name,
+      role:  user.role,
+      email: user.email,
+      id:    user.id,
+    });
+    return res.redirect(`${FRONTEND}/login.html?${params.toString()}`);
+
+  } catch (err) {
+    console.error('[Google OAuth] callback error:', err.message);
+    return res.redirect(`${FRONTEND}/login.html?google_error=${encodeURIComponent(err.message)}`);
+  }
+});
+
+/** GET /api/user/google-status – is google linked? */
+app.get('/api/user/google-status', authenticateToken, async (req, res) => {
   const { data: user } = await supabase
     .from('users')
-    .select('id, reset_expires')
-    .eq('reset_token', token)
+    .select('google_id, provider')
+    .eq('id', req.user.id)
     .maybeSingle();
-
-  if (!user) return res.status(400).json({ error: 'Link je nevažeći ili je istekao' });
-  if (!user.reset_expires || new Date() > new Date(user.reset_expires))
-    return res.status(400).json({ error: 'Link je istekao. Zatražite novi reset.' });
-
-  const password_hash = await bcrypt.hash(password, 12);
-  await supabase
-    .from('users')
-    .update({ password_hash, reset_token: null, reset_expires: null })
-    .eq('id', user.id);
-
-  return res.json({ message: 'Lozinka je uspješno resetovana. Možete se prijaviti.' });
+  res.json({ linked: !!user?.google_id });
 });
 
 /* ─────────────────────────────────────────

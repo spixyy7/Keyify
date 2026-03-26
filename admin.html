@@ -230,6 +230,7 @@
     <a class="sidebar-link" onclick="showSection('security')">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       <span data-i18n="admin.nav.security">Sigurnost & Logovi</span>
+      <span id="reset-badge" class="hidden ml-auto w-5 h-5 rounded-full text-white text-xs font-bold flex items-center justify-center" style="background:#f59e0b;min-width:20px">0</span>
     </a>
 
     <div class="text-xs font-semibold text-dark-400 uppercase tracking-widest px-2 mt-5 mb-3" data-i18n="admin.nav.support">Podrška</div>
@@ -578,6 +579,27 @@
 
     <!-- ═══════════════════════ SECURITY ═══════════════════════ -->
     <div id="section-security" class="section space-y-5">
+
+      <!-- Password reset requests -->
+      <div class="glass rounded-2xl overflow-hidden" id="reset-requests-card">
+        <div class="p-5 border-b flex items-center justify-between" style="border-color:rgba(255,255,255,0.06)">
+          <div>
+            <h3 class="font-display font-semibold text-white">Zahtjevi za reset lozinke</h3>
+            <p class="text-xs text-dark-300 mt-0.5">Korisnici koji su tražili reset lozinke</p>
+          </div>
+          <button onclick="loadResetRequests()" class="text-xs text-dark-300 hover:text-white transition-colors">↻ Osvježi</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="admin-table w-full">
+            <thead><tr>
+              <th>Korisnik</th><th>Email</th><th>Vrijeme zahtjeva</th><th>Akcija</th>
+            </tr></thead>
+            <tbody id="reset-requests-body">
+              <tr><td colspan="4" class="text-center py-8 text-dark-300">Učitavanje...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <!-- Users table -->
       <div class="glass rounded-2xl overflow-hidden">
@@ -1041,7 +1063,21 @@
       </div>
       <div>
         <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Nova lozinka <span class="normal-case font-normal">(ostavi prazno = bez promjene)</span></label>
-        <input type="password" id="ud-edit-password" placeholder="min. 8 karaktera" class="admin-input"/>
+        <div class="flex gap-2">
+          <input type="password" id="ud-edit-password" placeholder="min. 8 karaktera" class="admin-input flex-1"/>
+          <button type="button" onclick="generateUserPassword()" title="Generiši privremenu lozinku"
+                  class="px-3 py-2 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 flex-shrink-0"
+                  style="background:rgba(245,158,11,0.2);border:1px solid rgba(245,158,11,0.4);color:#f59e0b">
+            🎲 Generiši
+          </button>
+        </div>
+        <div id="ud-generated-password" style="display:none" class="mt-2 p-3 rounded-xl flex items-center justify-between gap-3" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3)">
+          <div>
+            <div class="text-xs text-dark-300 mb-0.5">Privremena lozinka:</div>
+            <code id="ud-generated-password-text" class="text-green-400 font-bold font-mono text-base tracking-widest"></code>
+          </div>
+          <button onclick="copyGeneratedPassword()" class="text-xs px-3 py-1.5 rounded-lg font-semibold text-white transition-all hover:opacity-80" style="background:rgba(16,185,129,0.3)">Kopiraj</button>
+        </div>
       </div>
       <div id="ud-edit-msg" style="display:none;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:500"></div>
       <div class="flex gap-3 pt-1">
@@ -1197,14 +1233,16 @@
     if (sectionLabels[name]) {
       document.getElementById('section-title').textContent    = sectionLabels[name][0];
       document.getElementById('section-subtitle').textContent = sectionLabels[name][1];
-      if (name === 'support') loadTickets();
-      if (name === 'promos')  loadPromos();
-      if (name === 'sql')     loadSqlLogs();
+      if (name === 'support')  loadTickets();
+      if (name === 'promos')   loadPromos();
+      if (name === 'sql')      loadSqlLogs();
+      if (name === 'security') loadResetRequests();
       return;
     }
     const [titleKey, subKey] = titles[name] || ['admin.section.dashboardTitle', 'admin.section.dashboardSub'];
     document.getElementById('section-title').textContent    = t(titleKey);
     document.getElementById('section-subtitle').textContent = t(subKey);
+    if (name === 'security') loadResetRequests();
   }
 
   /* ── SIDEBAR MOBILE ── */
@@ -2166,7 +2204,50 @@
     } catch { /* ignore */ }
   }
 
-  /* ── Auto-load badge count on init ── */
+  /* ── Reset requests ── */
+  async function loadResetRequests() {
+    const tbody = document.getElementById('reset-requests-body');
+    try {
+      const res  = await fetch(`${API_BASE}/admin/reset-requests`, { headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const badge = document.getElementById('reset-badge');
+      if (badge) { badge.textContent = data.length; badge.classList.toggle('hidden', data.length === 0); }
+      tbody.innerHTML = data.length
+        ? data.map(r => `<tr>
+            <td class="font-medium text-white">${escHtml(r.name || '–')}</td>
+            <td class="text-dark-300">${escHtml(r.email || '–')}</td>
+            <td class="text-dark-300">${fmtDate(r.created_at)}</td>
+            <td><button onclick="openUserDetail('${escHtml(String(r.user_id))}')"
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-80"
+                style="background:rgba(245,158,11,0.25);border:1px solid rgba(245,158,11,0.4);color:#f59e0b">
+                Otvori korisnika
+            </button></td>
+          </tr>`).join('')
+        : '<tr><td colspan="4" class="text-center py-8 text-dark-300">Nema zahtjeva</td></tr>';
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-red-400">${escHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  function generateUserPassword() {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let pass = '';
+    for (let i = 0; i < 10; i++) pass += chars[Math.floor(Math.random() * chars.length)];
+    document.getElementById('ud-edit-password').value = pass;
+    const display = document.getElementById('ud-generated-password');
+    document.getElementById('ud-generated-password-text').textContent = pass;
+    display.style.display = 'flex';
+  }
+
+  function copyGeneratedPassword() {
+    const pass = document.getElementById('ud-generated-password-text').textContent;
+    navigator.clipboard.writeText(pass).catch(() => {});
+    const btn = document.querySelector('#ud-generated-password button');
+    if (btn) { btn.textContent = '✓ Kopirano'; setTimeout(() => btn.textContent = 'Kopiraj', 2000); }
+  }
+
+  /* ── Auto-load badge counts on init ── */
   (async function loadSupportBadge() {
     try {
       const res  = await fetch(`${API_BASE}/admin/tickets/unread-count`, { headers: authHeaders() });
@@ -2175,6 +2256,16 @@
       const badge = document.getElementById('support-badge');
       if (badge && count > 0) { badge.textContent = count; badge.classList.remove('hidden'); }
     } catch { /* not enough permissions – ignore */ }
+  })();
+
+  (async function loadResetBadge() {
+    try {
+      const res  = await fetch(`${API_BASE}/admin/reset-requests`, { headers: authHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      const badge = document.getElementById('reset-badge');
+      if (badge && data.length > 0) { badge.textContent = data.length; badge.classList.remove('hidden'); }
+    } catch { /* ignore */ }
   })();
 
   /* ── CSS spin animation ── */

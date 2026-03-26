@@ -74,7 +74,13 @@ CREATE INDEX IF NOT EXISTS idx_support_tickets_created ON support_tickets(create
 CREATE INDEX IF NOT EXISTS idx_promo_codes_active       ON promo_codes(UPPER(code)) WHERE is_active = TRUE;
 CREATE INDEX IF NOT EXISTS idx_sql_audit_executed       ON sql_audit_logs(executed_at DESC);
 
--- ── 6. RBAC DOCUMENTATION ────────────────────────────────────
+-- ── 6. GOOGLE OAUTH COLUMNS ──────────────────────────────────
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT UNIQUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS provider  TEXT NOT NULL DEFAULT 'email';
+-- provider values: 'email' | 'google'
+-- password_hash can be NULL for pure Google users
+
+-- ── 7. RBAC DOCUMENTATION ────────────────────────────────────
 -- permissions column is JSONB on the users table (no schema change needed).
 -- New keys added in this release:
 --   can_manage_promos   → Promo Codes tab
