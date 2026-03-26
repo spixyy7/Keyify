@@ -483,6 +483,18 @@ app.delete('/api/products/:id', authenticateToken, requireAdmin, async (req, res
    ADMIN: User management
 ───────────────────────────────────────── */
 
+/** GET /api/admin/users/:id/logs */
+app.get('/api/admin/users/:id/logs', authenticateToken, requireAdmin, async (req, res) => {
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .select('id, action, ip, created_at')
+    .eq('user_id', req.params.id)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json(data || []);
+});
+
 /** GET /api/admin/users/:id/purchases */
 app.get('/api/admin/users/:id/purchases', authenticateToken, requireAdmin, async (req, res) => {
   const { data, error } = await supabase
