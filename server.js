@@ -23,7 +23,7 @@ const bcrypt      = require('bcryptjs');
 const jwt         = require('jsonwebtoken');
 const crypto      = require('crypto');
 const rateLimit   = require('express-rate-limit');
-const nodemailer  = require('nodemailer');
+const { Resend }  = require('resend');
 const { createClient } = require('@supabase/supabase-js');
 
 /* ─────────────────────────────────────────
@@ -81,25 +81,12 @@ app.use('/api', apiLimiter);
    Nodemailer transporter (Gmail)
    Use an App Password: https://myaccount.google.com/apppasswords
 ───────────────────────────────────────── */
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  connectionTimeout: 8000,
-  greetingTimeout:   8000,
-  socketTimeout:     10000,
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-/** Send mail with a hard timeout so a hanging SMTP never blocks the response */
-function sendMailSafe(mailOptions, timeoutMs = 12000) {
-  return Promise.race([
-    transporter.sendMail(mailOptions),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Email timeout')), timeoutMs)
-    ),
-  ]);
+/** Send mail via Resend HTTPS API (works on Railway/Vercel, no SMTP ports needed) */
+async function sendMailSafe({ from, to, subject, html }) {
+  const { error } = await resend.emails.send({ from, to, subject, html });
+  if (error) throw new Error(error.message);
 }
 
 /* ─────────────────────────────────────────
@@ -304,7 +291,7 @@ app.post('/api/login', authLimiter, async (req, res) => {
 
   try {
     await sendMailSafe({
-      from:    `"Keyify" <${process.env.EMAIL_USER}>`,
+      from:    process.env.RESEND_FROM || 'Keyify <onboarding@resend.dev>',
       to:      user.email,
       subject: `Keyify – Vaš verifikacijski kod: ${otp}`,
       html:    otpHTML,
@@ -857,7 +844,7 @@ app.put('/api/admin/tickets/:id/reply', authenticateToken, checkPermission('can_
 
   try {
     await sendMailSafe({
-      from:    `"Keyify Podrška" <${process.env.EMAIL_USER}>`,
+      from:    process.env.RESEND_FROM || 'Keyify <onboarding@resend.dev>',
       to:      ticket.email,
       subject: `Re: ${ticket.subject}`,
       html:    replyHTML,
@@ -1119,7 +1106,7 @@ app.post('/api/forgot-password', authLimiter, async (req, res) => {
 
   try {
     await sendMailSafe({
-      from:    `"Keyify" <${process.env.EMAIL_USER}>`,
+      from:    process.env.RESEND_FROM || 'Keyify <onboarding@resend.dev>',
       to:      user.email,
       subject: 'Keyify – Reset lozinke',
       html,
