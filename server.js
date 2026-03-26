@@ -24,7 +24,6 @@ const bcrypt      = require('bcryptjs');
 const jwt         = require('jsonwebtoken');
 const crypto      = require('crypto');
 const rateLimit   = require('express-rate-limit');
-const nodemailer  = require('nodemailer');
 const { createClient } = require('@supabase/supabase-js');
 
 /* ─────────────────────────────────────────
@@ -79,24 +78,57 @@ const apiLimiter = rateLimit({
 app.use('/api', apiLimiter);
 
 /* ─────────────────────────────────────────
-   Nodemailer transporter (Gmail)
-   Use an App Password: https://myaccount.google.com/apppasswords
+   Gmail REST API (HTTPS – no SMTP ports needed)
+   Requires: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, EMAIL_USER
+   Run GET /api/auth/gmail-setup once to obtain the refresh token.
 ───────────────────────────────────────── */
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // STARTTLS
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  connectionTimeout: 8000,  // 8s – fail fast instead of hanging
-  greetingTimeout:   8000,
-  socketTimeout:     10000,
-});
 
-async function sendMailSafe(mailOptions) {
-  return transporter.sendMail(mailOptions);
+/** Exchange refresh token → short-lived access token */
+async function getGmailAccessToken() {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id:     process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      refresh_token: process.env.GMAIL_REFRESH_TOKEN,
+      grant_type:    'refresh_token',
+    }).toString(),
+  });
+  const data = await res.json();
+  if (!data.access_token) throw new Error(`Gmail token error: ${JSON.stringify(data)}`);
+  return data.access_token;
+}
+
+/** Encode an RFC-2822 message to base64url for the Gmail API */
+function buildRawEmail({ from, to, subject, html }) {
+  const msg = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: =?utf-8?B?${Buffer.from(subject).toString('base64')}?=`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/html; charset=utf-8',
+    'Content-Transfer-Encoding: base64',
+    '',
+    Buffer.from(html).toString('base64'),
+  ].join('\r\n');
+  return Buffer.from(msg).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/** Send email via Gmail REST API (port 443, works everywhere) */
+async function sendMailSafe({ from, to, subject, html }) {
+  const accessToken = await getGmailAccessToken();
+  const raw = buildRawEmail({ from, to, subject, html });
+  const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method: 'POST',
+    headers: {
+      Authorization:  `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ raw }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || 'Gmail API send failed');
 }
 
 /* ─────────────────────────────────────────
@@ -1157,6 +1189,53 @@ app.get('/api/admin/reset-requests', authenticateToken, requireAdmin, async (req
   }));
 
   return res.json(result);
+});
+
+/* ─────────────────────────────────────────
+   GMAIL SETUP (one-time refresh token)
+   Visit GET /api/auth/gmail-setup once, complete Google consent,
+   then copy the printed GMAIL_REFRESH_TOKEN into your .env / Railway vars.
+   Requires GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET already set.
+───────────────────────────────────────── */
+const GMAIL_SETUP_REDIRECT = (process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`) + '/api/auth/gmail-setup/callback';
+
+app.get('/api/auth/gmail-setup', (req, res) => {
+  const url = new URLSearchParams({
+    client_id:     process.env.GOOGLE_CLIENT_ID,
+    redirect_uri:  GMAIL_SETUP_REDIRECT,
+    response_type: 'code',
+    scope:         'https://www.googleapis.com/auth/gmail.send',
+    access_type:   'offline',
+    prompt:        'consent',
+  });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${url.toString()}`);
+});
+
+app.get('/api/auth/gmail-setup/callback', async (req, res) => {
+  const { code } = req.query;
+  if (!code) return res.status(400).send('No code');
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      code,
+      client_id:     process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uri:  GMAIL_SETUP_REDIRECT,
+      grant_type:    'authorization_code',
+    }).toString(),
+  });
+  const data = await tokenRes.json();
+  if (!data.refresh_token) {
+    return res.send(`<pre>Error or no refresh_token:\n${JSON.stringify(data, null, 2)}</pre>`);
+  }
+  console.log('\n✅ GMAIL_REFRESH_TOKEN =', data.refresh_token, '\n');
+  res.send(`
+    <h2>✅ Gmail setup complete!</h2>
+    <p>Copy this into your <code>.env</code> and Railway Variables:</p>
+    <pre style="background:#f0f0f0;padding:12px;border-radius:8px">GMAIL_REFRESH_TOKEN=${data.refresh_token}</pre>
+    <p>Restart the server after adding it.</p>
+  `);
 });
 
 /* ─────────────────────────────────────────

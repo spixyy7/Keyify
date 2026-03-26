@@ -861,8 +861,12 @@
         // Focus first input
         const boxes = document.querySelectorAll('.otp-box');
         if (boxes[0]) boxes[0].focus();
-        // Start resend cooldown
-        startResendCooldown(60);
+        // Reset resend button — no initial cooldown so user can resend immediately if email didn't arrive
+        resendCooldown = false;
+        const resendBtn = document.getElementById('resend-btn');
+        const resendTimer = document.getElementById('resend-timer');
+        if (resendBtn) resendBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        if (resendTimer) resendTimer.classList.add('hidden');
     }
 
     /* ── BACK TO LOGIN ── */
@@ -991,7 +995,7 @@
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
             pendingUserId = data.user_id;
-            startResendCooldown(60);
+            startResendCooldown(30);
             document.querySelectorAll('.otp-box').forEach(b => b.value = '');
             document.getElementById('otp-error').classList.add('hidden');
         } catch (err) {
