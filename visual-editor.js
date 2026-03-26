@@ -25,6 +25,14 @@
   const pendingLayout = new Map(); // id → { grid_order?, card_size? }
   let   dragSrc       = null;
 
+  /* ── HELPERS ─────────────────────────────────────────── */
+  function makeStarsSVG(n) {
+    const filled = Math.min(5, Math.max(0, parseInt(n) || 5));
+    const sf = '<svg class="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
+    const se = '<svg class="w-3.5 h-3.5 text-gray-300" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
+    return Array.from({length:5}, (_,i) => i < filled ? sf : se).join('');
+  }
+
   const CATEGORIES = [
     { value: 'ai',        label: '🤖 AI Alati'           },
     { value: 'design',    label: '🎨 Design & Creativity' },
@@ -568,7 +576,25 @@
       descEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); descEl.blur(); } });
     }
 
-    // ⑦ Drag & drop
+    // ⑦ Star rating click-to-edit
+    const starsEl = card.querySelector('.kve-stars');
+    if (starsEl) {
+      starsEl.style.cursor = 'pointer';
+      starsEl.title = 'Klikni za promjenu ocjene (1–5)';
+      starsEl.addEventListener('click', e => {
+        e.stopPropagation();
+        const svgs = [...starsEl.querySelectorAll('svg')];
+        const clicked = e.target.closest('svg');
+        const idx = svgs.indexOf(clicked);
+        if (idx === -1) return;
+        const newRating = idx + 1;
+        starsEl.dataset.stars = newRating;
+        starsEl.innerHTML = makeStarsSVG(newRating);
+        saveField(id, 'stars', newRating, wrap);
+      });
+    }
+
+    // ⑧ Drag & drop
     wrap.setAttribute('draggable', 'true');
     wrap.addEventListener('dragstart', onDragStart);
     wrap.addEventListener('dragover',  onDragOver);
@@ -583,7 +609,7 @@
     });
     cartBtn.setAttribute('draggable', 'false');
 
-    // ⑧ Right-click context menu
+    // ⑨ Right-click context menu
     wrap.addEventListener('contextmenu', e => { e.preventDefault(); showCategoryMenu(e, id); });
   }
 
@@ -694,26 +720,67 @@
   /* ── 12. CATEGORY CONTEXT MENU ───────────────────────── */
   function showCategoryMenu(e, id) {
     removeContextMenu();
+    const cardWrap = document.querySelector(`.kve-wrap[data-kve-id="${id}"]`);
+    const hasSale  = !!cardWrap?.querySelector('.kve-badge-wrap');
+
     const menu = document.createElement('div');
     menu.id = 'kve-ctx';
     menu.innerHTML = `
+      <div class="kve-ctx-header">Akcije</div>
+      <div class="kve-ctx-item kve-ctx-sale">${hasSale ? '✕ Ukloni SALE badge' : '🏷 Dodaj SALE badge'}</div>
+      <div class="kve-ctx-sep"></div>
       <div class="kve-ctx-header">Premjesti u kategoriju</div>
       <div class="kve-ctx-sep"></div>
       ${CATEGORIES.map(c => `<div class="kve-ctx-item" data-cat="${c.value}">${c.label}</div>`).join('')}
     `;
     const x = Math.min(e.clientX + 4, window.innerWidth  - 210);
-    const y = Math.min(e.clientY + 4, window.innerHeight - 300);
+    const y = Math.min(e.clientY + 4, window.innerHeight - 320);
     menu.style.left = x + 'px';
     menu.style.top  = y + 'px';
     document.body.appendChild(menu);
 
-    menu.querySelectorAll('.kve-ctx-item').forEach(item => {
+    menu.querySelector('.kve-ctx-sale').addEventListener('click', () => {
+      toggleSaleBadge(id, hasSale, cardWrap);
+      removeContextMenu();
+    });
+    menu.querySelectorAll('.kve-ctx-item[data-cat]').forEach(item => {
       item.addEventListener('click', () => {
         moveToCategory(id, item.dataset.cat);
         removeContextMenu();
       });
     });
     setTimeout(() => document.addEventListener('click', removeContextMenu, { once: true }), 0);
+  }
+
+  async function toggleSaleBadge(id, hasSale, wrap) {
+    const newBadge = hasSale ? null : 'SALE';
+    try {
+      const res = await fetch(`${API}/products/${id}`, {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body:    JSON.stringify({ badge: newBadge }),
+      });
+      if (!res.ok) throw new Error();
+      const card      = wrap?.querySelector('.product-card');
+      const imageArea = card?.querySelector('.relative.rounded-2xl.m-3');
+      const badgeWrap = wrap?.querySelector('.kve-badge-wrap');
+      if (newBadge) {
+        if (badgeWrap) {
+          badgeWrap.querySelector('span').textContent = 'SALE';
+          badgeWrap.querySelector('span').className   = 'bg-red-500 text-white text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full shadow';
+        } else if (imageArea) {
+          const div = document.createElement('div');
+          div.className = 'absolute top-3 left-3 z-20 kve-badge-wrap';
+          div.innerHTML = '<span class="bg-red-500 text-white text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full shadow">SALE</span>';
+          imageArea.prepend(div);
+        }
+      } else {
+        badgeWrap?.remove();
+      }
+      if (wrap) flashSaved(wrap, newBadge ? '🏷 SALE' : '✕ Badge uklonjen');
+    } catch {
+      if (wrap) flashSaved(wrap, '✗ Greška', true);
+    }
   }
 
   function removeContextMenu() { document.getElementById('kve-ctx')?.remove(); }

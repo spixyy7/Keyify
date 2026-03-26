@@ -10,8 +10,9 @@
  *  POST   /api/admin/settings    – Admin: save theme/payment config
  *  GET    /api/admin/settings    – Admin: read current settings
  *  GET    /api/products          – Public: list all products
- *  POST   /api/products          – Admin: create product
- *  PUT    /api/products/:id      – Admin: update product
+ *  POST   /api/products          – Admin: create product (fields: name_sr/en, desc_sr/en, price, original_price, category, image_url, badge, stars)
+ *  PUT    /api/products/:id      – Admin: update product (same fields + card_size, grid_order)
+ *  PATCH  /api/products/layout   – Admin: bulk update grid_order + card_size
  *  DELETE /api/products/:id      – Admin: delete product
  */
 
@@ -82,11 +83,16 @@ app.use('/api', apiLimiter);
    Use an App Password: https://myaccount.google.com/apppasswords
 ───────────────────────────────────────── */
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false, // STARTTLS
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
+  connectionTimeout: 8000,  // 8s – fail fast instead of hanging
+  greetingTimeout:   8000,
+  socketTimeout:     10000,
 });
 
 async function sendMailSafe(mailOptions) {
@@ -495,11 +501,13 @@ app.post('/api/products', authenticateToken, requireAdmin, async (req, res) => {
     name_sr, name_en,
     description_sr, description_en,
     price, original_price,
-    category, image_url, badge,
+    category, image_url, badge, stars,
   } = req.body;
 
   if (!name_sr || !price || !category)
     return res.status(400).json({ error: 'Naziv, cijena i kategorija su obavezni' });
+
+  const starsVal = stars !== undefined ? Math.min(5, Math.max(1, parseInt(stars) || 5)) : 5;
 
   const { data, error } = await supabase
     .from('products')
@@ -511,23 +519,45 @@ app.post('/api/products', authenticateToken, requireAdmin, async (req, res) => {
       category,
       image_url:      image_url || null,
       badge:          badge || null,
+      stars:          starsVal,
       created_at:     new Date().toISOString(),
     })
     .select()
     .single();
 
-  if (error) return res.status(500).json({ error: 'Greška pri kreiranju proizvoda' });
+  if (error) {
+    console.error('Product create error:', error);
+    return res.status(500).json({ error: 'Greška pri kreiranju proizvoda' });
+  }
   return res.status(201).json(data);
 });
 
 /** PUT /api/products/:id – admin only */
 app.put('/api/products/:id', authenticateToken, requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const updates = { ...req.body };
+  const {
+    name_sr, name_en, description_sr, description_en,
+    price, original_price, category, image_url,
+    badge, stars, card_size, grid_order,
+  } = req.body;
 
-  // Sanitize numeric fields
-  if (updates.price)          updates.price          = parseFloat(updates.price);
-  if (updates.original_price) updates.original_price = parseFloat(updates.original_price);
+  const updates = {};
+  if (name_sr          !== undefined) updates.name_sr          = name_sr;
+  if (name_en          !== undefined) updates.name_en          = name_en;
+  if (description_sr   !== undefined) updates.description_sr   = description_sr;
+  if (description_en   !== undefined) updates.description_en   = description_en;
+  if (price            !== undefined) updates.price            = parseFloat(price);
+  if (original_price   !== undefined) updates.original_price   = original_price ? parseFloat(original_price) : null;
+  if (category         !== undefined) updates.category         = category;
+  if (image_url        !== undefined) updates.image_url        = image_url || null;
+  if (badge            !== undefined) updates.badge            = badge || null;
+  if (stars            !== undefined) updates.stars            = Math.min(5, Math.max(1, parseInt(stars) || 5));
+  if (card_size        !== undefined) updates.card_size        = card_size;
+  if (grid_order       !== undefined) updates.grid_order       = Number(grid_order);
+
+  if (!Object.keys(updates).length)
+    return res.status(400).json({ error: 'Nema podataka za ažuriranje' });
+
   updates.updated_at = new Date().toISOString();
 
   const { data, error } = await supabase
@@ -537,7 +567,10 @@ app.put('/api/products/:id', authenticateToken, requireAdmin, async (req, res) =
     .select()
     .single();
 
-  if (error) return res.status(500).json({ error: 'Greška pri ažuriranju' });
+  if (error) {
+    console.error('Product update error:', error);
+    return res.status(500).json({ error: 'Greška pri ažuriranju' });
+  }
   return res.json(data);
 });
 
@@ -962,8 +995,9 @@ app.post('/api/admin/promos', authenticateToken, checkPermission('can_manage_pro
   }).select().single();
 
   if (error) {
+    console.error('Promo create error:', error);
     if (error.code === '23505') return res.status(409).json({ error: 'Promo kod već postoji' });
-    return res.status(500).json({ error: 'Greška pri kreiranju koda' });
+    return res.status(500).json({ error: error.message || 'Greška pri kreiranju koda' });
   }
   return res.status(201).json(data);
 });
