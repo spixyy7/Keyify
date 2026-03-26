@@ -106,13 +106,20 @@ function getClientIP(req) {
 /* ─────────────────────────────────────────
    JWT Middleware
 ───────────────────────────────────────── */
-function authenticateToken(req, res, next) {
+async function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Pristup odbijen – nema tokena' });
 
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Load permissions fresh from DB (enables real-time permission changes)
+    const { data: userRow } = await supabase
+      .from('users')
+      .select('permissions')
+      .eq('id', decoded.id)
+      .maybeSingle();
+    req.user = { ...decoded, permissions: userRow?.permissions || {} };
     next();
   } catch (err) {
     return res.status(403).json({ error: 'Token je nevažeći ili je istekao' });
@@ -124,6 +131,25 @@ function requireAdmin(req, res, next) {
     return res.status(403).json({ error: 'Pristup odbijen – admin only' });
   }
   next();
+}
+
+/**
+ * RBAC middleware factory.
+ * Passes if:
+ *   - role === 'admin' AND permissions is empty {} (super admin – no restrictions)
+ *   - role === 'admin' AND permissions[permName] === true (limited admin with specific perm)
+ */
+function checkPermission(permName) {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Pristup odbijen' });
+    const perms = req.user.permissions;
+    // Super admin: empty permissions = unrestricted
+    if (!perms || Object.keys(perms).length === 0) return next();
+    // Limited admin: must have specific permission set to true
+    if (perms[permName] === true) return next();
+    return res.status(403).json({ error: `Nedovoljne dozvole: ${permName}` });
+  };
 }
 
 /* ─────────────────────────────────────────
@@ -411,8 +437,12 @@ app.post('/api/admin/settings', authenticateToken, requireAdmin, async (req, res
 /** GET /api/products – public */
 app.get('/api/products', async (req, res) => {
   const { category } = req.query;
-  let query = supabase.from('products').select('*').order('created_at', { ascending: false });
-  if (category) query = query.eq('category', category);
+  let query = supabase.from('products').select('*');
+  if (category) {
+    query = query.eq('category', category).order('grid_order', { ascending: true });
+  } else {
+    query = query.order('category').order('grid_order', { ascending: true });
+  }
 
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: 'Greška pri dohvaćanju proizvoda' });
@@ -616,6 +646,96 @@ app.get('/api/checkout-settings', async (req, res) => {
 
   if (error) return res.status(500).json({ error: 'Settings unavailable' });
   return res.json(data || {});
+});
+
+/* ─────────────────────────────────────────
+   VISUAL EDITOR: Bulk layout update
+───────────────────────────────────────── */
+
+/** PATCH /api/products/layout – update grid_order + card_size for multiple products */
+app.patch('/api/products/layout', authenticateToken, checkPermission('manage_products'), async (req, res) => {
+  const { items } = req.body;
+  if (!Array.isArray(items) || !items.length)
+    return res.status(400).json({ error: 'items array required' });
+
+  const errors = [];
+  await Promise.all(items.map(async (item) => {
+    if (!item.id) return;
+    const upd = {};
+    if (item.grid_order !== undefined) upd.grid_order = Number(item.grid_order);
+    if (item.card_size  !== undefined) upd.card_size  = item.card_size;
+    if (!Object.keys(upd).length) return;
+    const { error } = await supabase.from('products').update(upd).eq('id', item.id);
+    if (error) errors.push(item.id);
+  }));
+
+  if (errors.length) return res.status(207).json({ message: 'Djelimično sačuvano', failed: errors });
+  return res.json({ message: 'Raspored sačuvan' });
+});
+
+/* ─────────────────────────────────────────
+   ADMIN: Create user + manage permissions
+───────────────────────────────────────── */
+
+/** POST /api/admin/users/create */
+app.post('/api/admin/users/create', authenticateToken, checkPermission('manage_users'), async (req, res) => {
+  const { name, email, password, permissions = {} } = req.body;
+  if (!name || !email || !password)
+    return res.status(400).json({ error: 'Ime, email i lozinka su obavezni' });
+  if (password.length < 8)
+    return res.status(400).json({ error: 'Lozinka mora imati min. 8 karaktera' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return res.status(400).json({ error: 'Nevažeći email' });
+
+  const { data: existing } = await supabase
+    .from('users').select('id').eq('email', email.toLowerCase()).maybeSingle();
+  if (existing) return res.status(409).json({ error: 'Email već postoji' });
+
+  const hasAnyPerm = Object.values(permissions).some(v => v === true);
+  const role = hasAnyPerm ? 'admin' : 'user';
+
+  const password_hash = await bcrypt.hash(password, 12);
+  const { data, error } = await supabase
+    .from('users')
+    .insert({
+      name:          name.trim(),
+      email:         email.toLowerCase().trim(),
+      password_hash,
+      role,
+      permissions,
+      is_verified:   true,
+      registered_ip: getClientIP(req),
+      created_at:    new Date().toISOString(),
+    })
+    .select('id, name, email, role, permissions, created_at')
+    .single();
+
+  if (error) return res.status(500).json({ error: 'Greška pri kreiranju korisnika' });
+  return res.status(201).json(data);
+});
+
+/** PATCH /api/admin/users/:id/permissions */
+app.patch('/api/admin/users/:id/permissions', authenticateToken, checkPermission('manage_users'), async (req, res) => {
+  const { id }          = req.params;
+  const { permissions } = req.body;
+  if (typeof permissions !== 'object' || permissions === null)
+    return res.status(400).json({ error: 'permissions object required' });
+
+  // Determine role: if any permission is true → 'admin', else keep existing role
+  const { data: user } = await supabase
+    .from('users').select('role').eq('id', id).maybeSingle();
+  if (!user) return res.status(404).json({ error: 'Korisnik nije pronađen' });
+
+  const hasAnyPerm = Object.values(permissions).some(v => v === true);
+  const newRole = hasAnyPerm ? 'admin' : (user.role === 'admin' ? 'user' : user.role);
+
+  const { error } = await supabase
+    .from('users')
+    .update({ permissions, role: newRole })
+    .eq('id', id);
+
+  if (error) return res.status(500).json({ error: 'Greška pri ažuriranju dozvola' });
+  return res.json({ message: 'Dozvole ažurirane', role: newRole });
 });
 
 /* ─────────────────────────────────────────
