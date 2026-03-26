@@ -554,6 +554,13 @@ const KEYIFY = (() => {
   /* ─────────────────────────────────────────────────────────
      ACCOUNT NAVBAR (dynamic after login)
   ───────────────────────────────────────────────────────── */
+  function _logout() {
+    localStorage.removeItem('keyify_token');
+    localStorage.removeItem('keyify_name');
+    localStorage.removeItem('keyify_role');
+    window.location.href = 'login.html';
+  }
+
   function _updateAccountNavbar() {
     const token = localStorage.getItem('keyify_token');
     const name  = localStorage.getItem('keyify_name');
@@ -563,14 +570,38 @@ const KEYIFY = (() => {
     if (!accountLink) return;
 
     if (token && name) {
-      accountLink.innerHTML = `
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-        </svg>
-        <span style="font-weight:700;color:${role==='admin'?'#A259FF':'#1D6AFF'}">
-          ${role === 'admin' ? 'ADMIN' : escHtml(name.split(' ')[0])}
-        </span>`;
-      if (role === 'admin') accountLink.href = 'admin.html';
+      if (role === 'admin') {
+        accountLink.innerHTML = `
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+          </svg>
+          <span style="font-weight:700;color:#A259FF">ADMIN</span>`;
+        accountLink.href = 'admin.html';
+      } else {
+        /* Replace the single link with a user menu wrapper */
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'position:relative;display:inline-flex;align-items:center;gap:6px;';
+        wrapper.id = 'keyify-user-menu';
+
+        const profileA = document.createElement('a');
+        profileA.href = 'profile.html';
+        profileA.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:6px 10px;font-size:0.875rem;font-weight:700;color:#1D6AFF;text-decoration:none;';
+        profileA.innerHTML = `
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+          </svg>
+          <span>${escHtml(name.split(' ')[0])}</span>`;
+
+        const logoutBtn = document.createElement('button');
+        logoutBtn.title = 'Logout';
+        logoutBtn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;border:1px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;flex-shrink:0;';
+        logoutBtn.innerHTML = `<svg style="width:15px;height:15px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>`;
+        logoutBtn.addEventListener('click', function(e) { e.preventDefault(); _logout(); });
+
+        wrapper.appendChild(profileA);
+        wrapper.appendChild(logoutBtn);
+        accountLink.replaceWith(wrapper);
+      }
     }
   }
 
@@ -593,7 +624,7 @@ const KEYIFY = (() => {
   }
 
   /* Public API */
-  return { LANG, CART, lang: _lang, init, escHtml, escAttr };
+  return { LANG, CART, lang: _lang, init, escHtml, escAttr, logout: _logout };
 
 })();
 

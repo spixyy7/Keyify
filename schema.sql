@@ -31,7 +31,7 @@ INSERT INTO users (name, email, password_hash, role, is_verified)
 VALUES (
   'Admin',
   'admin@keyify.com',
-  '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4oGqU3Xp1C',
+  '$2a$12$ymxcWPTdbxuUGLb.LBRtEOf4OLYtMw7CmCE.wxcRPBv6YCtTg8Z96',
   'admin',
   TRUE
 )

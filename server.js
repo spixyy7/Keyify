@@ -40,10 +40,13 @@ const app = express();
 
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow: no origin (curl/mobile), file:// (origin = 'null'), localhost
+    // Allow: no origin, file://, any localhost/127.0.0.1 port, or matching FRONTEND_URL
     if (!origin || origin === 'null') return callback(null, true);
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return callback(null, true);
+    const frontendUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+    if (frontendUrl && origin === frontendUrl) return callback(null, true);
     if (!process.env.FRONTEND_URL) return callback(null, true);
-    if (origin === process.env.FRONTEND_URL) return callback(null, true);
+    console.log('[CORS blocked] origin:', origin);
     callback(new Error('Not allowed by CORS'));
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -474,6 +477,117 @@ app.delete('/api/products/:id', authenticateToken, requireAdmin, async (req, res
   const { error } = await supabase.from('products').delete().eq('id', id);
   if (error) return res.status(500).json({ error: 'Greška pri brisanju' });
   return res.json({ message: 'Proizvod je obrisan' });
+});
+
+/* ─────────────────────────────────────────
+   ADMIN: User management
+───────────────────────────────────────── */
+
+/** GET /api/admin/users/:id/purchases */
+app.get('/api/admin/users/:id/purchases', authenticateToken, requireAdmin, async (req, res) => {
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('user_id', req.params.id)
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json(data || []);
+});
+
+/** PUT /api/admin/users/:id */
+app.put('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { email, password } = req.body;
+  const updates = {};
+
+  if (email) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      return res.status(400).json({ error: 'Nevažeći email' });
+    const { data: existing } = await supabase
+      .from('users').select('id').eq('email', email.toLowerCase()).maybeSingle();
+    if (existing && existing.id !== id)
+      return res.status(409).json({ error: 'Email već postoji' });
+    updates.email = email.toLowerCase().trim();
+  }
+
+  if (password) {
+    if (password.length < 8)
+      return res.status(400).json({ error: 'Lozinka mora biti min. 8 karaktera' });
+    updates.password_hash = await bcrypt.hash(password, 12);
+  }
+
+  if (!Object.keys(updates).length)
+    return res.status(400).json({ error: 'Nema podataka za ažuriranje' });
+
+  const { error } = await supabase.from('users').update(updates).eq('id', id);
+  if (error) return res.status(500).json({ error: 'Greška pri ažuriranju' });
+  return res.json({ message: 'Korisnik ažuriran' });
+});
+
+/** DELETE /api/admin/users/:id */
+app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  if (id === req.user.id)
+    return res.status(400).json({ error: 'Ne možeš obrisati sopstveni nalog' });
+  const { error } = await supabase.from('users').delete().eq('id', id);
+  if (error) return res.status(500).json({ error: 'Greška pri brisanju' });
+  return res.json({ message: 'Korisnik obrisan' });
+});
+
+/* ─────────────────────────────────────────
+   USER: Self-service settings
+───────────────────────────────────────── */
+
+/** GET /api/user/purchases */
+app.get('/api/user/purchases', authenticateToken, async (req, res) => {
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('user_id', req.user.id)
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json(data || []);
+});
+
+/** PUT /api/user/settings */
+app.put('/api/user/settings', authenticateToken, async (req, res) => {
+  const { email, new_email, password, new_password, current_password } = req.body;
+  const resolvedEmail = new_email || email;
+  const resolvedPassword = new_password || password;
+
+  const { data: user } = await supabase
+    .from('users').select('*').eq('id', req.user.id).maybeSingle();
+  if (!user) return res.status(404).json({ error: 'Korisnik nije pronađen' });
+
+  if (!current_password)
+    return res.status(400).json({ error: 'Unesite trenutnu lozinku za potvrdu' });
+
+  const valid = await bcrypt.compare(current_password, user.password_hash);
+  if (!valid) return res.status(401).json({ error: 'Trenutna lozinka nije ispravna' });
+
+  const updates = {};
+
+  if (resolvedEmail && resolvedEmail !== user.email) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resolvedEmail))
+      return res.status(400).json({ error: 'Nevažeći email' });
+    const { data: existing } = await supabase
+      .from('users').select('id').eq('email', resolvedEmail.toLowerCase()).maybeSingle();
+    if (existing) return res.status(409).json({ error: 'Email već postoji' });
+    updates.email = resolvedEmail.toLowerCase().trim();
+  }
+
+  if (resolvedPassword) {
+    if (resolvedPassword.length < 8)
+      return res.status(400).json({ error: 'Nova lozinka mora biti min. 8 karaktera' });
+    updates.password_hash = await bcrypt.hash(resolvedPassword, 12);
+  }
+
+  if (!Object.keys(updates).length)
+    return res.json({ message: 'Nema izmjena' });
+
+  const { error } = await supabase.from('users').update(updates).eq('id', req.user.id);
+  if (error) return res.status(500).json({ error: 'Greška pri čuvanju' });
+  return res.json({ message: 'Podešavanja sačuvana' });
 });
 
 /* ─────────────────────────────────────────

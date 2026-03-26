@@ -2,9 +2,29 @@
 .env
 .env.local
 .env.*.local
+.env.production
+.env.staging
+.env.development
+
+# Secrets / Keys
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.json
+secrets.yaml
+secrets.yml
+*secret*
+*private*
 
 # Dependencies
 node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
 
 # IDE & Tools
 .idea/
@@ -20,7 +40,16 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+logs/
 
 # Build output
 dist/
 build/
+.next/
+out/
+
+# Python / FastAPI
+*.egg-info/
+.pytest_cache/
+htmlcov/
+.coverage
