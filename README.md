@@ -17,7 +17,7 @@ Keyify/
 │   └── railway.json        ← Railway deployment config
 │
 ├── 🌐 FRONTEND – Globalni sistem
-│   ├── config.js           ← Jedino mjesto za API URL  ⬅ EDITUJ OVO
+│   ├── config.js           ← Jedino mesto za API URL  ⬅ EDITUJ OVO
 │   ├── translations.js     ← SR/EN rječnik svih tekstova
 │   └── keyify.js           ← Engine: korpa + jezik + navbar
 │
@@ -40,7 +40,7 @@ Keyify/
 │
 └── 🚀 DEPLOYMENT
     ├── vercel.json         ← Vercel (frontend) config
-    ├── .vercelignore       ← Isključuje server fajlove sa Vercel-a
+    ├── .vercelignore       ← Isključuje server fajlova sa Vercel-a
     └── .gitignore
 ```
 

@@ -209,6 +209,116 @@
         cursor: pointer; transition: background .12s;
       }
       #kve-ctx .kve-ctx-item:hover { background: rgba(29,106,255,0.22); color: #fff; }
+
+      /* ─ Add Product card ─ */
+      .kve-add-card-wrap {
+        cursor: pointer;
+        border-radius: 20px;
+        border: 2.5px dashed rgba(29,106,255,0.4);
+        background: rgba(29,106,255,0.04);
+        min-height: 200px;
+        display: flex; align-items: center; justify-content: center;
+        flex-direction: column; gap: 10px;
+        transition: border-color .2s, background .2s, transform .15s;
+        user-select: none;
+      }
+      .kve-add-card-wrap:hover {
+        border-color: #1D6AFF;
+        background: rgba(29,106,255,0.1);
+        transform: scale(1.02);
+      }
+      .kve-add-icon {
+        width: 52px; height: 52px; border-radius: 50%;
+        background: rgba(29,106,255,0.15);
+        border: 2px dashed #1D6AFF;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 26px; color: #1D6AFF; font-weight: 300;
+        transition: background .2s;
+      }
+      .kve-add-card-wrap:hover .kve-add-icon { background: rgba(29,106,255,0.28); }
+      .kve-add-label {
+        font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+        color: #1D6AFF; opacity: .85;
+      }
+
+      /* ─ Empty-state placeholder (full-grid-width) ─ */
+      .kve-empty-placeholder {
+        grid-column: 1 / -1;
+        cursor: pointer;
+        border-radius: 24px;
+        border: 2.5px dashed rgba(29,106,255,0.35);
+        background: rgba(29,106,255,0.03);
+        min-height: 320px;
+        display: flex; align-items: center; justify-content: center;
+        flex-direction: column; gap: 16px;
+        transition: border-color .2s, background .2s, transform .15s;
+        user-select: none;
+      }
+      .kve-empty-placeholder:hover {
+        border-color: #1D6AFF;
+        background: rgba(29,106,255,0.08);
+        transform: scale(1.005);
+      }
+      .kve-empty-placeholder .kve-add-icon {
+        width: 72px; height: 72px; font-size: 36px;
+      }
+      .kve-empty-placeholder .kve-add-label {
+        font-size: 16px;
+      }
+      .kve-empty-subtitle {
+        font-family: 'Inter', sans-serif; font-size: 12px;
+        color: rgba(255,255,255,0.3); margin-top: -8px;
+      }
+
+      /* ─ Draft card (inline creation) ─ */
+      .kve-draft-wrap {
+        border-radius: 20px;
+        border: 2px solid #1D6AFF;
+        background: rgba(19,19,42,0.95);
+        backdrop-filter: blur(8px);
+        padding: 18px;
+        display: flex; flex-direction: column; gap: 12px;
+        box-shadow: 0 0 0 4px rgba(29,106,255,0.15), 0 12px 40px rgba(0,0,0,0.4);
+        animation: kveSlideUp .2s ease;
+      }
+      .kve-draft-wrap input, .kve-draft-wrap select {
+        width: 100%; background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1); border-radius: 9px;
+        padding: 9px 12px; font-size: 13px; color: #e2e2f0;
+        font-family: 'Inter', sans-serif; box-sizing: border-box;
+      }
+      .kve-draft-wrap input:focus, .kve-draft-wrap select:focus {
+        outline: none; border-color: #1D6AFF;
+        box-shadow: 0 0 0 3px rgba(29,106,255,0.15);
+      }
+      .kve-draft-wrap select option { background: #13132a; }
+      .kve-draft-name[contenteditable], .kve-draft-desc[contenteditable] {
+        outline: none; border-radius: 9px; padding: 9px 12px;
+        background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+        color: #e2e2f0; font-family: 'Inter', sans-serif;
+        min-height: 36px;
+      }
+      .kve-draft-name[contenteditable] { font-size: 14px; font-weight: 700; }
+      .kve-draft-desc[contenteditable] { font-size: 13px; min-height: 54px; }
+      .kve-draft-name:empty::before, .kve-draft-desc:empty::before {
+        content: attr(data-placeholder); color: rgba(255,255,255,0.25); pointer-events: none;
+      }
+      .kve-draft-name:focus, .kve-draft-desc:focus {
+        border-color: #1D6AFF; box-shadow: 0 0 0 3px rgba(29,106,255,0.15);
+      }
+      .kve-draft-row { display: flex; gap: 8px; }
+      .kve-draft-row input { flex: 1; }
+      .kve-draft-row select { flex: 1.4; }
+      .kve-draft-actions { display: flex; gap: 8px; margin-top: 4px; }
+      .kve-draft-save, .kve-draft-cancel {
+        flex: 1; padding: 10px; border-radius: 9px; font-size: 13px;
+        font-weight: 700; cursor: pointer; border: none;
+        font-family: 'Inter', sans-serif; transition: opacity .15s;
+      }
+      .kve-draft-save   { background: linear-gradient(135deg,#1D6AFF,#A259FF); color: #fff; }
+      .kve-draft-cancel { background: rgba(255,255,255,0.07); color: #9090b8; }
+      .kve-draft-save:hover, .kve-draft-cancel:hover { opacity: .82; }
+      .kve-draft-save:disabled { opacity: .5; cursor: not-allowed; }
     `;
     document.head.appendChild(s);
   }
@@ -240,8 +350,15 @@
     if (!grid) return;
     // Enhance cards already in DOM
     enhanceNewCards(grid);
-    // Watch for dynamically injected cards
-    const obs = new MutationObserver(() => enhanceNewCards(grid));
+    injectAddCard(grid);
+    // Watch for dynamically injected cards (keyify.js re-renders on lang change etc.)
+    const obs = new MutationObserver(() => {
+      enhanceNewCards(grid);
+      // Re-inject add/empty card if it was removed by a grid re-render
+      if (!grid.querySelector('.kve-add-card-wrap') && !grid.querySelector('.kve-empty-placeholder')) {
+        injectAddCard(grid);
+      }
+    });
     obs.observe(grid, { childList: true });
   }
 
@@ -250,6 +367,144 @@
       card.setAttribute('data-kve', '1');
       initCard(card);
     });
+  }
+
+  /** Detect current page category from pathname */
+  function getCurrentPageCategory() {
+    const path = window.location.pathname;
+    const match = path.match(/\/(ai|design|business|windows|music|streaming)\.html/i);
+    return match ? match[1].toLowerCase() : 'ai';
+  }
+
+  /* ── 6b. ADD PRODUCT CARD ────────────────────────────── */
+  function injectAddCard(grid) {
+    if (!grid) return;
+    // Remove any existing add/placeholder cards before re-injecting
+    grid.querySelector('.kve-add-card-wrap')?.remove();
+    grid.querySelector('.kve-empty-placeholder')?.remove();
+
+    const hasProducts = grid.querySelector('.kve-wrap') !== null;
+
+    if (!hasProducts) {
+      // Empty state: full-width large placeholder
+      const ph = document.createElement('div');
+      ph.className = 'kve-empty-placeholder';
+      ph.innerHTML = `
+        <div class="kve-add-icon">+</div>
+        <div class="kve-add-label">+ Dodaj proizvod</div>
+        <div class="kve-empty-subtitle">Ova kategorija nema proizvoda. Klikni da dodaš prvi.</div>
+      `;
+      ph.addEventListener('click', () => {
+        ph.remove();
+        // Create a normal trailing add card so spawnDraftCard has an anchor
+        const addWrap = document.createElement('div');
+        addWrap.className = 'kve-add-card-wrap';
+        addWrap.innerHTML = `<div class="kve-add-icon">+</div><div class="kve-add-label">Dodaj proizvod</div>`;
+        grid.appendChild(addWrap);
+        spawnDraftCard(grid, addWrap);
+      });
+      grid.appendChild(ph);
+    } else {
+      // Non-empty: trailing compact add card
+      const wrap = document.createElement('div');
+      wrap.className = 'kve-add-card-wrap';
+      wrap.innerHTML = `
+        <div class="kve-add-icon">+</div>
+        <div class="kve-add-label">Dodaj proizvod</div>
+      `;
+      wrap.addEventListener('click', () => spawnDraftCard(grid, wrap));
+      grid.appendChild(wrap);
+    }
+  }
+
+  function spawnDraftCard(grid, addWrap) {
+    if (grid.querySelector('.kve-draft-wrap')) return; // only one draft at a time
+    const currentCat = getCurrentPageCategory();
+
+    const wrap = document.createElement('div');
+    wrap.className = 'kve-draft-wrap';
+    wrap.innerHTML = `
+      <div contenteditable="true" class="kve-draft-name" data-placeholder="Naziv proizvoda *"></div>
+      <div contenteditable="true" class="kve-draft-desc" data-placeholder="Opis (opciono)"></div>
+      <div class="kve-draft-row">
+        <input type="number" class="kve-draft-price" placeholder="Cijena €" min="0.01" step="0.01"/>
+        <select class="kve-draft-cat">
+          ${CATEGORIES.map(c => `<option value="${esc(c.value)}"${c.value === currentCat ? ' selected' : ''}>${c.label}</option>`).join('')}
+        </select>
+      </div>
+      <input type="url" class="kve-draft-img" placeholder="URL slike (opciono)"/>
+      <div class="kve-draft-actions">
+        <button class="kve-draft-save">✓ Sačuvaj</button>
+        <button class="kve-draft-cancel">✕ Otkaži</button>
+      </div>
+    `;
+
+    grid.insertBefore(wrap, addWrap);
+
+    wrap.querySelector('.kve-draft-save').addEventListener('click', () => submitDraftCard(wrap));
+    wrap.querySelector('.kve-draft-cancel').addEventListener('click', () => wrap.remove());
+
+    setTimeout(() => wrap.querySelector('.kve-draft-name').focus(), 50);
+  }
+
+  async function submitDraftCard(wrap) {
+    const name = wrap.querySelector('.kve-draft-name').textContent.trim();
+    const desc = wrap.querySelector('.kve-draft-desc').textContent.trim();
+    const price = parseFloat(wrap.querySelector('.kve-draft-price').value);
+    const cat   = wrap.querySelector('.kve-draft-cat').value;
+    const img   = wrap.querySelector('.kve-draft-img').value.trim();
+
+    if (!name) {
+      wrap.querySelector('.kve-draft-name').focus();
+      wrap.querySelector('.kve-draft-name').style.borderColor = '#ef4444';
+      return;
+    }
+    if (!price || price <= 0) {
+      wrap.querySelector('.kve-draft-price').focus();
+      wrap.querySelector('.kve-draft-price').style.borderColor = '#ef4444';
+      return;
+    }
+
+    const saveBtn = wrap.querySelector('.kve-draft-save');
+    saveBtn.textContent = '⏳ Čuvanje…';
+    saveBtn.disabled = true;
+
+    const lang = localStorage.getItem('keyify_lang') || 'sr';
+    const body = {
+      name_sr: name, name_en: name,
+      description_sr: desc, description_en: desc,
+      price,
+      category: cat,
+      image_url: img || null,
+    };
+    // Use lang-specific name/desc fields if possible
+    if (lang === 'en') {
+      body.name_en = name;
+      body.description_en = desc;
+    } else {
+      body.name_sr = name;
+      body.description_sr = desc;
+    }
+
+    try {
+      const res = await fetch(`${API}/products`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body:    JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Greška');
+      wrap.remove();
+      // Reload the page's products so the new card appears
+      if (window.KEYIFY && typeof window.KEYIFY.loadProducts === 'function') {
+        window.KEYIFY.loadProducts();
+      } else {
+        window.location.reload();
+      }
+    } catch (err) {
+      saveBtn.textContent = `✗ ${err.message}`;
+      saveBtn.disabled = false;
+      setTimeout(() => { saveBtn.textContent = '✓ Sačuvaj'; }, 3000);
+    }
   }
 
   /* ── 7. INIT SINGLE CARD ─────────────────────────────── */

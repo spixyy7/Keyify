@@ -21,6 +21,7 @@ const express     = require('express');
 const cors        = require('cors');
 const bcrypt      = require('bcryptjs');
 const jwt         = require('jsonwebtoken');
+const crypto      = require('crypto');
 const rateLimit   = require('express-rate-limit');
 const nodemailer  = require('nodemailer');
 const { createClient } = require('@supabase/supabase-js');
@@ -103,6 +104,18 @@ function getClientIP(req) {
   );
 }
 
+/** Short, stable fingerprint of a User-Agent string */
+function hashUA(ua) {
+  return crypto.createHash('sha256').update(ua || '').digest('hex').slice(0, 16);
+}
+
+/** Strip sensitive DB columns before returning user data to clients */
+function sanitizeUser(user) {
+  if (!user) return user;
+  const { password_hash, otp_code, otp_expires, ...safe } = user;
+  return safe;
+}
+
 /* ─────────────────────────────────────────
    JWT Middleware
 ───────────────────────────────────────── */
@@ -113,6 +126,19 @@ async function authenticateToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Session binding: validate IP + UA fingerprint if token carries them
+    if (decoded.ip || decoded.ua) {
+      const currentIP = getClientIP(req);
+      const currentUA = hashUA(req.headers['user-agent']);
+      if (decoded.ip && decoded.ip !== currentIP) {
+        return res.status(401).json({ error: 'Sesija nije važeća – IP adresa se promijenila' });
+      }
+      if (decoded.ua && decoded.ua !== currentUA) {
+        return res.status(401).json({ error: 'Sesija nije važeća – uređaj se promijenio' });
+      }
+    }
+
     // Load permissions fresh from DB (enables real-time permission changes)
     const { data: userRow } = await supabase
       .from('users')
@@ -318,13 +344,15 @@ app.post('/api/verify', authLimiter, async (req, res) => {
     .update({ otp_code: null, otp_expires: null, is_verified: true })
     .eq('id', user.id);
 
+  const ip = getClientIP(req);
+  const ua = hashUA(req.headers['user-agent']);
+
   const token = jwt.sign(
-    { id: user.id, email: user.email, role: user.role, name: user.name },
+    { id: user.id, email: user.email, role: user.role, name: user.name, ip, ua },
     process.env.JWT_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: '2h' }
   );
 
-  const ip = getClientIP(req);
   await supabase.from('audit_logs').insert({
     user_id:    user.id,
     action:     'login_success',
@@ -372,7 +400,7 @@ app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) =>
     .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
 
   return res.json({
-    users:              usersRes.data || [],
+    users:              (usersRes.data || []).map(sanitizeUser),
     total_users:        (usersRes.data || []).length,
     revenue:            revenue.toFixed(2),
     total_transactions: transactions.length,
