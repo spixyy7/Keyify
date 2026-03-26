@@ -1141,11 +1141,13 @@ function escHTML(str) {
 /**
  * POST /api/forgot-password
  * Body: { email }
- * Logs a reset request in audit_logs for admin to handle.
+ * Sends a password-reset link valid for 30 minutes.
  */
 app.post('/api/forgot-password', authLimiter, async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Unesite email adresu' });
+
+  const genericMsg = { message: 'Ako je email registrovan, link za reset je poslan.' };
 
   const { data: user } = await supabase
     .from('users')
@@ -1153,17 +1155,116 @@ app.post('/api/forgot-password', authLimiter, async (req, res) => {
     .eq('email', email.toLowerCase().trim())
     .maybeSingle();
 
-  if (user) {
-    await supabase.from('audit_logs').insert({
-      user_id:    user.id,
-      action:     'password_reset_request',
-      ip:         getClientIP(req),
-      created_at: new Date().toISOString(),
+  if (!user) return res.json(genericMsg);
+
+  // Generate 6-digit code + JWT link — both valid 30 min
+  const resetCode  = generateOTP();
+  const resetExp   = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+  const resetToken = jwt.sign({ id: user.id, purpose: 'reset' }, process.env.JWT_SECRET, { expiresIn: '30m' });
+  const FRONTEND   = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+  const resetLink  = `${FRONTEND}/reset-password.html?token=${resetToken}`;
+
+  await supabase.from('users').update({ otp_code: resetCode, otp_expires: resetExp }).eq('id', user.id);
+  await supabase.from('audit_logs').insert({
+    user_id:    user.id,
+    action:     'password_reset_request',
+    ip:         getClientIP(req),
+    created_at: new Date().toISOString(),
+  });
+
+  const html = `
+    <div style="font-family:'Inter',Arial,sans-serif;max-width:460px;margin:0 auto;background:#0f0f1a;border-radius:16px;overflow:hidden">
+      <div style="background:linear-gradient(135deg,#1D6AFF,#A259FF);padding:24px 32px">
+        <h1 style="color:#fff;margin:0;font-size:20px;font-weight:700">🔑 Keyify – Reset lozinke</h1>
+      </div>
+      <div style="padding:28px 32px;background:#fff">
+        <p style="color:#555;margin:0 0 6px">Zdravo, <strong style="color:#111">${escHTML(user.name)}</strong>!</p>
+        <p style="color:#555;margin:0 0 20px;font-size:14px">Koristite <strong>link</strong> ili unesite <strong>kod</strong> ručno. Oba su važeća <strong>30 minuta</strong>.</p>
+
+        <a href="${resetLink}" style="display:block;background:linear-gradient(135deg,#1D6AFF,#A259FF);color:#fff;text-decoration:none;text-align:center;padding:14px 24px;border-radius:12px;font-weight:700;font-size:15px;margin-bottom:24px">Postavi novu lozinku →</a>
+
+        <div style="background:#f8f9fb;border-radius:12px;padding:16px 20px;text-align:center;margin-bottom:16px">
+          <p style="color:#888;font-size:12px;margin:0 0 10px">Ili unesite ovaj kod ručno:</p>
+          <div style="font-size:36px;font-weight:800;letter-spacing:12px;color:#1D6AFF;font-family:monospace">${resetCode}</div>
+        </div>
+
+        <p style="color:#bbb;font-size:11px;text-align:center;margin:0">Ako niste vi zatražili reset, zanemarite ovaj email.</p>
+      </div>
+    </div>`;
+
+  try {
+    await sendMailSafe({
+      from:    `"Keyify" <${process.env.EMAIL_USER}>`,
+      to:      user.email,
+      subject: `Keyify – Reset lozinke (kod: ${resetCode})`,
+      html,
     });
+  } catch (err) {
+    console.error('Reset email failed:', err.message);
   }
 
-  // Always return same message
-  return res.json({ message: 'Vaš zahtjev je primljen. Admin će vas kontaktirati uskoro.' });
+  return res.json(genericMsg);
+});
+
+/**
+ * POST /api/verify-reset-code
+ * Body: { email, code }
+ * Returns: { token } – JWT to use on reset-password.html
+ */
+app.post('/api/verify-reset-code', authLimiter, async (req, res) => {
+  const { email, code } = req.body;
+  if (!email || !code) return res.status(400).json({ error: 'Nedostaju podaci' });
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('id, otp_code, otp_expires')
+    .eq('email', email.toLowerCase().trim())
+    .maybeSingle();
+
+  if (!user || user.otp_code !== code.trim())
+    return res.status(401).json({ error: 'Pogrešan kod' });
+
+  if (new Date(user.otp_expires) < new Date())
+    return res.status(401).json({ error: 'Kod je istekao. Zatražite novi.' });
+
+  // Clear the code so it can't be reused
+  await supabase.from('users').update({ otp_code: null, otp_expires: null }).eq('id', user.id);
+
+  const token = jwt.sign({ id: user.id, purpose: 'reset' }, process.env.JWT_SECRET, { expiresIn: '15m' });
+  return res.json({ token });
+});
+
+/**
+ * POST /api/reset-password
+ * Body: { token, password }
+ * Validates JWT reset token, updates password.
+ */
+app.post('/api/reset-password', async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) return res.status(400).json({ error: 'Nedostaju podaci' });
+  if (password.length < 8)  return res.status(400).json({ error: 'Lozinka mora biti min. 8 karaktera' });
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    return res.status(400).json({ error: 'Link je istekao ili nije važeći. Zatražite novi.' });
+  }
+
+  if (decoded.purpose !== 'reset') return res.status(400).json({ error: 'Nevažeći token' });
+
+  const hash = await bcrypt.hash(password, 12);
+  const { error } = await supabase.from('users').update({ password_hash: hash }).eq('id', decoded.id);
+  if (error) return res.status(500).json({ error: 'Greška pri čuvanju lozinke' });
+
+  await supabase.from('audit_logs').insert({
+    user_id:    decoded.id,
+    action:     'password_reset_done',
+    ip:         getClientIP(req),
+    created_at: new Date().toISOString(),
+  });
+
+  return res.json({ message: 'Lozinka je uspješno promijenjena. Možete se prijaviti.' });
 });
 
 /**
@@ -1415,6 +1516,55 @@ app.get('/api/user/google-status', authenticateToken, async (req, res) => {
     .eq('id', req.user.id)
     .maybeSingle();
   res.json({ linked: !!user?.google_id });
+});
+
+/* ─────────────────────────────────────────
+   SITE CONTENT (CMS)
+   SQL (run once in Supabase):
+   CREATE TABLE site_content (
+     key TEXT PRIMARY KEY,
+     value TEXT NOT NULL,
+     updated_at TIMESTAMPTZ DEFAULT now()
+   );
+───────────────────────────────────────── */
+
+/** GET /api/content – public, returns {key: value, ...} map */
+app.get('/api/content', async (req, res) => {
+  const { data, error } = await supabase
+    .from('site_content')
+    .select('key, value');
+  if (error) return res.status(500).json({ error: 'Greška' });
+  const map = {};
+  (data || []).forEach(row => { map[row.key] = row.value; });
+  return res.json(map);
+});
+
+/** PUT /api/content/:key – admin only, upserts single entry */
+app.put('/api/content/:key', authenticateToken, requireAdmin, async (req, res) => {
+  const { key } = req.params;
+  const { value } = req.body;
+  if (!key || value === undefined || value === null)
+    return res.status(400).json({ error: 'key i value su obavezni' });
+
+  const { error } = await supabase
+    .from('site_content')
+    .upsert({ key, value: String(value), updated_at: new Date().toISOString() });
+
+  if (error) {
+    console.error('Content update error:', error);
+    return res.status(500).json({ error: 'Greška pri čuvanju sadržaja' });
+  }
+  return res.json({ message: 'Sačuvano', key, value });
+});
+
+/** DELETE /api/content/:key – admin only, resets entry to HTML default */
+app.delete('/api/content/:key', authenticateToken, requireAdmin, async (req, res) => {
+  const { error } = await supabase
+    .from('site_content')
+    .delete()
+    .eq('key', req.params.key);
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json({ message: 'Sadržaj resetovan na default' });
 });
 
 /* ─────────────────────────────────────────

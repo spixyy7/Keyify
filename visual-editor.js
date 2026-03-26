@@ -53,6 +53,7 @@
     injectStyles();
     injectToolbar();
     watchGrid();
+    initContentEditor();
   }
 
   /* ── 4. STYLES ───────────────────────────────────────── */
@@ -327,6 +328,40 @@
       .kve-draft-cancel { background: rgba(255,255,255,0.07); color: #9090b8; }
       .kve-draft-save:hover, .kve-draft-cancel:hover { opacity: .82; }
       .kve-draft-save:disabled { opacity: .5; cursor: not-allowed; }
+
+      /* ─ Content fields (data-ck) ─ */
+      [data-ck] {
+        outline: 2px dashed rgba(29,106,255,0.35);
+        border-radius: 4px;
+        padding: 1px 3px;
+        cursor: text;
+        transition: outline-color .15s, background .15s;
+        min-width: 1em; display: inline-block;
+        position: relative;
+      }
+      [data-ck]:hover { outline-color: rgba(29,106,255,0.75); }
+      [data-ck]:focus { outline: 2px solid #1D6AFF; background: rgba(29,106,255,0.05); border-radius: 4px; }
+      [data-ck]::before {
+        content: attr(data-ck);
+        position: absolute; top: -18px; left: 0;
+        font-size: 9px; font-weight: 700; letter-spacing: .04em;
+        color: #1D6AFF; background: rgba(29,106,255,0.1);
+        padding: 1px 5px; border-radius: 3px;
+        pointer-events: none; white-space: nowrap;
+        opacity: 0; transition: opacity .15s;
+        font-family: 'Inter', monospace;
+      }
+      [data-ck]:hover::before { opacity: 1; }
+
+      /* ─ Toast notification ─ */
+      #kve-toast {
+        position: fixed; bottom: 24px; right: 24px; z-index: 100000;
+        padding: 10px 18px; border-radius: 10px;
+        font-size: 13px; font-weight: 600; color: #fff;
+        pointer-events: none;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+        transition: opacity .3s ease;
+      }
     `;
     document.head.appendChild(s);
   }
@@ -908,6 +943,54 @@
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;')
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  /* ── 17. PAGE CONTENT EDITOR (data-ck elements) ──────── */
+  function initContentEditor() {
+    const fields = document.querySelectorAll('[data-ck]');
+    if (!fields.length) return;
+
+    fields.forEach(el => {
+      el.contentEditable = 'true';
+      el.dataset.ckOriginal = el.textContent.trim();
+
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+        if (e.key === 'Escape') {
+          el.textContent = el.dataset.ckOriginal;
+          el.blur();
+        }
+      });
+
+      el.addEventListener('blur', async () => {
+        const newVal = el.textContent.trim();
+        if (newVal === el.dataset.ckOriginal) return;
+        try {
+          const res = await fetch(`${API}/content/${encodeURIComponent(el.dataset.ck)}`, {
+            method:  'PUT',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body:    JSON.stringify({ value: newVal }),
+          });
+          if (!res.ok) throw new Error();
+          el.dataset.ckOriginal = newVal;
+          toastMsg('✓ Sačuvano');
+        } catch {
+          el.textContent = el.dataset.ckOriginal;
+          toastMsg('✗ Greška pri čuvanju', true);
+        }
+      });
+    });
+  }
+
+  function toastMsg(text, isError = false) {
+    const old = document.getElementById('kve-toast');
+    if (old) old.remove();
+    const t = document.createElement('div');
+    t.id = 'kve-toast';
+    t.textContent = text;
+    t.style.background = isError ? '#ef4444' : '#22c55e';
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 320); }, 2200);
   }
 
 })();

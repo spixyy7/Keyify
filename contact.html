@@ -263,8 +263,8 @@
             </svg>
             <span class="text-gray-700">Kontakt</span>
         </nav>
-        <h1 class="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Kontakt</h1>
-        <p class="text-gray-500 text-base font-medium max-w-xl">Tu smo za sva vaša pitanja, prijedloge i zahtjeve za podršku. Odgovaramo brzo i ljubazno.</p>
+        <h1 class="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-2" data-ck="contact_hero_title">Kontakt</h1>
+        <p class="text-gray-500 text-base font-medium max-w-xl" data-ck="contact_hero_subtitle">Tu smo za sva vaša pitanja, prijedloge i zahtjeve za podršku. Odgovaramo brzo i ljubazno.</p>
     </div>
 </section>
 
@@ -315,7 +315,7 @@
 
                 <!-- Contact Details -->
                 <div class="px-8 pb-8">
-                    <h2 class="font-display font-bold text-white text-xl mb-6">Kontakt informacije</h2>
+                    <h2 class="font-display font-bold text-white text-xl mb-6" data-ck="contact_info_title">Kontakt informacije</h2>
                     <div class="space-y-4">
                         <div class="flex items-start gap-4">
                             <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background: rgba(29,106,255,0.15); border: 1px solid rgba(29,106,255,0.2);">
@@ -325,7 +325,7 @@
                             </div>
                             <div>
                                 <p class="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-0.5">Email</p>
-                                <p class="text-white font-medium text-sm">info@keyify.ba</p>
+                                <p class="text-white font-medium text-sm" data-ck="contact_email">info@keyify.ba</p>
                             </div>
                         </div>
 
@@ -337,7 +337,7 @@
                             </div>
                             <div>
                                 <p class="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-0.5">Telefon</p>
-                                <p class="text-white font-medium text-sm">+387 61 234 567</p>
+                                <p class="text-white font-medium text-sm" data-ck="contact_phone">+387 61 234 567</p>
                             </div>
                         </div>
 
@@ -349,7 +349,7 @@
                             </div>
                             <div>
                                 <p class="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-0.5">Radno vrijeme</p>
-                                <p class="text-white font-medium text-sm">Pon–Pet  9:00–18:00</p>
+                                <p class="text-white font-medium text-sm" data-ck="contact_hours">Pon–Pet  9:00–18:00</p>
                             </div>
                         </div>
 
@@ -362,7 +362,7 @@
                             </div>
                             <div>
                                 <p class="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-0.5">Lokacija</p>
-                                <p class="text-white font-medium text-sm">Sarajevo, Bosnia</p>
+                                <p class="text-white font-medium text-sm" data-ck="contact_location">Sarajevo, Bosnia</p>
                             </div>
                         </div>
                     </div>
@@ -387,8 +387,8 @@
 
             <!-- RIGHT: Contact Form -->
             <div class="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
-                <h2 class="font-display font-bold text-gray-900 text-xl mb-1">Pošaljite nam poruku</h2>
-                <p class="text-gray-500 text-sm font-medium mb-7">Odgovaramo u roku od 2 sata tokom radnog vremena.</p>
+                <h2 class="font-display font-bold text-gray-900 text-xl mb-1" data-ck="contact_form_title">Pošaljite nam poruku</h2>
+                <p class="text-gray-500 text-sm font-medium mb-7" data-ck="contact_form_subtitle">Odgovaramo u roku od 2 sata tokom radnog vremena.</p>
 
                 <form id="contact-form" class="space-y-5" novalidate>
                     <div>
@@ -664,7 +664,9 @@
         }
     });
 </script>
+<script src="content-loader.js"></script>
 <script src="translations.js"></script>
 <script src="keyify.js"></script>
+<script src="visual-editor.js"></script>
 </body>
 </html>

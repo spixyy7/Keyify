@@ -356,7 +356,7 @@
                         </svg>
                     </div>
                     <h2 class="font-display font-bold text-gray-900 text-xl mb-1">Reset lozinke</h2>
-                    <p class="text-gray-500 text-sm font-medium">Unesite vaš email i poslaćemo vam privremenu lozinku.</p>
+                    <p class="text-gray-500 text-sm font-medium">Unesite vaš email i poslaćemo vam link za postavljanje nove lozinke.</p>
                 </div>
                 <p id="forgot-error" class="text-red-500 text-xs font-medium mb-3 hidden text-center"></p>
                 <p id="forgot-success" class="text-green-600 text-xs font-medium mb-3 hidden text-center"></p>
@@ -368,9 +368,51 @@
                     </div>
                     <button type="submit" id="forgot-btn"
                             class="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold py-3.5 rounded-xl transition-all duration-200 shadow-sm hover:shadow-blue-200 hover:shadow-lg text-sm mt-2">
-                        Pošalji privremenu lozinku
+                        Pošalji link za reset
                     </button>
                 </form>
+                <button type="button" onclick="backToLogin()"
+                        class="w-full mt-4 py-2 text-sm text-gray-500 hover:text-gray-700 font-medium transition-colors">
+                    ← Nazad na prijavu
+                </button>
+            </div>
+
+            <!-- RESET CODE VERIFICATION FORM -->
+            <div id="reset-code-form" class="hidden">
+                <div class="text-center mb-6">
+                    <div class="w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4"
+                         style="background:linear-gradient(135deg,#EEF3FF,#F0E6FF)">
+                        <svg class="w-7 h-7" style="color:#1D6AFF" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                        </svg>
+                    </div>
+                    <h2 class="font-display font-bold text-gray-900 text-xl mb-1">Unesite kod</h2>
+                    <p class="text-gray-500 text-sm font-medium">Poslali smo 6-znamenkasti kod na <span id="reset-email-display" class="font-semibold text-gray-700"></span></p>
+                    <p class="text-gray-400 text-xs mt-1">Ili kliknite link u emailu.</p>
+                </div>
+                <p id="reset-code-error" class="text-red-500 text-xs font-medium mb-3 hidden text-center"></p>
+                <form novalidate onsubmit="submitResetCode(event)">
+                    <div class="flex gap-2 justify-center mb-5">
+                        <input class="otp-box w-11 h-12 text-center text-xl font-bold border-2 border-gray-200 rounded-xl transition-all" type="text" inputmode="numeric" maxlength="1" />
+                        <input class="otp-box w-11 h-12 text-center text-xl font-bold border-2 border-gray-200 rounded-xl transition-all" type="text" inputmode="numeric" maxlength="1" />
+                        <input class="otp-box w-11 h-12 text-center text-xl font-bold border-2 border-gray-200 rounded-xl transition-all" type="text" inputmode="numeric" maxlength="1" />
+                        <input class="otp-box w-11 h-12 text-center text-xl font-bold border-2 border-gray-200 rounded-xl transition-all" type="text" inputmode="numeric" maxlength="1" />
+                        <input class="otp-box w-11 h-12 text-center text-xl font-bold border-2 border-gray-200 rounded-xl transition-all" type="text" inputmode="numeric" maxlength="1" />
+                        <input class="otp-box w-11 h-12 text-center text-xl font-bold border-2 border-gray-200 rounded-xl transition-all" type="text" inputmode="numeric" maxlength="1" />
+                    </div>
+                    <button type="submit" id="reset-code-btn"
+                            class="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold py-3.5 rounded-xl transition-all duration-200 shadow-sm text-sm">
+                        Potvrdi kod
+                    </button>
+                </form>
+                <div class="text-center text-sm mt-4">
+                    <span class="text-gray-400">Niste primili?</span>
+                    <button type="button" onclick="resendResetCode()" id="reset-resend-btn"
+                            class="text-blue-600 font-semibold hover:text-blue-700 ml-1 transition-colors">
+                        Pošalji ponovo
+                    </button>
+                    <span id="reset-resend-timer" class="text-gray-400 text-xs font-medium hidden ml-1"></span>
+                </div>
                 <button type="button" onclick="backToLogin()"
                         class="w-full mt-4 py-2 text-sm text-gray-500 hover:text-gray-700 font-medium transition-colors">
                     ← Nazad na prijavu
@@ -872,7 +914,8 @@
     /* ── BACK TO LOGIN ── */
     function backToLogin() {
         pendingUserId = null;
-        ['otp-form','forgot-form','register-form'].forEach(id =>
+        resetEmail    = '';
+        ['otp-form','forgot-form','register-form','reset-code-form'].forEach(id =>
             document.getElementById(id)?.classList.add('hidden'));
         document.getElementById('login-form').classList.remove('hidden');
         document.querySelector('.flex.justify-center.mb-8')?.classList.remove('hidden');
@@ -891,13 +934,16 @@
     }
 
     /* ── SUBMIT FORGOT PASSWORD ── */
+    let resetEmail = '';
+    let resetResendCooldown = false;
+
     async function submitForgot(e) {
         e.preventDefault();
         const email = document.getElementById('forgot-email').value.trim();
         document.getElementById('forgot-error').classList.add('hidden');
         document.getElementById('forgot-success').classList.add('hidden');
         if (!email) { showError('forgot-error', 'Unesite email adresu'); return; }
-        setLoading('forgot-btn', true, 'Pošalji privremenu lozinku');
+        setLoading('forgot-btn', true, 'Pošalji link');
         try {
             const res  = await fetch(`${getApiBase()}/forgot-password`, {
                 method:  'POST',
@@ -906,14 +952,90 @@
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Greška');
-            const el = document.getElementById('forgot-success');
-            el.textContent = data.message;
-            el.classList.remove('hidden');
+            resetEmail = email;
+            showResetCodeStep(email);
         } catch (err) {
             showError('forgot-error', err.message);
         } finally {
-            setLoading('forgot-btn', false, 'Pošalji privremenu lozinku');
+            setLoading('forgot-btn', false, 'Pošalji link');
         }
+    }
+
+    function showResetCodeStep(email) {
+        ['login-form','register-form','otp-form','forgot-form'].forEach(id =>
+            document.getElementById(id)?.classList.add('hidden'));
+        document.getElementById('reset-code-form').classList.remove('hidden');
+        document.querySelector('.flex.justify-center.mb-8')?.classList.add('hidden');
+        document.getElementById('reset-email-display').textContent = email;
+        document.getElementById('reset-code-error').classList.add('hidden');
+        // Reset all otp boxes in this form
+        document.querySelectorAll('#reset-code-form .otp-box').forEach(b => b.value = '');
+        document.querySelectorAll('#reset-code-form .otp-box')[0]?.focus();
+        // Reset resend button
+        resetResendCooldown = false;
+        document.getElementById('reset-resend-btn').classList.remove('opacity-50','cursor-not-allowed');
+        document.getElementById('reset-resend-timer').classList.add('hidden');
+    }
+
+    /* ── SUBMIT RESET CODE ── */
+    async function submitResetCode(e) {
+        e.preventDefault();
+        const code = [...document.querySelectorAll('#reset-code-form .otp-box')]
+            .map(b => b.value).join('');
+        if (code.length < 6) {
+            showError('reset-code-error', 'Unesite svih 6 znamenki');
+            return;
+        }
+        setLoading('reset-code-btn', true, 'Potvrdi kod');
+        document.getElementById('reset-code-error').classList.add('hidden');
+        try {
+            const res  = await fetch(`${getApiBase()}/verify-reset-code`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ email: resetEmail, code }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Greška');
+            window.location.href = `reset-password.html?token=${encodeURIComponent(data.token)}`;
+        } catch (err) {
+            showError('reset-code-error', err.message);
+        } finally {
+            setLoading('reset-code-btn', false, 'Potvrdi kod');
+        }
+    }
+
+    /* ── RESEND RESET CODE ── */
+    async function resendResetCode() {
+        if (resetResendCooldown) return;
+        try {
+            await fetch(`${getApiBase()}/forgot-password`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ email: resetEmail }),
+            });
+        } catch (_) {}
+        startResetResendCooldown(30);
+        document.querySelectorAll('#reset-code-form .otp-box').forEach(b => b.value = '');
+        document.getElementById('reset-code-error').classList.add('hidden');
+    }
+
+    function startResetResendCooldown(seconds) {
+        resetResendCooldown = true;
+        const btn   = document.getElementById('reset-resend-btn');
+        const timer = document.getElementById('reset-resend-timer');
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+        timer.classList.remove('hidden');
+        let count = seconds;
+        const interval = setInterval(() => {
+            count--;
+            timer.textContent = `(${count}s)`;
+            if (count <= 0) {
+                clearInterval(interval);
+                resetResendCooldown = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                timer.classList.add('hidden');
+            }
+        }, 1000);
     }
 
     /* ── OTP INPUT HANDLING ── */
