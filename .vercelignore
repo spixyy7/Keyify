@@ -1,0 +1,13 @@
+# Backend — NOT deployed to Vercel
+server.js
+package.json
+package-lock.json
+.env
+.env.*
+!.env.example
+node_modules/
+
+# Dev files
+.idea/
+.claude/
+*.log

@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Keyify – Admin Dashboard</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['Poppins', 'sans-serif'],
+            body:    ['Inter',   'sans-serif'],
+          },
+          colors: {
+            brand: {
+              blue:       '#1D6AFF',
+              'blue-dk':  '#1254D4',
+              purple:     '#A259FF',
+            },
+            dark: {
+              900: '#0a0a12',
+              800: '#10101e',
+              750: '#13132a',
+              700: '#1a1a2e',
+              600: '#222240',
+              500: '#2d2d55',
+              400: '#3d3d70',
+              300: '#5a5a9a',
+            }
+          },
+          boxShadow: {
+            'glass':  '0 8px 32px rgba(0,0,0,0.4)',
+            'glow':   '0 0 24px rgba(29,106,255,0.25)',
+            'glow-p': '0 0 24px rgba(162,89,255,0.25)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #0a0a12; color: #e2e2f0; }
+    h1,h2,h3,.font-display { font-family: 'Poppins', sans-serif; }
+
+    /* Glassmorphism panels */
+    .glass {
+      background: rgba(26,26,46,0.8);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.07);
+    }
+    .glass-light {
+      background: rgba(45,45,85,0.5);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    /* Sidebar */
+    .sidebar-link {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: 10px;
+      font-size: 14px; font-weight: 500; color: #9090b8;
+      transition: all 0.2s ease; cursor: pointer;
+    }
+    .sidebar-link:hover { background: rgba(29,106,255,0.12); color: #e2e2f0; }
+    .sidebar-link.active { background: rgba(29,106,255,0.2); color: #fff; }
+    .sidebar-link svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+    /* Stat cards */
+    .stat-card {
+      border-radius: 16px; padding: 24px;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .stat-card:hover { transform: translateY(-3px); }
+
+    /* Product cards */
+    .product-admin-card {
+      border-radius: 16px; overflow: hidden;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .product-admin-card:hover { transform: translateY(-4px); box-shadow: 0 20px 48px rgba(0,0,0,0.5); }
+    .product-admin-card .actions { opacity: 0; transition: opacity 0.2s ease; }
+    .product-admin-card:hover .actions { opacity: 1; }
+
+    /* Table */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th {
+      text-align: left; padding: 12px 16px;
+      font-size: 11px; font-weight: 600; color: #6060a0;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .data-table td {
+      padding: 14px 16px; font-size: 13px; color: #c0c0d8;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: rgba(29,106,255,0.04); }
+
+    /* Input */
+    .admin-input {
+      width: 100%; background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px; padding: 10px 14px;
+      font-size: 13px; color: #e2e2f0;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .admin-input:focus { outline: none; border-color: #1D6AFF; box-shadow: 0 0 0 3px rgba(29,106,255,0.15); }
+    .admin-input::placeholder { color: #5050808; color: rgba(160,160,200,0.5); }
+
+    /* Badge */
+    .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+
+    /* Sections */
+    .section { display: none; }
+    .section.active { display: block; }
+
+    /* Color preview swatch */
+    .color-preview { width: 36px; height: 36px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.15); flex-shrink: 0; }
+
+    /* Modal */
+    #modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+      z-index: 1000; display: none; align-items: center; justify-content: center;
+    }
+    #modal-overlay.open { display: flex; }
+    #modal-box {
+      background: #13132a; border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px; padding: 32px; width: 100%; max-width: 540px;
+      max-height: 90vh; overflow-y: auto;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #10101e; }
+    ::-webkit-scrollbar-thumb { background: #2d2d55; border-radius: 4px; }
+
+    /* Toast */
+    #toast {
+      position: fixed; bottom: 28px; right: 28px; z-index: 9999;
+      padding: 14px 20px; border-radius: 12px; font-size: 13px; font-weight: 500;
+      transform: translateY(80px); opacity: 0;
+      transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1);
+      pointer-events: none;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+
+    /* Gradient text */
+    .gradient-text {
+      background: linear-gradient(135deg, #1D6AFF, #A259FF);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
+    /* Mobile sidebar */
+    @media (max-width: 1024px) {
+      #sidebar { transform: translateX(-100%); transition: transform 0.3s ease; position: fixed; z-index: 100; height: 100vh; }
+      #sidebar.open { transform: translateX(0); }
+      #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; }
+      #sidebar-overlay.open { display: block; }
+    }
+
+    /* Animated gradient border on stats */
+    .stat-revenue { border: 1px solid rgba(29,106,255,0.3); }
+    .stat-users   { border: 1px solid rgba(162,89,255,0.3); }
+    .stat-orders  { border: 1px solid rgba(0,200,180,0.3); }
+    .stat-logs    { border: 1px solid rgba(255,160,50,0.3); }
+  </style>
+</head>
+<body>
+
+<!-- ── SIDEBAR OVERLAY (mobile) ───────────────────────────────── -->
+<div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- ── SIDEBAR ─────────────────────────────────────────────────── -->
+<aside id="sidebar" class="fixed left-0 top-0 h-full w-64 glass flex flex-col z-40" style="border-right:1px solid rgba(255,255,255,0.06)">
+
+  <!-- Logo -->
+  <div class="px-5 py-6 border-b" style="border-color:rgba(255,255,255,0.06)">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+           style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+        </svg>
+      </div>
+      <div>
+        <span class="font-display font-bold text-white">Key<span style="color:#1D6AFF">ify</span></span>
+        <div class="text-xs text-dark-300 font-medium">Admin Panel</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nav -->
+  <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+    <div class="text-xs font-semibold text-dark-400 uppercase tracking-widest px-2 mb-3">Pregled</div>
+    <a class="sidebar-link active" onclick="showSection('dashboard')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </a>
+    <a class="sidebar-link" onclick="showSection('products')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10"/></svg>
+      Proizvodi
+    </a>
+
+    <div class="text-xs font-semibold text-dark-400 uppercase tracking-widest px-2 mt-5 mb-3">Podešavanja</div>
+    <a class="sidebar-link" onclick="showSection('theme')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/><path stroke-linecap="round" d="M2 12h20"/></svg>
+      Tema & Boje
+    </a>
+    <a class="sidebar-link" onclick="showSection('payments')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><path stroke-linecap="round" d="M1 10h22"/></svg>
+      Plaćanja
+    </a>
+    <a class="sidebar-link" onclick="showSection('security')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Sigurnost & Logovi
+    </a>
+
+    <div class="text-xs font-semibold text-dark-400 uppercase tracking-widest px-2 mt-5 mb-3">Podrška</div>
+    <a href="index.html" class="sidebar-link">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+      Keyify Sajt
+    </a>
+  </nav>
+
+  <!-- Admin info -->
+  <div class="p-4 border-t" style="border-color:rgba(255,255,255,0.06)">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+           style="background:linear-gradient(135deg,#1D6AFF,#A259FF)" id="sidebar-avatar">A</div>
+      <div class="min-w-0">
+        <div class="text-sm font-semibold text-white truncate" id="sidebar-name">Admin</div>
+        <div class="text-xs text-dark-300 truncate" id="sidebar-email">admin@keyify.com</div>
+      </div>
+      <button onclick="logout()" title="Odjava" class="ml-auto text-dark-300 hover:text-red-400 transition-colors flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</aside>
+
+<!-- ── MAIN WRAPPER ─────────────────────────────────────────────── -->
+<div class="lg:pl-64 min-h-screen">
+
+  <!-- Top bar -->
+  <header class="sticky top-0 z-30 glass" style="border-bottom:1px solid rgba(255,255,255,0.06)">
+    <div class="flex items-center justify-between px-6 h-16">
+      <div class="flex items-center gap-4">
+        <button onclick="openSidebar()" class="lg:hidden text-dark-300 hover:text-white">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+        <div>
+          <h1 class="font-display font-bold text-white text-lg" id="section-title">Dashboard</h1>
+          <p class="text-xs text-dark-300" id="section-subtitle">Pregled platforme u realnom vremenu</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <!-- Lang switcher -->
+        <div class="flex items-center glass-light rounded-xl p-1">
+          <button onclick="setLang('sr')" id="lang-sr-btn" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all" style="background:rgba(29,106,255,0.3);color:#fff">SR</button>
+          <button onclick="setLang('en')" id="lang-en-btn" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-dark-300 hover:text-white">EN</button>
+        </div>
+        <!-- Refresh -->
+        <button onclick="loadStats()" class="flex items-center gap-2 text-dark-300 hover:text-white text-sm font-medium transition-colors">
+          <svg class="w-4 h-4" id="refresh-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          Osvježi
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── CONTENT ─────────────────────────────────────────────────── -->
+  <main class="p-6 space-y-6 max-w-screen-2xl mx-auto">
+
+    <!-- ═══════════════════════ DASHBOARD ═══════════════════════ -->
+    <div id="section-dashboard" class="section active space-y-6">
+
+      <!-- Stat cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+        <div class="stat-card glass stat-revenue">
+          <div class="flex items-start justify-between mb-4">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background:rgba(29,106,255,0.15)">
+              <svg class="w-5 h-5" style="color:#1D6AFF" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <span class="badge" style="background:rgba(29,106,255,0.15);color:#6699ff">+12%</span>
+          </div>
+          <div class="font-display font-bold text-3xl text-white" id="stat-revenue">€0</div>
+          <div class="text-sm text-dark-300 mt-1 font-medium">Ukupan prihod</div>
+        </div>
+
+        <div class="stat-card glass stat-users">
+          <div class="flex items-start justify-between mb-4">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background:rgba(162,89,255,0.15)">
+              <svg class="w-5 h-5" style="color:#A259FF" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </div>
+            <span class="badge" style="background:rgba(162,89,255,0.15);color:#c299ff">Korisnici</span>
+          </div>
+          <div class="font-display font-bold text-3xl text-white" id="stat-users">0</div>
+          <div class="text-sm text-dark-300 mt-1 font-medium">Registrovani korisnici</div>
+        </div>
+
+        <div class="stat-card glass stat-orders">
+          <div class="flex items-start justify-between mb-4">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background:rgba(0,200,180,0.12)">
+              <svg class="w-5 h-5" style="color:#00c8b4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+            </div>
+            <span class="badge" style="background:rgba(0,200,180,0.12);color:#00c8b4">Narudžbe</span>
+          </div>
+          <div class="font-display font-bold text-3xl text-white" id="stat-transactions">0</div>
+          <div class="text-sm text-dark-300 mt-1 font-medium">Ukupno transakcija</div>
+        </div>
+
+        <div class="stat-card glass stat-logs">
+          <div class="flex items-start justify-between mb-4">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background:rgba(255,160,50,0.12)">
+              <svg class="w-5 h-5" style="color:#ffa032" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>
+            <span class="badge" style="background:rgba(255,160,50,0.12);color:#ffa032">Logovi</span>
+          </div>
+          <div class="font-display font-bold text-3xl text-white" id="stat-logs">0</div>
+          <div class="text-sm text-dark-300 mt-1 font-medium">Aktivnosti (24h)</div>
+        </div>
+      </div>
+
+      <!-- Recent users table -->
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="p-5 border-b flex items-center justify-between" style="border-color:rgba(255,255,255,0.06)">
+          <div>
+            <h3 class="font-display font-semibold text-white">Nedavno registrovani</h3>
+            <p class="text-xs text-dark-300 mt-0.5">Posljednjih 10 korisnika</p>
+          </div>
+          <button onclick="showSection('security')" class="text-xs font-semibold" style="color:#1D6AFF">Vidi sve →</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Korisnik</th>
+                <th>Email</th>
+                <th>Uloga</th>
+                <th>IP adresa</th>
+                <th>Datum</th>
+              </tr>
+            </thead>
+            <tbody id="recent-users-body">
+              <tr><td colspan="5" class="text-center py-8 text-dark-300">Učitavanje...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ PRODUCTS ═══════════════════════ -->
+    <div id="section-products" class="section space-y-5">
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+        <div class="flex items-center gap-3">
+          <select id="product-filter" onchange="filterProducts()" class="admin-input w-auto pr-8">
+            <option value="">Sve kategorije</option>
+            <option value="ai">AI Alati</option>
+            <option value="design">Design</option>
+            <option value="business">Business</option>
+            <option value="windows">Windows & Office</option>
+            <option value="music">Muzika</option>
+            <option value="streaming">Streaming</option>
+          </select>
+        </div>
+        <button onclick="openProductModal(null)" class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
+                style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 4v16m8-8H4"/></svg>
+          Novi proizvod
+        </button>
+      </div>
+
+      <div id="products-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="col-span-full text-center py-16 text-dark-300">Učitavanje proizvoda...</div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ THEME ═══════════════════════ -->
+    <div id="section-theme" class="section">
+      <div class="max-w-2xl glass rounded-2xl p-8 space-y-7">
+        <div>
+          <h2 class="font-display font-bold text-white text-xl mb-1">Live Tema Editor</h2>
+          <p class="text-sm text-dark-300">Promjene se odmah primjenjuju na sajtu putem CSS varijabli.</p>
+        </div>
+
+        <div class="space-y-6">
+          <!-- Primary color -->
+          <div>
+            <label class="block text-sm font-semibold text-dark-200 mb-3">Primarna boja (--primary-color)</label>
+            <div class="flex items-center gap-4">
+              <div class="color-preview" id="primary-preview" style="background:#1D6AFF"></div>
+              <input type="color" id="primary-color-input" value="#1D6AFF"
+                     oninput="livePreviewColor('primary')"
+                     class="w-12 h-12 rounded-xl border-0 cursor-pointer bg-transparent"/>
+              <input type="text" id="primary-color-hex" value="#1D6AFF"
+                     oninput="hexInputColor('primary')" placeholder="#1D6AFF"
+                     class="admin-input flex-1 font-mono"/>
+            </div>
+          </div>
+
+          <!-- Panel bg -->
+          <div>
+            <label class="block text-sm font-semibold text-dark-200 mb-3">Panel pozadina (--panel-bg)</label>
+            <div class="flex items-center gap-4">
+              <div class="color-preview" id="panelbg-preview" style="background:#1a1a2e"></div>
+              <input type="color" id="panelbg-color-input" value="#1a1a2e"
+                     oninput="livePreviewColor('panelbg')"
+                     class="w-12 h-12 rounded-xl border-0 cursor-pointer bg-transparent"/>
+              <input type="text" id="panelbg-color-hex" value="#1a1a2e"
+                     oninput="hexInputColor('panelbg')" placeholder="#1a1a2e"
+                     class="admin-input flex-1 font-mono"/>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live preview -->
+        <div class="rounded-xl p-5 space-y-3 transition-all" id="theme-preview-box"
+             style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.08)">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center" id="preview-btn"
+                 style="background:#1D6AFF">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+              </svg>
+            </div>
+            <div>
+              <div class="font-semibold text-white text-sm">Keyify Preview</div>
+              <div class="text-xs text-dark-300">Live pregled boja</div>
+            </div>
+          </div>
+          <button class="w-full py-2.5 rounded-xl text-white text-sm font-semibold transition-colors" id="preview-primary-btn" style="background:#1D6AFF">Primarna boja</button>
+        </div>
+
+        <button onclick="saveTheme()" class="w-full py-3.5 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
+                style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
+          Sačuvaj temu
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ PAYMENTS ═══════════════════════ -->
+    <div id="section-payments" class="section">
+      <div class="max-w-2xl space-y-5">
+
+        <!-- PayPal -->
+        <div class="glass rounded-2xl p-6 space-y-4">
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(0,112,212,0.15)">
+              <svg class="w-6 h-6" style="color:#0070d4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20.924 7.623a1.952 1.952 0 00-1.192-1.195 10.294 10.294 0 00-3.192-.429c-1.2 0-2.397.143-3.563.429-.82.198-1.405.78-1.59 1.619l-.73 3.39a1.887 1.887 0 001.84 2.268h.17l-.38 1.77c-.11.513.26 1.009.782 1.009h.018c.396 0 .745-.253.869-.63l.408-1.22h2.358l.407 1.22c.124.377.473.63.869.63h.018c.521 0 .892-.496.782-1.01l-.38-1.77h.17a1.887 1.887 0 001.84-2.267l-.73-3.39-.004-.022z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-display font-semibold text-white">PayPal</h3>
+              <p class="text-xs text-dark-300">Email adresa za primanje uplata</p>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">PayPal Email</label>
+            <input type="email" id="paypal-email" placeholder="paypal@example.com" class="admin-input"/>
+          </div>
+        </div>
+
+        <!-- Crypto -->
+        <div class="glass rounded-2xl p-6 space-y-4">
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(247,147,26,0.15)">
+              <svg class="w-5 h-5" style="color:#f7931a" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M23.638 14.904c-1.602 6.43-8.113 10.34-14.542 8.736C2.67 22.05-1.244 15.525.362 9.105 1.962 2.67 8.475-1.243 14.9.358c6.43 1.605 10.342 8.115 8.738 14.546z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-display font-semibold text-white">Kripto novčanici</h3>
+              <p class="text-xs text-dark-300">BTC, ETH i USDT adrese</p>
+            </div>
+          </div>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Bitcoin (BTC)</label>
+              <input type="text" id="btc-wallet" placeholder="bc1q..." class="admin-input font-mono text-xs"/>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Ethereum (ETH)</label>
+              <input type="text" id="eth-wallet" placeholder="0x..." class="admin-input font-mono text-xs"/>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">USDT (TRC-20)</label>
+              <input type="text" id="usdt-wallet" placeholder="T..." class="admin-input font-mono text-xs"/>
+            </div>
+          </div>
+        </div>
+
+        <!-- Serbian Bank -->
+        <div class="glass rounded-2xl p-6 space-y-4">
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(0,150,255,0.15)">
+              <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10h1v11H4zm7-1h1v11h-1zm7 0h1v11h-1z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-display font-semibold text-white">Bankovna uplata (RS)</h3>
+              <p class="text-xs text-dark-300">Srpski bankovni račun (IBAN)</p>
+            </div>
+          </div>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Naziv banke</label>
+              <input type="text" id="bank-name" placeholder="npr. Raiffeisen Bank" class="admin-input"/>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">IBAN / Broj računa</label>
+              <input type="text" id="bank-iban" placeholder="RS35..." class="admin-input font-mono"/>
+            </div>
+          </div>
+        </div>
+
+        <button onclick="savePayments()" class="w-full py-3.5 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
+                style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
+          Sačuvaj podatke o plaćanju
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ SECURITY ═══════════════════════ -->
+    <div id="section-security" class="section space-y-5">
+
+      <!-- Users table -->
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="p-5 border-b" style="border-color:rgba(255,255,255,0.06)">
+          <h3 class="font-display font-semibold text-white">Korisnici</h3>
+          <p class="text-xs text-dark-300 mt-0.5">Svi registrovani korisnici platforme</p>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Korisnik</th>
+                <th>Email</th>
+                <th>Uloga</th>
+                <th>IP adresa</th>
+                <th>Verificiran</th>
+                <th>Datum registracije</th>
+              </tr>
+            </thead>
+            <tbody id="users-table-body">
+              <tr><td colspan="6" class="text-center py-10 text-dark-300">Učitavanje...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Audit log -->
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="p-5 border-b" style="border-color:rgba(255,255,255,0.06)">
+          <h3 class="font-display font-semibold text-white">Audit Log</h3>
+          <p class="text-xs text-dark-300 mt-0.5">Posljednjih 100 aktivnosti</p>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Korisnik</th>
+                <th>Email</th>
+                <th>Akcija</th>
+                <th>IP adresa</th>
+                <th>Vrijeme</th>
+              </tr>
+            </thead>
+            <tbody id="logs-table-body">
+              <tr><td colspan="5" class="text-center py-10 text-dark-300">Učitavanje logova...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── PRODUCT MODAL ─────────────────────────────────────────── -->
+<div id="modal-overlay">
+  <div id="modal-box">
+    <div class="flex items-center justify-between mb-6">
+      <h3 class="font-display font-bold text-white text-lg" id="modal-title">Novi proizvod</h3>
+      <button onclick="closeModal()" class="text-dark-300 hover:text-white transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <form id="product-form" class="space-y-4" onsubmit="saveProduct(event)">
+      <input type="hidden" id="product-id"/>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Naziv (SR) *</label>
+          <input type="text" id="prod-name-sr" required placeholder="npr. ChatGPT Plus" class="admin-input"/>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Name (EN)</label>
+          <input type="text" id="prod-name-en" placeholder="e.g. ChatGPT Plus" class="admin-input"/>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Opis (SR)</label>
+          <textarea id="prod-desc-sr" rows="2" placeholder="Opis proizvoda..." class="admin-input resize-none"></textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Description (EN)</label>
+          <textarea id="prod-desc-en" rows="2" placeholder="Product description..." class="admin-input resize-none"></textarea>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Cijena (€) *</label>
+          <input type="number" id="prod-price" required min="0" step="0.01" placeholder="9.99" class="admin-input"/>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Stara cijena</label>
+          <input type="number" id="prod-original-price" min="0" step="0.01" placeholder="14.99" class="admin-input"/>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Kategorija *</label>
+          <select id="prod-category" required class="admin-input">
+            <option value="">Izaberite...</option>
+            <option value="ai">AI Alati</option>
+            <option value="design">Design</option>
+            <option value="business">Business</option>
+            <option value="windows">Windows & Office</option>
+            <option value="music">Muzika</option>
+            <option value="streaming">Streaming</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">URL slike</label>
+          <input type="url" id="prod-image-url" placeholder="https://..." class="admin-input"/>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Badge</label>
+          <select id="prod-badge" class="admin-input">
+            <option value="">Bez badge-a</option>
+            <option value="SALE">SALE</option>
+            <option value="Bestseller">Bestseller</option>
+            <option value="Novo">Novo</option>
+            <option value="Popular">Popular</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="closeModal()" class="flex-1 py-3 rounded-xl text-sm font-semibold transition-colors"
+                style="background:rgba(255,255,255,0.06);color:#9090b8">
+          Otkaži
+        </button>
+        <button type="submit" class="flex-1 py-3 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90"
+                style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
+          Sačuvaj proizvod
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── TOAST ──────────────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<!-- ── SCRIPT ─────────────────────────────────────────────────── -->
+<script>
+  /* ── CONFIG ── */
+  const API_BASE = window.KEYIFY_CONFIG?.API_BASE || 'http://localhost:3001/api';
+
+  /* ── STATE ── */
+  let currentLang    = 'sr';
+  let allProducts    = [];
+  let allUsers       = [];
+  let editingProduct = null;
+
+  /* ── INIT ── */
+  document.addEventListener('DOMContentLoaded', () => {
+    const token = localStorage.getItem('keyify_token');
+    const role  = localStorage.getItem('keyify_role');
+
+    if (!token || role !== 'admin') {
+      window.location.href = 'login.html';
+      return;
+    }
+
+    // Set admin info in sidebar
+    const name  = localStorage.getItem('keyify_name')  || 'Admin';
+    const email = localStorage.getItem('keyify_email') || 'admin@keyify.com';
+    document.getElementById('sidebar-name').textContent  = name;
+    document.getElementById('sidebar-email').textContent = email;
+    document.getElementById('sidebar-avatar').textContent = name.charAt(0).toUpperCase();
+
+    loadStats();
+    loadProducts();
+    loadSettings();
+  });
+
+  /* ── AUTH HEADER ── */
+  function authHeaders() {
+    return {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${localStorage.getItem('keyify_token')}`,
+    };
+  }
+
+  /* ── TOAST ── */
+  function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.background = type === 'success' ? 'linear-gradient(135deg,#1D6AFF,#A259FF)' :
+                         type === 'error'   ? '#dc2626' : '#d97706';
+    t.style.color = '#fff';
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3200);
+  }
+
+  /* ── SECTION SWITCH ── */
+  function showSection(name) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+    document.getElementById(`section-${name}`).classList.add('active');
+    document.querySelector(`.sidebar-link[onclick="showSection('${name}')"]`)?.classList.add('active');
+
+    const titles = {
+      dashboard: ['Dashboard', 'Pregled platforme u realnom vremenu'],
+      products:  ['Proizvodi', 'Upravljanje katalogom proizvoda'],
+      theme:     ['Tema & Boje', 'Prilagodite vizuelni identitet'],
+      payments:  ['Plaćanja', 'Konfiguracija načina plaćanja'],
+      security:  ['Sigurnost & Logovi', 'Korisnici i audit trail'],
+    };
+    const [title, sub] = titles[name] || ['Dashboard', ''];
+    document.getElementById('section-title').textContent    = title;
+    document.getElementById('section-subtitle').textContent = sub;
+  }
+
+  /* ── SIDEBAR MOBILE ── */
+  function openSidebar()  {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('sidebar-overlay').classList.add('open');
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('open');
+  }
+
+  /* ── LOGOUT ── */
+  function logout() {
+    ['keyify_token','keyify_role','keyify_name','keyify_email'].forEach(k => localStorage.removeItem(k));
+    window.location.href = 'login.html';
+  }
+
+  /* ── LANGUAGE ── */
+  function setLang(lang) {
+    currentLang = lang;
+    document.getElementById('lang-sr-btn').style.background = lang === 'sr' ? 'rgba(29,106,255,0.3)' : '';
+    document.getElementById('lang-sr-btn').style.color      = lang === 'sr' ? '#fff' : '';
+    document.getElementById('lang-en-btn').style.background = lang === 'en' ? 'rgba(29,106,255,0.3)' : '';
+    document.getElementById('lang-en-btn').style.color      = lang === 'en' ? '#fff' : '';
+    renderProducts(allProducts); // re-render with new lang
+  }
+
+  /* ── LOAD STATS ── */
+  async function loadStats() {
+    const icon = document.getElementById('refresh-icon');
+    icon.style.animation = 'spin 1s linear infinite';
+    try {
+      const res  = await fetch(`${API_BASE}/admin/stats`, { headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      document.getElementById('stat-revenue').textContent      = `€${parseFloat(data.revenue).toLocaleString('sr-RS',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+      document.getElementById('stat-users').textContent        = data.total_users;
+      document.getElementById('stat-transactions').textContent = data.total_transactions;
+      document.getElementById('stat-logs').textContent         = (data.logs || []).length;
+
+      allUsers = data.users || [];
+      renderRecentUsers(allUsers.slice(0, 10));
+      renderUsersTable(allUsers);
+      renderLogsTable(data.logs || []);
+    } catch (e) {
+      showToast(e.message || 'Greška pri učitavanju statistike', 'error');
+    } finally {
+      icon.style.animation = '';
+    }
+  }
+
+  /* ── RENDER RECENT USERS ── */
+  function renderRecentUsers(users) {
+    const tbody = document.getElementById('recent-users-body');
+    if (!users.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-dark-300">Nema korisnika</td></tr>';
+      return;
+    }
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td><span class="font-medium text-white">${escHtml(u.name)}</span></td>
+        <td>${escHtml(u.email)}</td>
+        <td>${roleBadge(u.role)}</td>
+        <td><code class="text-xs bg-dark-700 px-2 py-0.5 rounded">${escHtml(u.registered_ip || '–')}</code></td>
+        <td>${fmtDate(u.created_at)}</td>
+      </tr>`).join('');
+  }
+
+  /* ── RENDER USERS TABLE ── */
+  function renderUsersTable(users) {
+    const tbody = document.getElementById('users-table-body');
+    if (!users.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-dark-300">Nema korisnika</td></tr>';
+      return;
+    }
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td><span class="font-medium text-white">${escHtml(u.name)}</span></td>
+        <td>${escHtml(u.email)}</td>
+        <td>${roleBadge(u.role)}</td>
+        <td><code class="text-xs bg-dark-700 px-2 py-0.5 rounded">${escHtml(u.registered_ip || '–')}</code></td>
+        <td>${u.is_verified
+          ? '<span class="badge" style="background:rgba(16,185,129,0.15);color:#10b981">✓ Da</span>'
+          : '<span class="badge" style="background:rgba(239,68,68,0.15);color:#ef4444">✗ Ne</span>'}</td>
+        <td>${fmtDate(u.created_at)}</td>
+      </tr>`).join('');
+  }
+
+  /* ── RENDER LOGS TABLE ── */
+  function renderLogsTable(logs) {
+    const tbody = document.getElementById('logs-table-body');
+    if (!logs.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-dark-300">Nema logova</td></tr>';
+      return;
+    }
+    const actionLabel = { register: 'Registracija', login_attempt: 'Prijava', login_success: 'Uspješna prijava' };
+    const actionColor = { register: '#A259FF', login_attempt: '#ffa032', login_success: '#10b981' };
+    tbody.innerHTML = logs.map(l => `
+      <tr>
+        <td>${escHtml(l.users?.name || '–')}</td>
+        <td>${escHtml(l.users?.email || '–')}</td>
+        <td><span class="badge" style="background:rgba(255,255,255,0.05);color:${actionColor[l.action] || '#9090b8'}">${actionLabel[l.action] || l.action}</span></td>
+        <td><code class="text-xs bg-dark-700 px-2 py-0.5 rounded">${escHtml(l.ip || '–')}</code></td>
+        <td class="text-dark-300">${fmtDate(l.created_at)}</td>
+      </tr>`).join('');
+  }
+
+  /* ── LOAD PRODUCTS ── */
+  async function loadProducts() {
+    try {
+      const res  = await fetch(`${API_BASE}/products`, { headers: authHeaders() });
+      const data = await res.json();
+      allProducts = data || [];
+      renderProducts(allProducts);
+    } catch {
+      showToast('Greška pri učitavanju proizvoda', 'error');
+    }
+  }
+
+  function filterProducts() {
+    const cat = document.getElementById('product-filter').value;
+    renderProducts(cat ? allProducts.filter(p => p.category === cat) : allProducts);
+  }
+
+  function renderProducts(products) {
+    const grid = document.getElementById('products-grid');
+    if (!products.length) {
+      grid.innerHTML = `<div class="col-span-full text-center py-16">
+        <div class="text-dark-300 text-sm mb-4">Nema proizvoda u ovoj kategoriji</div>
+        <button onclick="openProductModal(null)" class="px-5 py-2.5 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
+          + Dodaj prvi proizvod
+        </button></div>`;
+      return;
+    }
+
+    grid.innerHTML = products.map(p => {
+      const name  = currentLang === 'en' && p.name_en  ? p.name_en  : p.name_sr;
+      const desc  = currentLang === 'en' && p.desc_en  ? p.desc_en  : (p.description_sr || '');
+      const disc  = p.original_price ? Math.round((1 - p.price / p.original_price) * 100) : null;
+      const catColors = {
+        ai: '#19c37d', design: '#FF0000', business: '#0078d4',
+        windows: '#0078d4', music: '#1DB954', streaming: '#e50914'
+      };
+      const bg = catColors[p.category] || '#1D6AFF';
+
+      return `
+        <div class="product-admin-card glass relative">
+          <!-- Image area -->
+          <div class="relative flex items-center justify-center overflow-hidden" style="height:260px;background:linear-gradient(145deg,#0f0f1a,#1a1a2e)">
+            <!-- Glow blob -->
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div style="width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,${bg}55,transparent);filter:blur(30px)"></div>
+            </div>
+            ${p.image_url
+              ? `<img src="${escHtml(p.image_url)}" alt="${escHtml(name)}" class="relative z-10 object-contain drop-shadow-2xl" style="max-height:200px;max-width:85%;"/>`
+              : `<div class="relative z-10 flex flex-col items-center gap-3">
+                   <div class="w-24 h-24 rounded-3xl flex items-center justify-center text-white text-4xl font-bold font-display shadow-2xl" style="background:linear-gradient(135deg,${bg},${bg}99)">${name.charAt(0)}</div>
+                   <span class="text-white/60 text-xs font-medium tracking-wide">${escHtml(p.category)}</span>
+                 </div>`}
+            ${p.badge ? `<span class="absolute top-3 left-3 badge text-white text-xs" style="background:${bg}">${escHtml(p.badge)}</span>` : ''}
+            <!-- Action buttons -->
+            <div class="actions absolute inset-0 flex items-center justify-center gap-3 rounded-t-2xl" style="background:rgba(10,10,18,0.7)">
+              <button onclick="openProductModal(${JSON.stringify(p).replace(/"/g,'&quot;')})"
+                      class="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
+                      style="background:rgba(29,106,255,0.3);color:#6699ff"
+                      title="Uredi">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+              </button>
+              <button onclick="deleteProduct('${p.id}', '${escHtml(name)}')"
+                      class="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
+                      style="background:rgba(220,38,38,0.3);color:#f87171"
+                      title="Obriši">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+            </div>
+          </div>
+          <!-- Info -->
+          <div class="p-4">
+            <div class="flex items-start justify-between gap-2">
+              <div class="font-semibold text-white text-sm leading-tight">${escHtml(name)}</div>
+              <span class="badge flex-shrink-0 text-xs" style="background:rgba(255,255,255,0.05);color:#9090b8">${p.category}</span>
+            </div>
+            ${desc ? `<p class="text-xs text-dark-300 mt-1 line-clamp-2">${escHtml(desc)}</p>` : ''}
+            <div class="mt-3 flex items-center gap-2">
+              <span class="font-display font-bold text-white">€${parseFloat(p.price).toFixed(2)}</span>
+              ${p.original_price ? `<span class="text-xs text-dark-400 line-through">€${parseFloat(p.original_price).toFixed(2)}</span>` : ''}
+              ${disc ? `<span class="badge ml-auto text-xs" style="background:rgba(16,185,129,0.15);color:#10b981">-${disc}%</span>` : ''}
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  /* ── PRODUCT MODAL ── */
+  function openProductModal(product) {
+    editingProduct = product;
+    document.getElementById('modal-title').textContent = product ? 'Uredi proizvod' : 'Novi proizvod';
+    document.getElementById('product-id').value         = product?.id         || '';
+    document.getElementById('prod-name-sr').value       = product?.name_sr    || '';
+    document.getElementById('prod-name-en').value       = product?.name_en    || '';
+    document.getElementById('prod-desc-sr').value       = product?.description_sr || '';
+    document.getElementById('prod-desc-en').value       = product?.description_en || '';
+    document.getElementById('prod-price').value         = product?.price       || '';
+    document.getElementById('prod-original-price').value = product?.original_price || '';
+    document.getElementById('prod-category').value     = product?.category    || '';
+    document.getElementById('prod-image-url').value    = product?.image_url   || '';
+    document.getElementById('prod-badge').value        = product?.badge       || '';
+    document.getElementById('modal-overlay').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('open');
+    editingProduct = null;
+  }
+
+  async function saveProduct(e) {
+    e.preventDefault();
+    const id = document.getElementById('product-id').value;
+    const body = {
+      name_sr:          document.getElementById('prod-name-sr').value,
+      name_en:          document.getElementById('prod-name-en').value,
+      description_sr:   document.getElementById('prod-desc-sr').value,
+      description_en:   document.getElementById('prod-desc-en').value,
+      price:            document.getElementById('prod-price').value,
+      original_price:   document.getElementById('prod-original-price').value || null,
+      category:         document.getElementById('prod-category').value,
+      image_url:        document.getElementById('prod-image-url').value || null,
+      badge:            document.getElementById('prod-badge').value || null,
+    };
+
+    try {
+      const url    = id ? `${API_BASE}/products/${id}` : `${API_BASE}/products`;
+      const method = id ? 'PUT' : 'POST';
+      const res    = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(body) });
+      const data   = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      showToast(id ? 'Proizvod ažuriran!' : 'Proizvod dodan!');
+      closeModal();
+      loadProducts();
+    } catch (err) {
+      showToast(err.message || 'Greška', 'error');
+    }
+  }
+
+  async function deleteProduct(id, name) {
+    if (!confirm(`Obrisati "${name}"? Ova akcija je nepovratna.`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/products/${id}`, { method: 'DELETE', headers: authHeaders() });
+      const d   = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      showToast('Proizvod obrisan.');
+      loadProducts();
+    } catch (err) {
+      showToast(err.message || 'Greška pri brisanju', 'error');
+    }
+  }
+
+  /* ── THEME ── */
+  function livePreviewColor(key) {
+    const input   = document.getElementById(`${key}-color-input`);
+    const hexEl   = document.getElementById(`${key}-color-hex`);
+    const preview = document.getElementById(`${key}-preview`);
+    hexEl.value   = input.value;
+    preview.style.background = input.value;
+    applyColorPreview(key, input.value);
+  }
+
+  function hexInputColor(key) {
+    const hexEl  = document.getElementById(`${key}-color-hex`);
+    const input  = document.getElementById(`${key}-color-input`);
+    const val    = hexEl.value;
+    if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+      input.value = val;
+      document.getElementById(`${key}-preview`).style.background = val;
+      applyColorPreview(key, val);
+    }
+  }
+
+  function applyColorPreview(key, color) {
+    if (key === 'primary') {
+      document.getElementById('preview-primary-btn').style.background = color;
+      document.getElementById('preview-btn').style.background = color;
+    }
+    if (key === 'panelbg') {
+      document.getElementById('theme-preview-box').style.background = color;
+    }
+    // Apply CSS variable to document
+    document.documentElement.style.setProperty(
+      key === 'primary' ? '--primary-color' : '--panel-bg', color
+    );
+  }
+
+  async function saveTheme() {
+    const primary = document.getElementById('primary-color-hex').value;
+    const panelbg = document.getElementById('panelbg-color-hex').value;
+    try {
+      const res = await fetch(`${API_BASE}/admin/settings`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ primary_color: primary, panel_bg: panelbg }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      showToast('Tema sačuvana!');
+    } catch (err) {
+      showToast(err.message || 'Greška', 'error');
+    }
+  }
+
+  /* ── PAYMENTS ── */
+  async function loadSettings() {
+    try {
+      const res  = await fetch(`${API_BASE}/admin/settings`, { headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) return;
+
+      if (data.paypal_email) document.getElementById('paypal-email').value = data.paypal_email;
+      if (data.btc_wallet)   document.getElementById('btc-wallet').value   = data.btc_wallet;
+      if (data.eth_wallet)   document.getElementById('eth-wallet').value   = data.eth_wallet;
+      if (data.usdt_wallet)  document.getElementById('usdt-wallet').value  = data.usdt_wallet;
+      if (data.bank_iban)    document.getElementById('bank-iban').value    = data.bank_iban;
+      if (data.bank_name)    document.getElementById('bank-name').value    = data.bank_name;
+
+      if (data.primary_color) {
+        document.getElementById('primary-color-input').value = data.primary_color;
+        document.getElementById('primary-color-hex').value   = data.primary_color;
+        document.getElementById('primary-preview').style.background = data.primary_color;
+        applyColorPreview('primary', data.primary_color);
+      }
+      if (data.panel_bg) {
+        document.getElementById('panelbg-color-input').value = data.panel_bg;
+        document.getElementById('panelbg-color-hex').value   = data.panel_bg;
+        document.getElementById('panelbg-preview').style.background = data.panel_bg;
+        applyColorPreview('panelbg', data.panel_bg);
+      }
+    } catch { /* ignore – first run */ }
+  }
+
+  async function savePayments() {
+    const body = {
+      paypal_email: document.getElementById('paypal-email').value,
+      btc_wallet:   document.getElementById('btc-wallet').value,
+      eth_wallet:   document.getElementById('eth-wallet').value,
+      usdt_wallet:  document.getElementById('usdt-wallet').value,
+      bank_iban:    document.getElementById('bank-iban').value,
+      bank_name:    document.getElementById('bank-name').value,
+    };
+    try {
+      const res = await fetch(`${API_BASE}/admin/settings`, {
+        method: 'POST', headers: authHeaders(), body: JSON.stringify(body),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      showToast('Podaci o plaćanju sačuvani!');
+    } catch (err) {
+      showToast(err.message || 'Greška', 'error');
+    }
+  }
+
+  /* ── HELPERS ── */
+  function escHtml(str) {
+    if (str == null) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function roleBadge(role) {
+    return role === 'admin'
+      ? '<span class="badge" style="background:rgba(162,89,255,0.2);color:#c299ff">Admin</span>'
+      : '<span class="badge" style="background:rgba(255,255,255,0.06);color:#9090b8">Korisnik</span>';
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '–';
+    const d = new Date(iso);
+    return d.toLocaleDateString('sr-RS',{day:'2-digit',month:'2-digit',year:'numeric'}) +
+           ' ' + d.toLocaleTimeString('sr-RS',{hour:'2-digit',minute:'2-digit'});
+  }
+
+  /* ── CSS spin animation ── */
+  const style = document.createElement('style');
+  style.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+  document.head.appendChild(style);
+
+  /* ── Close modal on outside click ── */
+  document.getElementById('modal-overlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('modal-overlay')) closeModal();
+  });
+</script>
+<script src="config.js"></script>
+<script src="translations.js"></script>
+<script src="keyify.js"></script>
+</body>
+</html>
