@@ -6,9 +6,10 @@
 # Dependencies
 node_modules/
 
-# IDE
+# IDE & Tools
 .idea/
 .vscode/
+.claude/
 *.swp
 *.swo
 
