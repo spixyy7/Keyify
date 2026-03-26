@@ -602,6 +602,7 @@
 </footer>
 
 
+<script src="config.js"></script>
 <style>
     /* OTP input boxes */
     .otp-box:focus { border-color: #1D6AFF; box-shadow: 0 0 0 3px rgba(29,106,255,0.12); }
@@ -616,7 +617,7 @@
 </style>
 <script>
     /* ── CONFIG ── */
-    const API_BASE = window.KEYIFY_CONFIG?.API_BASE || 'http://localhost:3001/api';
+    function getApiBase() { return window.KEYIFY_CONFIG?.API_BASE || 'http://localhost:3001/api'; }
 
     /* ── STATE ── */
     let pendingUserId = null;
@@ -768,7 +769,7 @@
         setLoading('login-btn', true, 'Prijavi se');
 
         try {
-            const res  = await fetch(`${API_BASE}/login`, {
+            const res  = await fetch(`${getApiBase()}/login`, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body:    JSON.stringify({ email, password }),
@@ -850,7 +851,7 @@
         setLoading('verify-btn', true, 'Verificiraj kod');
 
         try {
-            const res  = await fetch(`${API_BASE}/verify`, {
+            const res  = await fetch(`${getApiBase()}/verify`, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body:    JSON.stringify({ user_id: pendingUserId, otp }),
@@ -883,7 +884,7 @@
         const email    = document.getElementById('otp-email-display').textContent;
         const password = document.getElementById('login-password').value;
         try {
-            const res  = await fetch(`${API_BASE}/login`, {
+            const res  = await fetch(`${getApiBase()}/login`, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body:    JSON.stringify({ email, password }),
@@ -937,7 +938,7 @@
         setLoading('reg-btn', true, 'Registruj se');
 
         try {
-            const res  = await fetch(`${API_BASE}/register`, {
+            const res  = await fetch(`${getApiBase()}/register`, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body:    JSON.stringify({ name, email, password }),
@@ -958,7 +959,6 @@
         }
     }
 </script>
-<script src="config.js"></script>
 <script src="translations.js"></script>
 <script src="keyify.js"></script>
 </body>

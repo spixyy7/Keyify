@@ -555,53 +555,160 @@ const KEYIFY = (() => {
      ACCOUNT NAVBAR (dynamic after login)
   ───────────────────────────────────────────────────────── */
   function _logout() {
-    localStorage.removeItem('keyify_token');
-    localStorage.removeItem('keyify_name');
-    localStorage.removeItem('keyify_role');
-    window.location.href = 'login.html';
+    ['keyify_token','keyify_name','keyify_role','keyify_email','keyify_id'].forEach(k => localStorage.removeItem(k));
+    window.location.href = 'index.html';
   }
 
   function _updateAccountNavbar() {
     const token = localStorage.getItem('keyify_token');
     const name  = localStorage.getItem('keyify_name');
+    const email = localStorage.getItem('keyify_email') || '';
     const role  = localStorage.getItem('keyify_role');
 
     const accountLink = document.querySelector('header a[href="login.html"]');
-    if (!accountLink) return;
+    if (!accountLink || !token || !name) return;
 
-    if (token && name) {
-      if (role === 'admin') {
-        accountLink.innerHTML = `
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-          </svg>
-          <span style="font-weight:700;color:#A259FF">ADMIN</span>`;
-        accountLink.href = 'admin.html';
-      } else {
-        /* Replace the single link with a user menu wrapper */
-        const wrapper = document.createElement('div');
-        wrapper.style.cssText = 'position:relative;display:inline-flex;align-items:center;gap:6px;';
-        wrapper.id = 'keyify-user-menu';
+    const API_BASE  = (window.KEYIFY_CONFIG && window.KEYIFY_CONFIG.API_BASE) || 'http://localhost:3001/api';
+    const firstName = escHtml(name.split(' ')[0]);
+    const initials  = name.split(' ').map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
 
-        const profileA = document.createElement('a');
-        profileA.href = 'profile.html';
-        profileA.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:6px 10px;font-size:0.875rem;font-weight:700;color:#1D6AFF;text-decoration:none;';
-        profileA.innerHTML = `
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-          </svg>
-          <span>${escHtml(name.split(' ')[0])}</span>`;
+    /* ── Inject one-time styles ── */
+    if (!document.getElementById('kf-dd-style')) {
+      const st = document.createElement('style');
+      st.id = 'kf-dd-style';
+      st.textContent = `
+        @keyframes kf-dd-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+        #kf-dd-trigger:hover{background:rgba(29,106,255,0.1)!important;border-color:rgba(29,106,255,0.4)!important}
+        #kf-dd-panel a:hover,#kf-dd-panel .kf-item:hover{background:#f0f4ff!important}
+        #kf-dd-panel .kf-item-danger:hover{background:#fff5f5!important}`;
+      document.head.appendChild(st);
+    }
 
-        const logoutBtn = document.createElement('button');
-        logoutBtn.title = 'Logout';
-        logoutBtn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;border:1px solid #fee2e2;background:#fff5f5;color:#ef4444;cursor:pointer;flex-shrink:0;';
-        logoutBtn.innerHTML = `<svg style="width:15px;height:15px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>`;
-        logoutBtn.addEventListener('click', function(e) { e.preventDefault(); _logout(); });
+    /* ── Wrapper ── */
+    const wrapper = document.createElement('div');
+    wrapper.id = 'keyify-user-menu';
+    wrapper.style.cssText = 'position:relative;display:inline-flex;align-items:center;';
 
-        wrapper.appendChild(profileA);
-        wrapper.appendChild(logoutBtn);
-        accountLink.replaceWith(wrapper);
+    /* ── Trigger button ── */
+    const btn = document.createElement('button');
+    btn.id = 'kf-dd-trigger';
+    btn.style.cssText = 'display:inline-flex;align-items:center;gap:7px;padding:4px 10px 4px 4px;border:1px solid rgba(29,106,255,0.2);border-radius:12px;background:rgba(29,106,255,0.05);cursor:pointer;font-family:inherit;transition:all .15s;';
+    btn.innerHTML = `
+      <span style="width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;background:linear-gradient(135deg,#1D6AFF,#A259FF);flex-shrink:0">${initials}</span>
+      <span style="font-size:13px;font-weight:600;color:#1D6AFF;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${firstName}</span>
+      <svg id="kf-dd-chevron" style="width:11px;height:11px;color:#1D6AFF;transition:transform .2s;flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>`;
+
+    /* ── Dropdown panel ── */
+    const panel = document.createElement('div');
+    panel.id = 'kf-dd-panel';
+    panel.style.cssText = 'display:none;position:absolute;top:calc(100% + 8px);right:0;width:224px;background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,0.12);z-index:9999;overflow:hidden;animation:kf-dd-in .13s ease;';
+
+    const adminItem = role === 'admin' ? `
+      <a href="admin.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:9px 12px;font-size:13px;font-weight:600;color:#A259FF;text-decoration:none;transition:background .1s">
+        <svg style="width:15px;height:15px;flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Admin panel
+      </a>` : '';
+
+    panel.innerHTML = `
+      <div style="padding:11px 13px;border-bottom:1px solid rgba(0,0,0,0.06)">
+        <div style="font-size:12px;font-weight:700;color:#111;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(name)}</div>
+        <div style="font-size:11px;color:#9ca3af;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(email)}</div>
+      </div>
+      <div style="padding:4px">
+        <button class="kf-item" id="kf-orders-btn" style="display:flex;align-items:center;gap:10px;padding:9px 12px;font-size:13px;font-weight:500;color:#374151;background:transparent;border:none;width:100%;cursor:pointer;border-radius:8px;text-align:left;transition:background .1s">
+          <svg style="width:15px;height:15px;flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          Narudžbe
+        </button>
+        <a href="profile.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:9px 12px;font-size:13px;font-weight:500;color:#374151;text-decoration:none;border-radius:8px;transition:background .1s">
+          <svg style="width:15px;height:15px;flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          Moj profil
+        </a>
+        ${adminItem}
+      </div>
+      <div style="border-top:1px solid rgba(0,0,0,0.06);padding:4px">
+        <button class="kf-item kf-item-danger" id="kf-logout-btn" style="display:flex;align-items:center;gap:10px;padding:9px 12px;font-size:13px;font-weight:500;color:#ef4444;background:transparent;border:none;width:100%;cursor:pointer;border-radius:8px;text-align:left;transition:background .1s">
+          <svg style="width:15px;height:15px;flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          Odjava
+        </button>
+      </div>`;
+
+    /* ── Toggle logic ── */
+    let _open = false;
+    function _openDD()  { _open = true;  panel.style.display = 'block'; document.getElementById('kf-dd-chevron').style.transform = 'rotate(180deg)'; }
+    function _closeDD() { _open = false; panel.style.display = 'none';  const ch = document.getElementById('kf-dd-chevron'); if (ch) ch.style.transform = ''; }
+    btn.addEventListener('click', e => { e.stopPropagation(); _open ? _closeDD() : _openDD(); });
+    document.addEventListener('click', () => { if (_open) _closeDD(); });
+    panel.addEventListener('click', e => e.stopPropagation());
+
+    /* ── Orders button ── */
+    panel.querySelector('#kf-orders-btn').addEventListener('click', () => {
+      _closeDD();
+      _openOrdersModal(token, API_BASE);
+    });
+
+    /* ── Logout button ── */
+    panel.querySelector('#kf-logout-btn').addEventListener('click', () => _logout());
+
+    wrapper.appendChild(btn);
+    wrapper.appendChild(panel);
+    accountLink.replaceWith(wrapper);
+  }
+
+  /* ── Purchases modal (lazy-created) ── */
+  function _openOrdersModal(token, API_BASE) {
+    let overlay = document.getElementById('kf-orders-modal');
+    if (overlay) { overlay.style.display = 'flex'; _fetchOrders(token, API_BASE); return; }
+
+    overlay = document.createElement('div');
+    overlay.id = 'kf-orders-modal';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);animation:kf-dd-in .15s ease';
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:20px;padding:26px 28px;width:100%;max-width:580px;max-height:82vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.25)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h3 style="font-family:'Poppins',sans-serif;font-size:16px;font-weight:700;color:#111;margin:0">📦 Moje narudžbe</h3>
+          <button id="kf-orders-close" style="width:30px;height:30px;border:none;background:#f3f4f6;border-radius:8px;cursor:pointer;font-size:15px;color:#6b7280;display:flex;align-items:center;justify-content:center">✕</button>
+        </div>
+        <div id="kf-orders-body" style="min-height:60px;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:14px">Učitavanje...</div>
+      </div>`;
+
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.style.display = 'none'; });
+    overlay.querySelector('#kf-orders-close').addEventListener('click', () => { overlay.style.display = 'none'; });
+    _fetchOrders(token, API_BASE);
+  }
+
+  async function _fetchOrders(token, API_BASE) {
+    const body = document.getElementById('kf-orders-body');
+    if (!body) return;
+    body.innerHTML = '<span style="color:#9ca3af;font-size:14px">Učitavanje...</span>';
+    try {
+      const res  = await fetch(`${API_BASE}/user/purchases`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Greška');
+      if (!data.length) {
+        body.innerHTML = '<div style="text-align:center;padding:24px;color:#9ca3af;font-size:14px">Nema narudžbi za prikaz.</div>';
+        return;
       }
+      body.style.display = 'block';
+      body.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="border-bottom:2px solid #f3f4f6">
+          <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Proizvod</th>
+          <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Iznos</th>
+          <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Status</th>
+          <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Datum</th>
+        </tr></thead>
+        <tbody>${data.map(t => `<tr style="border-bottom:1px solid #f9fafb">
+          <td style="padding:10px;font-weight:500;color:#111">${escHtml(t.product_name || '–')}</td>
+          <td style="padding:10px;color:#1D6AFF;font-weight:600">€ ${parseFloat(t.amount || 0).toFixed(2)}</td>
+          <td style="padding:10px">${t.status === 'completed'
+            ? '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:9px;font-size:11px;font-weight:600">Plaćeno</span>'
+            : '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:9px;font-size:11px;font-weight:600">Na čekanju</span>'}</td>
+          <td style="padding:10px;color:#6b7280;font-size:12px">${t.created_at ? new Date(t.created_at).toLocaleDateString('sr-RS') : '–'}</td>
+        </tr>`).join('')}</tbody></table>`;
+    } catch (err) {
+      body.innerHTML = `<div style="text-align:center;padding:24px;color:#ef4444;font-size:13px">Greška: ${escHtml(err.message)}</div>`;
     }
   }
 

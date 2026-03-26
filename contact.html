@@ -624,10 +624,43 @@
         });
     });
 
-    document.getElementById('contact-form').addEventListener('submit', function(e) {
+    const API_BASE = window.KEYIFY_CONFIG?.API_BASE || 'http://localhost:3001/api';
+
+    document.getElementById('contact-form').addEventListener('submit', async function(e) {
         e.preventDefault();
-        this.style.display = 'none';
-        document.getElementById('success-msg').classList.remove('hidden');
+        const btn  = this.querySelector('button[type="submit"]');
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Slanje...';
+
+        try {
+            const res = await fetch(`${API_BASE}/contact`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({
+                    name:    document.getElementById('full-name').value.trim(),
+                    email:   document.getElementById('email').value.trim(),
+                    subject: document.getElementById('tema').value,
+                    message: document.getElementById('poruka').value.trim(),
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Greška pri slanju');
+            this.style.display = 'none';
+            document.getElementById('success-msg').classList.remove('hidden');
+        } catch (err) {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+            // Show inline error
+            let errEl = document.getElementById('contact-err');
+            if (!errEl) {
+                errEl = document.createElement('div');
+                errEl.id = 'contact-err';
+                errEl.className = 'mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-medium';
+                this.appendChild(errEl);
+            }
+            errEl.textContent = err.message;
+        }
     });
 </script>
 <script src="config.js"></script>

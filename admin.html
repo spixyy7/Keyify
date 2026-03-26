@@ -238,6 +238,22 @@
       <span data-i18n="admin.nav.site">Keyify Sajt</span>
     </a>
 
+    <!-- Advanced tools -->
+    <div class="text-xs font-semibold text-dark-400 uppercase tracking-widest px-2 mt-5 mb-3">Alati</div>
+    <a class="sidebar-link relative" onclick="showSection('support')" id="nav-support">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+      <span>Podrška</span>
+      <span id="support-badge" class="hidden ml-auto w-5 h-5 rounded-full text-white text-xs font-bold flex items-center justify-center" style="background:#ef4444;min-width:20px">0</span>
+    </a>
+    <a class="sidebar-link" onclick="showSection('promos')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+      <span>Promo kodovi</span>
+    </a>
+    <a class="sidebar-link" onclick="showSection('sql')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+      <span>SQL Editor</span>
+    </a>
+
     <!-- Visual Editor launcher -->
     <div class="mt-3 px-2">
       <div class="text-xs font-semibold text-dark-400 uppercase tracking-widest mb-2">Live Editor</div>
@@ -622,7 +638,210 @@
       </div>
     </div>
 
+    <!-- ═══════════════════════ SUPPORT HUB ═══════════════════════ -->
+    <div id="section-support" class="section space-y-5">
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="p-5 border-b flex items-center justify-between" style="border-color:rgba(255,255,255,0.06)">
+          <div>
+            <h3 class="font-display font-semibold text-white">Tiketi za podršku</h3>
+            <p class="text-xs text-dark-300 mt-0.5">Poruke primljene putem kontakt forme</p>
+          </div>
+          <button onclick="loadTickets()" class="text-dark-300 hover:text-white text-xs font-medium transition-colors">↻ Osvježi</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Pošiljalac</th>
+                <th>Tema</th>
+                <th>Status</th>
+                <th>Datum</th>
+                <th>Akcije</th>
+              </tr>
+            </thead>
+            <tbody id="tickets-table-body">
+              <tr><td colspan="5" class="text-center py-10 text-dark-300">Učitavanje tiketa...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ PROMO CODES ═══════════════════════ -->
+    <div id="section-promos" class="section space-y-5">
+
+      <!-- Create form -->
+      <div class="glass rounded-2xl p-6 space-y-4">
+        <h3 class="font-display font-semibold text-white mb-1">Kreiraj novi promo kod</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Kod *</label>
+            <input type="text" id="promo-code" placeholder="SAVE20" class="admin-input uppercase tracking-widest font-mono"/>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Tip popusta *</label>
+            <select id="promo-type" class="admin-input">
+              <option value="percent">Procenat (%)</option>
+              <option value="fixed">Fiksni iznos (€)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Vrijednost *</label>
+            <input type="number" id="promo-value" min="0.01" step="0.01" placeholder="20" class="admin-input"/>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Limit korišćenja</label>
+            <input type="number" id="promo-limit" min="1" placeholder="Neograničeno" class="admin-input"/>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Datum isteka</label>
+            <input type="datetime-local" id="promo-expires" class="admin-input"/>
+          </div>
+          <div class="flex items-end">
+            <label class="flex items-center gap-2.5 cursor-pointer pb-2.5">
+              <input type="checkbox" id="promo-active" checked class="w-4 h-4 rounded accent-blue-500"/>
+              <span class="text-sm text-dark-200">Aktivan</span>
+            </label>
+          </div>
+        </div>
+        <div id="promo-create-msg" style="display:none" class="px-3 py-2 rounded-lg text-xs font-semibold"></div>
+        <button onclick="createPromo()" class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 active:scale-95 transition-all"
+                style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 4v16m8-8H4"/></svg>
+          Kreiraj kod
+        </button>
+      </div>
+
+      <!-- Promo list -->
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="p-5 border-b" style="border-color:rgba(255,255,255,0.06)">
+          <h3 class="font-display font-semibold text-white">Svi promo kodovi</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Kod</th>
+                <th>Popust</th>
+                <th>Korišćeno</th>
+                <th>Ističe</th>
+                <th>Status</th>
+                <th>Akcije</th>
+              </tr>
+            </thead>
+            <tbody id="promos-table-body">
+              <tr><td colspan="6" class="text-center py-10 text-dark-300">Učitavanje...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ SQL EDITOR ═══════════════════════ -->
+    <div id="section-sql" class="section space-y-5">
+
+      <!-- PIN gate (shown first) -->
+      <div id="sql-pin-gate" class="max-w-sm mx-auto glass rounded-2xl p-8 text-center space-y-4">
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto" style="background:rgba(162,89,255,0.15)">
+          <svg class="w-7 h-7" style="color:#A259FF" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3 class="font-display font-bold text-white text-lg">Sudo Mode</h3>
+        <p class="text-sm text-dark-300">Unesite SQL Master PIN za pristup editoru</p>
+        <input type="password" id="sql-pin-input" placeholder="••••••••" class="admin-input text-center tracking-widest font-mono text-lg"/>
+        <button onclick="unlockSqlEditor()" class="w-full py-3 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all"
+                style="background:linear-gradient(135deg,#A259FF,#1D6AFF)">
+          Otključaj
+        </button>
+        <div id="sql-pin-err" style="display:none;color:#f87171;font-size:12px;font-weight:500"></div>
+      </div>
+
+      <!-- SQL editor (hidden until PIN verified) -->
+      <div id="sql-editor-panel" style="display:none" class="space-y-4">
+
+        <!-- Security notice -->
+        <div class="flex items-start gap-3 px-4 py-3 rounded-xl" style="background:rgba(162,89,255,0.1);border:1px solid rgba(162,89,255,0.25)">
+          <svg class="w-4 h-4 mt-0.5 flex-shrink-0" style="color:#A259FF" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <p class="text-xs text-dark-300">Samo <strong class="text-dark-200">SELECT</strong> upiti su dozvoljeni. Sve akcije se bilježe u audit log.</p>
+        </div>
+
+        <!-- Query editor -->
+        <div class="glass rounded-2xl overflow-hidden">
+          <div class="p-4 border-b flex items-center justify-between" style="border-color:rgba(255,255,255,0.06);background:rgba(0,0,0,0.3)">
+            <span class="text-xs font-mono font-semibold text-dark-300 uppercase tracking-widest">SQL Query</span>
+            <div class="flex gap-2">
+              <button onclick="runSqlQuery()" id="sql-run-btn"
+                      class="flex items-center gap-2 px-4 py-1.5 rounded-lg text-white text-xs font-semibold hover:opacity-90 transition-all"
+                      style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M5 3l14 9-14 9V3z"/></svg>
+                Izvedi upit
+              </button>
+              <button onclick="document.getElementById('sql-pin-gate').style.display='block';document.getElementById('sql-editor-panel').style.display='none';document.getElementById('sql-pin-input').value=''"
+                      class="px-3 py-1.5 rounded-lg text-dark-300 hover:text-white text-xs font-semibold transition-colors"
+                      style="background:rgba(255,255,255,0.06)">
+                🔒 Zaključaj
+              </button>
+            </div>
+          </div>
+          <textarea id="sql-query-input" rows="8" spellcheck="false" placeholder="SELECT * FROM products LIMIT 10;"
+                    class="w-full bg-transparent text-sm font-mono text-green-300 resize-none focus:outline-none p-5"
+                    style="background:rgba(0,0,0,0.4)"></textarea>
+        </div>
+
+        <!-- Results -->
+        <div class="glass rounded-2xl overflow-hidden">
+          <div class="p-4 border-b flex items-center justify-between" style="border-color:rgba(255,255,255,0.06)">
+            <span class="text-xs font-semibold text-dark-300 uppercase tracking-widest">Rezultati</span>
+            <span id="sql-row-count" class="text-xs text-dark-400">–</span>
+          </div>
+          <div id="sql-results" class="overflow-x-auto p-4 min-h-16">
+            <p class="text-dark-400 text-sm text-center py-4">Nema rezultata.</p>
+          </div>
+        </div>
+
+        <!-- Audit log -->
+        <div class="glass rounded-2xl overflow-hidden">
+          <div class="p-5 border-b flex items-center justify-between" style="border-color:rgba(255,255,255,0.06)">
+            <h3 class="font-display font-semibold text-white text-sm">Audit Log (SQL)</h3>
+            <button onclick="loadSqlLogs()" class="text-dark-300 hover:text-white text-xs transition-colors">↻ Osvježi</button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="data-table">
+              <thead><tr><th>Korisnik</th><th>Query</th><th>Status</th><th>Redovi</th><th>IP</th><th>Vrijeme</th></tr></thead>
+              <tbody id="sql-logs-body">
+                <tr><td colspan="6" class="text-center py-8 text-dark-300">Učitavanje...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </main>
+</div>
+
+<!-- ── TICKET REPLY MODAL ────────────────────────────────────── -->
+<div id="ticket-reply-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center" class="flex">
+  <div class="glass rounded-2xl w-full max-w-lg p-7 space-y-4" style="border:1px solid rgba(255,255,255,0.1)">
+    <div class="flex items-center justify-between">
+      <h3 class="font-display font-bold text-white text-base">📧 Odgovori korisniku</h3>
+      <button onclick="document.getElementById('ticket-reply-overlay').style.display='none'" class="text-dark-300 hover:text-white transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="text-sm text-dark-300 space-y-1">
+      <div>Primaoc: <span id="ticket-reply-email" class="text-white font-semibold"></span></div>
+      <div>Tema: <span id="ticket-reply-subject" class="text-white"></span></div>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Vaš odgovor *</label>
+      <textarea id="ticket-reply-text" rows="6" placeholder="Napišite odgovor..." class="admin-input resize-none"></textarea>
+    </div>
+    <div id="ticket-reply-msg" style="display:none;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:500"></div>
+    <div class="flex gap-3">
+      <button onclick="document.getElementById('ticket-reply-overlay').style.display='none'" class="flex-1 py-2.5 rounded-xl text-dark-200 text-sm font-semibold border border-dark-600 hover:border-dark-400 transition-colors">Otkaži</button>
+      <button id="ticket-send-btn" onclick="sendTicketReply()" class="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all" style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">📧 Pošalji odgovor</button>
+    </div>
+  </div>
 </div>
 
 <!-- ── PRODUCT MODAL ─────────────────────────────────────────── -->
@@ -757,6 +976,18 @@
             <input type="checkbox" id="cu-perm-view_financials" class="w-3.5 h-3.5 rounded accent-blue-500"/>
             <span class="text-xs text-dark-200">💰 Pregled finansija</span>
           </label>
+          <label class="flex items-center gap-2.5 cursor-pointer">
+            <input type="checkbox" id="cu-perm-can_manage_promos" class="w-3.5 h-3.5 rounded accent-blue-500"/>
+            <span class="text-xs text-dark-200">🏷️ Promo kodovi</span>
+          </label>
+          <label class="flex items-center gap-2.5 cursor-pointer">
+            <input type="checkbox" id="cu-perm-can_manage_support" class="w-3.5 h-3.5 rounded accent-blue-500"/>
+            <span class="text-xs text-dark-200">🎧 Podrška</span>
+          </label>
+          <label class="flex items-center gap-2.5 cursor-pointer">
+            <input type="checkbox" id="cu-perm-can_execute_sql" class="w-3.5 h-3.5 rounded accent-blue-500"/>
+            <span class="text-xs text-dark-200">🗄️ SQL Editor</span>
+          </label>
         </div>
       </div>
       <div id="cu-msg" style="display:none;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:500"></div>
@@ -839,6 +1070,18 @@
           <label class="flex items-center gap-3 cursor-pointer group">
             <input type="checkbox" id="perm-view_financials" class="w-4 h-4 rounded accent-blue-500"/>
             <span class="text-sm text-dark-200 group-hover:text-white transition-colors">💰 Može pregledati finansije</span>
+          </label>
+          <label class="flex items-center gap-3 cursor-pointer group">
+            <input type="checkbox" id="perm-can_manage_promos" class="w-4 h-4 rounded accent-blue-500"/>
+            <span class="text-sm text-dark-200 group-hover:text-white transition-colors">🏷️ Upravljanje promo kodovima</span>
+          </label>
+          <label class="flex items-center gap-3 cursor-pointer group">
+            <input type="checkbox" id="perm-can_manage_support" class="w-4 h-4 rounded accent-blue-500"/>
+            <span class="text-sm text-dark-200 group-hover:text-white transition-colors">🎧 Upravljanje podrškom</span>
+          </label>
+          <label class="flex items-center gap-3 cursor-pointer group">
+            <input type="checkbox" id="perm-can_execute_sql" class="w-4 h-4 rounded accent-blue-500"/>
+            <span class="text-sm text-dark-200 group-hover:text-white transition-colors">🗄️ SQL Editor (super-admin)</span>
           </label>
         </div>
         <div id="ud-perm-msg" style="display:none;margin-top:8px;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:500"></div>
@@ -946,7 +1189,19 @@
       theme:     ['admin.section.themeTitle',     'admin.section.themeSub'],
       payments:  ['admin.section.paymentsTitle',  'admin.section.paymentsSub'],
       security:  ['admin.section.securityTitle',  'admin.section.securitySub'],
+      support:   ['admin.section.securityTitle',  'admin.section.securitySub'],
+      promos:    ['admin.section.securityTitle',  'admin.section.securitySub'],
+      sql:       ['admin.section.securityTitle',  'admin.section.securitySub'],
     };
+    const sectionLabels = { support: ['🎧 Podrška', 'Tiketi korisnika'], promos: ['🏷️ Promo kodovi', 'Upravljanje kodovima za popust'], sql: ['🗄️ SQL Editor', 'Direktni pristup bazi podataka'] };
+    if (sectionLabels[name]) {
+      document.getElementById('section-title').textContent    = sectionLabels[name][0];
+      document.getElementById('section-subtitle').textContent = sectionLabels[name][1];
+      if (name === 'support') loadTickets();
+      if (name === 'promos')  loadPromos();
+      if (name === 'sql')     loadSqlLogs();
+      return;
+    }
     const [titleKey, subKey] = titles[name] || ['admin.section.dashboardTitle', 'admin.section.dashboardSub'];
     document.getElementById('section-title').textContent    = t(titleKey);
     document.getElementById('section-subtitle').textContent = t(subKey);
@@ -1412,7 +1667,7 @@
   }
 
   /* ── PERMISSIONS ── */
-  const PERM_KEYS = ['manage_products', 'edit_theme', 'manage_users', 'view_financials'];
+  const PERM_KEYS = ['manage_products', 'edit_theme', 'manage_users', 'view_financials', 'can_manage_promos', 'can_manage_support', 'can_execute_sql'];
 
   function loadUDPermissions(permissions) {
     const p = permissions || {};
@@ -1625,6 +1880,302 @@
     return d.toLocaleDateString('sr-RS',{day:'2-digit',month:'2-digit',year:'numeric'}) +
            ' ' + d.toLocaleTimeString('sr-RS',{hour:'2-digit',minute:'2-digit'});
   }
+
+  /* ══════════════════════════════════════════════════════
+     SUPPORT HUB
+  ══════════════════════════════════════════════════════ */
+
+  let _replyingTicketId = null;
+
+  async function loadTickets() {
+    const tbody = document.getElementById('tickets-table-body');
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10 text-dark-300">Učitavanje...</td></tr>';
+    try {
+      const res  = await fetch(`${API_BASE}/admin/tickets`, { headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      // Update badge
+      const openCount = data.filter(t => t.status === 'open').length;
+      const badge = document.getElementById('support-badge');
+      if (badge) { badge.textContent = openCount; badge.classList.toggle('hidden', openCount === 0); }
+
+      if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10 text-dark-300">Nema tiketa.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map(t => `
+        <tr>
+          <td>
+            <div class="font-medium text-white text-sm">${escHtml(t.name)}</div>
+            <div class="text-xs text-dark-300">${escHtml(t.email)}</div>
+          </td>
+          <td class="max-w-xs truncate">${escHtml(t.subject)}</td>
+          <td>${ticketStatusBadge(t.status)}</td>
+          <td class="text-xs">${fmtDate(t.created_at)}</td>
+          <td>
+            <div class="flex gap-2">
+              <button onclick="openTicketReply('${escHtml(t.id)}','${escHtml(t.email)}','${escHtml(t.subject)}')"
+                      class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white hover:opacity-90 transition-all"
+                      style="background:rgba(29,106,255,0.7)">Odgovori</button>
+              <button onclick="closeTicket('${escHtml(t.id)}')"
+                      class="px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-90 transition-all"
+                      style="background:rgba(255,255,255,0.07);color:#9090b8">Zatvori</button>
+            </div>
+          </td>
+        </tr>`).join('');
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-red-400">${escHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  function ticketStatusBadge(status) {
+    const map = {
+      open:    'background:rgba(239,68,68,0.2);color:#f87171',
+      replied: 'background:rgba(16,185,129,0.2);color:#10b981',
+      closed:  'background:rgba(255,255,255,0.06);color:#9090b8',
+    };
+    const labels = { open: 'Otvoren', replied: 'Odgovoreno', closed: 'Zatvoren' };
+    return `<span class="badge" style="${map[status] || ''}">${labels[status] || status}</span>`;
+  }
+
+  function openTicketReply(id, email, subject) {
+    _replyingTicketId = id;
+    document.getElementById('ticket-reply-email').textContent   = email;
+    document.getElementById('ticket-reply-subject').textContent = subject;
+    document.getElementById('ticket-reply-text').value = '';
+    document.getElementById('ticket-reply-msg').style.display = 'none';
+    document.getElementById('ticket-reply-overlay').style.display = 'flex';
+  }
+
+  async function sendTicketReply() {
+    const text = document.getElementById('ticket-reply-text').value.trim();
+    const msgEl = document.getElementById('ticket-reply-msg');
+    if (!text) { msgEl.textContent='Odgovor ne može biti prazan'; msgEl.style.cssText='display:block;background:rgba(220,38,38,0.15);color:#f87171;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:500'; return; }
+    const btn = document.getElementById('ticket-send-btn');
+    btn.disabled = true; btn.textContent = 'Slanje...';
+    try {
+      const res  = await fetch(`${API_BASE}/admin/tickets/${_replyingTicketId}/reply`, {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ reply_text: text }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      document.getElementById('ticket-reply-overlay').style.display = 'none';
+      showToast('Odgovor poslan!');
+      loadTickets();
+    } catch (err) {
+      msgEl.textContent = err.message;
+      msgEl.style.cssText = 'display:block;background:rgba(220,38,38,0.15);color:#f87171;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:500';
+    } finally {
+      btn.disabled = false; btn.textContent = '📧 Pošalji odgovor';
+    }
+  }
+
+  async function closeTicket(id) {
+    try {
+      const res = await fetch(`${API_BASE}/admin/tickets/${id}/status`, {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ status: 'closed' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      showToast('Tiket zatvoren');
+      loadTickets();
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  /* ══════════════════════════════════════════════════════
+     PROMO CODES
+  ══════════════════════════════════════════════════════ */
+
+  async function loadPromos() {
+    const tbody = document.getElementById('promos-table-body');
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-10 text-dark-300">Učitavanje...</td></tr>';
+    try {
+      const res  = await fetch(`${API_BASE}/admin/promos`, { headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-10 text-dark-300">Nema promo kodova.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map(p => `
+        <tr>
+          <td><span class="font-mono font-bold text-white tracking-widest">${escHtml(p.code)}</span></td>
+          <td>${p.discount_type === 'percent' ? escHtml(String(p.discount_value)) + '%' : '€' + escHtml(String(p.discount_value))}</td>
+          <td>${p.used_count}${p.usage_limit ? ' / ' + p.usage_limit : ' / ∞'}</td>
+          <td class="text-xs">${p.expires_at ? fmtDate(p.expires_at) : '–'}</td>
+          <td>${p.is_active ? '<span class="badge" style="background:rgba(16,185,129,0.2);color:#10b981">Aktivan</span>' : '<span class="badge" style="background:rgba(255,255,255,0.06);color:#9090b8">Neaktivan</span>'}</td>
+          <td>
+            <div class="flex gap-2">
+              <button onclick="togglePromo('${escHtml(p.id)}',${!p.is_active})"
+                      class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90"
+                      style="background:rgba(255,255,255,0.07);color:#9090b8">
+                ${p.is_active ? 'Deaktiviraj' : 'Aktiviraj'}
+              </button>
+              <button onclick="deletePromo('${escHtml(p.id)}','${escHtml(p.code)}')"
+                      class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90"
+                      style="background:rgba(220,38,38,0.2);color:#f87171">
+                Obriši
+              </button>
+            </div>
+          </td>
+        </tr>`).join('');
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-red-400">${escHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  async function createPromo() {
+    const msgEl = document.getElementById('promo-create-msg');
+    const body = {
+      code:           document.getElementById('promo-code').value.trim(),
+      discount_type:  document.getElementById('promo-type').value,
+      discount_value: document.getElementById('promo-value').value,
+      usage_limit:    document.getElementById('promo-limit').value || null,
+      expires_at:     document.getElementById('promo-expires').value || null,
+      is_active:      document.getElementById('promo-active').checked,
+    };
+    if (!body.code) { showPromoMsg(msgEl,'Unesite kod','error'); return; }
+    try {
+      const res  = await fetch(`${API_BASE}/admin/promos`, { method:'POST', headers:authHeaders(), body:JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      showPromoMsg(msgEl,'Promo kod kreiran!','success');
+      ['promo-code','promo-value','promo-limit','promo-expires'].forEach(id => { document.getElementById(id).value=''; });
+      loadPromos();
+    } catch (err) { showPromoMsg(msgEl,err.message,'error'); }
+  }
+
+  async function togglePromo(id, active) {
+    try {
+      const res  = await fetch(`${API_BASE}/admin/promos/${id}`, { method:'PUT', headers:authHeaders(), body:JSON.stringify({ is_active: active }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      showToast(active ? 'Promo aktiviran' : 'Promo deaktiviran');
+      loadPromos();
+    } catch (err) { showToast(err.message,'error'); }
+  }
+
+  async function deletePromo(id, code) {
+    if (!confirm(`Obrisati promo kod "${code}"?`)) return;
+    try {
+      const res  = await fetch(`${API_BASE}/admin/promos/${id}`, { method:'DELETE', headers:authHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      showToast('Promo kod obrisan');
+      loadPromos();
+    } catch (err) { showToast(err.message,'error'); }
+  }
+
+  function showPromoMsg(el, text, type) {
+    el.textContent = text;
+    el.style.cssText = type === 'success'
+      ? 'display:block;background:rgba(16,185,129,0.15);color:#10b981;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:500'
+      : 'display:block;background:rgba(220,38,38,0.15);color:#f87171;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:500';
+  }
+
+  /* ══════════════════════════════════════════════════════
+     SQL EDITOR
+  ══════════════════════════════════════════════════════ */
+
+  let _sqlPin = null;
+
+  function unlockSqlEditor() {
+    const pin = document.getElementById('sql-pin-input').value;
+    if (!pin) return;
+    _sqlPin = pin;
+    document.getElementById('sql-pin-gate').style.display   = 'none';
+    document.getElementById('sql-editor-panel').style.display = 'block';
+    document.getElementById('sql-pin-err').style.display = 'none';
+    loadSqlLogs();
+  }
+
+  async function runSqlQuery() {
+    const query  = document.getElementById('sql-query-input').value.trim();
+    const btn    = document.getElementById('sql-run-btn');
+    const results = document.getElementById('sql-results');
+    const countEl = document.getElementById('sql-row-count');
+    if (!query) return;
+    btn.disabled = true; btn.textContent = '⏳ Izvršavanje...';
+    results.innerHTML = '<p class="text-dark-400 text-sm text-center py-6">Izvršavanje upita...</p>';
+
+    try {
+      const res  = await fetch(`${API_BASE}/admin/sql/execute`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ query, pin: _sqlPin }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 401) {
+          // PIN wrong – go back to gate
+          _sqlPin = null;
+          document.getElementById('sql-editor-panel').style.display = 'none';
+          document.getElementById('sql-pin-gate').style.display     = 'block';
+          document.getElementById('sql-pin-err').style.display      = 'block';
+          document.getElementById('sql-pin-err').textContent         = data.error;
+          document.getElementById('sql-pin-input').value             = '';
+        }
+        throw new Error(data.error);
+      }
+
+      const rows = data.rows || [];
+      countEl.textContent = `${rows.length} red(ova)`;
+
+      if (!rows.length) {
+        results.innerHTML = '<p class="text-dark-400 text-sm text-center py-6">Upit izvršen. Nema rezultata.</p>';
+        return;
+      }
+      const cols = Object.keys(rows[0]);
+      results.innerHTML = `
+        <table class="data-table text-xs" style="min-width:600px">
+          <thead><tr>${cols.map(c => `<th>${escHtml(c)}</th>`).join('')}</tr></thead>
+          <tbody>${rows.map(row =>
+            `<tr>${cols.map(c => `<td class="font-mono">${escHtml(row[c] === null ? 'NULL' : String(row[c]))}</td>`).join('')}</tr>`
+          ).join('')}</tbody>
+        </table>`;
+      loadSqlLogs();
+    } catch (err) {
+      results.innerHTML = `<div class="text-red-400 text-sm font-mono p-4 rounded-lg" style="background:rgba(220,38,38,0.1)">ERROR: ${escHtml(err.message)}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M5 3l14 9-14 9V3z"/></svg> Izvedi upit';
+    }
+  }
+
+  async function loadSqlLogs() {
+    const tbody = document.getElementById('sql-logs-body');
+    if (!tbody) return;
+    try {
+      const res  = await fetch(`${API_BASE}/admin/sql/logs`, { headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok || !data.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-dark-300">Nema logova.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map(l => `
+        <tr>
+          <td class="text-xs">${escHtml(l.users?.name || '–')}</td>
+          <td class="font-mono text-xs max-w-xs truncate" title="${escHtml(l.query)}">${escHtml(l.query.slice(0,60))}${l.query.length>60?'…':''}</td>
+          <td>${l.success ? '<span class="badge" style="background:rgba(16,185,129,0.2);color:#10b981">OK</span>' : '<span class="badge" style="background:rgba(220,38,38,0.2);color:#f87171">ERR</span>'}</td>
+          <td class="text-xs">${l.row_count ?? '–'}</td>
+          <td class="font-mono text-xs">${escHtml(l.ip_address)}</td>
+          <td class="text-xs">${fmtDate(l.executed_at)}</td>
+        </tr>`).join('');
+    } catch { /* ignore */ }
+  }
+
+  /* ── Auto-load badge count on init ── */
+  (async function loadSupportBadge() {
+    try {
+      const res  = await fetch(`${API_BASE}/admin/tickets/unread-count`, { headers: authHeaders() });
+      if (!res.ok) return;
+      const { count } = await res.json();
+      const badge = document.getElementById('support-badge');
+      if (badge && count > 0) { badge.textContent = count; badge.classList.remove('hidden'); }
+    } catch { /* not enough permissions – ignore */ }
+  })();
 
   /* ── CSS spin animation ── */
   const style = document.createElement('style');

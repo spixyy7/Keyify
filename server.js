@@ -767,6 +767,296 @@ app.patch('/api/admin/users/:id/permissions', authenticateToken, checkPermission
 });
 
 /* ─────────────────────────────────────────
+   CONTACT / SUPPORT TICKETS
+───────────────────────────────────────── */
+
+/** POST /api/contact – public, saves ticket to support_tickets */
+app.post('/api/contact', async (req, res) => {
+  const { name, email, subject, message } = req.body;
+  if (!name || !email || !subject || !message)
+    return res.status(400).json({ error: 'Sva polja su obavezna' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return res.status(400).json({ error: 'Nevažeći email' });
+
+  const { error } = await supabase.from('support_tickets').insert({
+    name:       name.trim(),
+    email:      email.toLowerCase().trim(),
+    subject:    subject.trim(),
+    message:    message.trim(),
+    status:     'open',
+    created_at: new Date().toISOString(),
+  });
+  if (error) {
+    console.error('Contact insert error:', error);
+    return res.status(500).json({ error: 'Greška pri slanju poruke' });
+  }
+  return res.status(201).json({ message: 'Poruka uspješno poslana!' });
+});
+
+/** GET /api/admin/tickets/unread-count – returns count of 'open' tickets */
+app.get('/api/admin/tickets/unread-count', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  const { count, error } = await supabase
+    .from('support_tickets')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'open');
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json({ count: count || 0 });
+});
+
+/** GET /api/admin/tickets – list all tickets */
+app.get('/api/admin/tickets', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  const { data, error } = await supabase
+    .from('support_tickets')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json(data || []);
+});
+
+/** PUT /api/admin/tickets/:id/reply – reply by email + mark as replied */
+app.put('/api/admin/tickets/:id/reply', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  const { id } = req.params;
+  const { reply_text } = req.body;
+  if (!reply_text?.trim())
+    return res.status(400).json({ error: 'Odgovor ne može biti prazan' });
+
+  const { data: ticket } = await supabase
+    .from('support_tickets')
+    .select('name, email, subject')
+    .eq('id', id)
+    .maybeSingle();
+  if (!ticket) return res.status(404).json({ error: 'Tiket nije pronađen' });
+
+  // Send email reply
+  const replyHTML = `
+    <div style="font-family:'Inter',Arial,sans-serif;max-width:520px;margin:0 auto;background:#f8f9fb;border-radius:16px;overflow:hidden">
+      <div style="background:linear-gradient(135deg,#1D6AFF,#A259FF);padding:24px 32px">
+        <h1 style="color:#fff;margin:0;font-size:20px;font-weight:700">Keyify Podrška</h1>
+        <p style="color:rgba(255,255,255,0.8);margin:4px 0 0;font-size:13px">Re: ${escHTML(ticket.subject)}</p>
+      </div>
+      <div style="padding:28px 32px;background:#fff">
+        <p style="color:#555;margin:0 0 6px">Zdravo, <strong style="color:#111">${escHTML(ticket.name)}</strong>!</p>
+        <p style="color:#555;margin:0 0 20px;font-size:14px">Odgovor na vaš upit:</p>
+        <div style="background:#f0f4ff;border-left:4px solid #1D6AFF;border-radius:8px;padding:16px 20px;color:#1a1a2e;font-size:14px;line-height:1.6;white-space:pre-wrap">${escHTML(reply_text.trim())}</div>
+        <p style="color:#999;font-size:12px;margin:20px 0 0">Ako imate dodatnih pitanja, slobodno nas kontaktirajte ponovo.</p>
+      </div>
+    </div>`;
+
+  try {
+    await transporter.sendMail({
+      from:    `"Keyify Podrška" <${process.env.EMAIL_USER}>`,
+      to:      ticket.email,
+      subject: `Re: ${ticket.subject}`,
+      html:    replyHTML,
+    });
+  } catch (emailErr) {
+    console.error('Ticket reply email failed:', emailErr.message);
+    return res.status(500).json({ error: 'Greška pri slanju emaila: ' + emailErr.message });
+  }
+
+  const { error } = await supabase
+    .from('support_tickets')
+    .update({ status: 'replied', reply_text: reply_text.trim(), replied_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) return res.status(500).json({ error: 'Email poslan, ali greška pri ažuriranju tiketa' });
+
+  return res.json({ message: 'Odgovor poslan i tiket ažuriran' });
+});
+
+/** PUT /api/admin/tickets/:id/status – change ticket status */
+app.put('/api/admin/tickets/:id/status', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  if (!['open', 'replied', 'closed'].includes(status))
+    return res.status(400).json({ error: 'Nevažeći status' });
+  const { error } = await supabase.from('support_tickets').update({ status }).eq('id', id);
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json({ message: 'Status ažuriran' });
+});
+
+/* ─────────────────────────────────────────
+   PROMO CODES
+───────────────────────────────────────── */
+
+/** POST /api/checkout/apply-promo – public endpoint, validates a code */
+app.post('/api/checkout/apply-promo', async (req, res) => {
+  const { code, subtotal } = req.body;
+  if (!code) return res.status(400).json({ error: 'Unesite promo kod' });
+  if (!subtotal || subtotal <= 0) return res.status(400).json({ error: 'Nevažeći iznos narudžbe' });
+
+  const { data: promoRow } = await supabase
+    .from('promo_codes')
+    .select('*')
+    .ilike('code', code.trim())
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!promoRow)
+    return res.status(404).json({ error: 'Promo kod nije validan ili je neaktivan' });
+  if (promoRow.expires_at && new Date() > new Date(promoRow.expires_at))
+    return res.status(400).json({ error: 'Promo kod je istekao' });
+  if (promoRow.usage_limit !== null && promoRow.used_count >= promoRow.usage_limit)
+    return res.status(400).json({ error: 'Promo kod je dostigao limit korišćenja' });
+
+  const discount = promoRow.discount_type === 'percent'
+    ? parseFloat((subtotal * promoRow.discount_value / 100).toFixed(2))
+    : Math.min(parseFloat(promoRow.discount_value), subtotal);
+
+  const newTotal = Math.max(0, parseFloat((subtotal - discount).toFixed(2)));
+
+  return res.json({
+    valid:          true,
+    code:           promoRow.code,
+    discount_type:  promoRow.discount_type,
+    discount_value: promoRow.discount_value,
+    discount_amount: discount,
+    new_total:      newTotal,
+    message:        promoRow.discount_type === 'percent'
+      ? `Kod "${promoRow.code}" – popust ${promoRow.discount_value}% (−€${discount.toFixed(2)})`
+      : `Kod "${promoRow.code}" – popust −€${discount.toFixed(2)}`,
+  });
+});
+
+/** GET /api/admin/promos */
+app.get('/api/admin/promos', authenticateToken, checkPermission('can_manage_promos'), async (req, res) => {
+  const { data, error } = await supabase
+    .from('promo_codes')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json(data || []);
+});
+
+/** POST /api/admin/promos */
+app.post('/api/admin/promos', authenticateToken, checkPermission('can_manage_promos'), async (req, res) => {
+  const { code, discount_type, discount_value, usage_limit, expires_at, is_active } = req.body;
+  if (!code?.trim()) return res.status(400).json({ error: 'Kod je obavezan' });
+  if (!['percent', 'fixed'].includes(discount_type))
+    return res.status(400).json({ error: 'Tip popusta mora biti percent ili fixed' });
+  if (!discount_value || parseFloat(discount_value) <= 0)
+    return res.status(400).json({ error: 'Vrijednost popusta mora biti > 0' });
+  if (discount_type === 'percent' && parseFloat(discount_value) > 100)
+    return res.status(400).json({ error: 'Procenat ne može biti veći od 100' });
+
+  const { data, error } = await supabase.from('promo_codes').insert({
+    code:           code.trim().toUpperCase(),
+    discount_type,
+    discount_value: parseFloat(discount_value),
+    usage_limit:    usage_limit ? parseInt(usage_limit) : null,
+    expires_at:     expires_at || null,
+    is_active:      is_active !== false,
+    created_by:     req.user.id,
+    created_at:     new Date().toISOString(),
+  }).select().single();
+
+  if (error) {
+    if (error.code === '23505') return res.status(409).json({ error: 'Promo kod već postoji' });
+    return res.status(500).json({ error: 'Greška pri kreiranju koda' });
+  }
+  return res.status(201).json(data);
+});
+
+/** PUT /api/admin/promos/:id */
+app.put('/api/admin/promos/:id', authenticateToken, checkPermission('can_manage_promos'), async (req, res) => {
+  const { id } = req.params;
+  const { discount_type, discount_value, usage_limit, expires_at, is_active } = req.body;
+  const updates = {};
+  if (discount_type)  updates.discount_type  = discount_type;
+  if (discount_value) updates.discount_value = parseFloat(discount_value);
+  if (usage_limit !== undefined) updates.usage_limit = usage_limit ? parseInt(usage_limit) : null;
+  if (expires_at !== undefined)  updates.expires_at  = expires_at || null;
+  if (is_active  !== undefined)  updates.is_active   = Boolean(is_active);
+
+  const { error } = await supabase.from('promo_codes').update(updates).eq('id', id);
+  if (error) return res.status(500).json({ error: 'Greška pri ažuriranju' });
+  return res.json({ message: 'Promo kod ažuriran' });
+});
+
+/** DELETE /api/admin/promos/:id */
+app.delete('/api/admin/promos/:id', authenticateToken, checkPermission('can_manage_promos'), async (req, res) => {
+  const { error } = await supabase.from('promo_codes').delete().eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: 'Greška pri brisanju' });
+  return res.json({ message: 'Promo kod obrisan' });
+});
+
+/* ─────────────────────────────────────────
+   SQL EDITOR (super-admin, PIN-gated)
+───────────────────────────────────────── */
+
+/** POST /api/admin/sql/execute */
+app.post('/api/admin/sql/execute', authenticateToken, checkPermission('can_execute_sql'), async (req, res) => {
+  const { query, pin } = req.body;
+  const ip = getClientIP(req);
+
+  if (!query?.trim())
+    return res.status(400).json({ error: 'Query ne može biti prazan' });
+
+  // Verify master PIN
+  const masterPin = process.env.SQL_MASTER_PIN;
+  if (!masterPin || pin !== masterPin) {
+    // Log failed attempt
+    await supabase.from('sql_audit_logs').insert({
+      user_id:     req.user.id,
+      ip_address:  ip,
+      query:       query.trim(),
+      success:     false,
+      error_msg:   'Pogrešan SQL Master PIN',
+      executed_at: new Date().toISOString(),
+    });
+    return res.status(401).json({ error: 'Pogrešan SQL Master PIN' });
+  }
+
+  let success = false;
+  let result  = null;
+  let errMsg  = null;
+  let rowCount = 0;
+
+  try {
+    const { data, error } = await supabase.rpc('keyify_execute_sql', { p_sql: query.trim() });
+    if (error) throw new Error(error.message);
+    result   = Array.isArray(data) ? data : (data ? [data] : []);
+    rowCount = result.length;
+    success  = true;
+  } catch (err) {
+    errMsg = err.message;
+  }
+
+  // Audit log every execution (success or failure)
+  await supabase.from('sql_audit_logs').insert({
+    user_id:     req.user.id,
+    ip_address:  ip,
+    query:       query.trim(),
+    success,
+    error_msg:   errMsg || null,
+    row_count:   rowCount,
+    executed_at: new Date().toISOString(),
+  });
+
+  if (!success)
+    return res.status(400).json({ error: errMsg || 'SQL Greška' });
+
+  return res.json({ rows: result, row_count: rowCount });
+});
+
+/** GET /api/admin/sql/logs – view recent SQL audit logs */
+app.get('/api/admin/sql/logs', authenticateToken, checkPermission('can_execute_sql'), async (req, res) => {
+  const { data, error } = await supabase
+    .from('sql_audit_logs')
+    .select('id, query, success, error_msg, row_count, ip_address, executed_at, users(name, email)')
+    .order('executed_at', { ascending: false })
+    .limit(50);
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json(data || []);
+});
+
+/* ─────────────────────────────────────────
+   Helper: HTML escape for email templates
+───────────────────────────────────────── */
+function escHTML(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ─────────────────────────────────────────
    Health check
 ───────────────────────────────────────── */
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
