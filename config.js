@@ -12,7 +12,7 @@
 
 window.KEYIFY_CONFIG = {
   // ── Change this to your Railway URL after deployment ──────────────────
-  API_URL: 'keyify-production.up.railway.app',
+  API_URL: 'https://keyify-production.up.railway.app/api',
   // ─────────────────────────────────────────────────────────────────────
 
   // Falls back to localhost in development automatically
