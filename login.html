@@ -346,6 +346,88 @@
                 </button>
             </div>
 
+            <!-- FORGOT PASSWORD FORM -->
+            <div id="forgot-form" class="hidden">
+                <div class="text-center mb-6">
+                    <div class="w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4"
+                         style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+                    <h2 class="font-display font-bold text-gray-900 text-xl mb-1">Reset lozinke</h2>
+                    <p class="text-gray-500 text-sm font-medium">Unesite vaš email i poslaćemo vam link za reset.</p>
+                </div>
+                <p id="forgot-error" class="text-red-500 text-xs font-medium mb-3 hidden text-center"></p>
+                <p id="forgot-success" class="text-green-600 text-xs font-medium mb-3 hidden text-center"></p>
+                <form novalidate class="space-y-4" onsubmit="submitForgot(event)">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5" for="forgot-email">Email adresa</label>
+                        <input type="email" id="forgot-email" placeholder="vas@email.com"
+                               class="form-input w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 transition-all duration-200 font-medium"/>
+                    </div>
+                    <button type="submit" id="forgot-btn"
+                            class="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold py-3.5 rounded-xl transition-all duration-200 shadow-sm hover:shadow-blue-200 hover:shadow-lg text-sm mt-2">
+                        Pošalji link za reset
+                    </button>
+                </form>
+                <button type="button" onclick="backToLogin()"
+                        class="w-full mt-4 py-2 text-sm text-gray-500 hover:text-gray-700 font-medium transition-colors">
+                    ← Nazad na prijavu
+                </button>
+            </div>
+
+            <!-- RESET PASSWORD FORM -->
+            <div id="reset-form" class="hidden">
+                <div class="text-center mb-6">
+                    <div class="w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4"
+                         style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                        </svg>
+                    </div>
+                    <h2 class="font-display font-bold text-gray-900 text-xl mb-1">Nova lozinka</h2>
+                    <p class="text-gray-500 text-sm font-medium">Unesite novu lozinku za vaš nalog.</p>
+                </div>
+                <p id="reset-error" class="text-red-500 text-xs font-medium mb-3 hidden text-center"></p>
+                <p id="reset-success" class="text-green-600 text-xs font-medium mb-3 hidden text-center"></p>
+                <form novalidate class="space-y-4" onsubmit="submitReset(event)">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5" for="reset-password">Nova lozinka</label>
+                        <div class="relative">
+                            <input type="password" id="reset-password" placeholder="Min. 8 karaktera"
+                                   oninput="updateResetStrength(this.value)"
+                                   class="form-input w-full border border-gray-200 rounded-xl px-4 py-3 pr-12 text-sm text-gray-900 placeholder-gray-400 transition-all duration-200 font-medium"/>
+                            <button type="button" onclick="togglePassword('reset-password', this)"
+                                    class="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                                <svg class="w-4 h-4 eye-open" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                </svg>
+                                <svg class="w-4 h-4 eye-closed hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="mt-2">
+                            <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div id="reset-strength-bar" class="strength-bar h-full rounded-full w-0 bg-gray-300"></div>
+                            </div>
+                            <p id="reset-strength-label" class="text-xs text-gray-400 font-medium mt-1"></p>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5" for="reset-confirm">Potvrdi lozinku</label>
+                        <input type="password" id="reset-confirm" placeholder="Ponovite lozinku"
+                               class="form-input w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 transition-all duration-200 font-medium"/>
+                    </div>
+                    <button type="submit" id="reset-btn"
+                            class="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold py-3.5 rounded-xl transition-all duration-200 shadow-sm hover:shadow-blue-200 hover:shadow-lg text-sm mt-2">
+                        Sačuvaj novu lozinku
+                    </button>
+                </form>
+            </div>
+
             <!-- LOGIN FORM -->
             <div id="login-form">
                 <h2 class="font-display font-bold text-gray-900 text-xl mb-1">Dobrodošli nazad</h2>
@@ -376,7 +458,7 @@
                             </button>
                         </div>
                         <div class="flex justify-end mt-1.5">
-                            <a href="#" class="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors">Zaboravili ste lozinku?</a>
+                            <button type="button" onclick="showForgot()" class="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors">Zaboravili ste lozinku?</button>
                         </div>
                     </div>
 
@@ -623,6 +705,7 @@
     let pendingUserId = null;
     let currentLang   = localStorage.getItem('keyify_lang') || 'sr';
     let resendCooldown = false;
+    let resetToken = null;
 
     /* ── INIT ── */
     document.addEventListener('DOMContentLoaded', () => {
@@ -632,6 +715,13 @@
         if (token) {
             window.location.href = role === 'admin' ? 'admin.html' : 'index.html';
             return;
+        }
+        // Check for password reset token in URL
+        const params = new URLSearchParams(window.location.search);
+        const tok = params.get('reset');
+        if (tok) {
+            resetToken = tok;
+            showResetForm();
         }
         updateNavbar();
         applyLang(currentLang);
@@ -805,12 +895,112 @@
     /* ── BACK TO LOGIN ── */
     function backToLogin() {
         pendingUserId = null;
-        document.getElementById('otp-form').classList.add('hidden');
+        ['otp-form','forgot-form','reset-form','register-form'].forEach(id =>
+            document.getElementById(id)?.classList.add('hidden'));
         document.getElementById('login-form').classList.remove('hidden');
         document.querySelector('.flex.justify-center.mb-8')?.classList.remove('hidden');
         // Clear OTP boxes
         document.querySelectorAll('.otp-box').forEach(b => b.value = '');
         document.getElementById('otp-error').classList.add('hidden');
+    }
+
+    /* ── SHOW FORGOT PASSWORD ── */
+    function showForgot() {
+        ['login-form','otp-form','register-form','reset-form'].forEach(id =>
+            document.getElementById(id)?.classList.add('hidden'));
+        document.getElementById('forgot-form').classList.remove('hidden');
+        document.querySelector('.flex.justify-center.mb-8')?.classList.add('hidden');
+        document.getElementById('forgot-error')?.classList.add('hidden');
+        document.getElementById('forgot-success')?.classList.add('hidden');
+    }
+
+    /* ── SHOW RESET FORM ── */
+    function showResetForm() {
+        ['login-form','otp-form','register-form','forgot-form'].forEach(id =>
+            document.getElementById(id)?.classList.add('hidden'));
+        document.getElementById('reset-form').classList.remove('hidden');
+        document.querySelector('.flex.justify-center.mb-8')?.classList.add('hidden');
+    }
+
+    /* ── SUBMIT FORGOT PASSWORD ── */
+    async function submitForgot(e) {
+        e.preventDefault();
+        const email = document.getElementById('forgot-email').value.trim();
+        document.getElementById('forgot-error').classList.add('hidden');
+        document.getElementById('forgot-success').classList.add('hidden');
+        if (!email) { showError('forgot-error', 'Unesite email adresu'); return; }
+        setLoading('forgot-btn', true, 'Pošalji link za reset');
+        try {
+            const res  = await fetch(`${getApiBase()}/forgot-password`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ email }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Greška');
+            const el = document.getElementById('forgot-success');
+            el.textContent = data.message;
+            el.classList.remove('hidden');
+        } catch (err) {
+            showError('forgot-error', err.message);
+        } finally {
+            setLoading('forgot-btn', false, 'Pošalji link za reset');
+        }
+    }
+
+    /* ── SUBMIT RESET PASSWORD ── */
+    async function submitReset(e) {
+        e.preventDefault();
+        const password = document.getElementById('reset-password').value;
+        const confirm  = document.getElementById('reset-confirm').value;
+        document.getElementById('reset-error').classList.add('hidden');
+        document.getElementById('reset-success').classList.add('hidden');
+        if (password !== confirm) { showError('reset-error', 'Lozinke se ne podudaraju'); return; }
+        if (password.length < 8)  { showError('reset-error', 'Lozinka mora biti min. 8 karaktera'); return; }
+        setLoading('reset-btn', true, 'Sačuvaj novu lozinku');
+        try {
+            const res  = await fetch(`${getApiBase()}/reset-password`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ token: resetToken, password }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Greška');
+            const el = document.getElementById('reset-success');
+            el.textContent = data.message;
+            el.classList.remove('hidden');
+            setTimeout(() => {
+                window.history.replaceState({}, '', 'login.html');
+                backToLogin();
+            }, 2500);
+        } catch (err) {
+            showError('reset-error', err.message);
+        } finally {
+            setLoading('reset-btn', false, 'Sačuvaj novu lozinku');
+        }
+    }
+
+    /* ── PASSWORD STRENGTH (reset form) ── */
+    function updateResetStrength(val) {
+        const bar   = document.getElementById('reset-strength-bar');
+        const label = document.getElementById('reset-strength-label');
+        let score = 0;
+        if (val.length >= 8)          score++;
+        if (/[A-Z]/.test(val))        score++;
+        if (/[0-9]/.test(val))        score++;
+        if (/[^A-Za-z0-9]/.test(val)) score++;
+        const levels = [
+            { w: '0%',   bg: 'bg-gray-300',   text: '' },
+            { w: '25%',  bg: 'bg-red-400',    text: 'Slaba lozinka' },
+            { w: '50%',  bg: 'bg-orange-400', text: 'Umjerena lozinka' },
+            { w: '75%',  bg: 'bg-yellow-400', text: 'Dobra lozinka' },
+            { w: '100%', bg: 'bg-green-500',  text: 'Jaka lozinka' },
+        ];
+        const level = val.length === 0 ? levels[0] : (levels[score] || levels[1]);
+        bar.style.width = level.w;
+        bar.className   = `strength-bar h-full rounded-full ${level.bg}`;
+        label.textContent = level.text;
+        label.className = `text-xs font-medium mt-1 ${score <= 1 ? 'text-red-500' : score === 2 ? 'text-orange-500' : score === 3 ? 'text-yellow-600' : 'text-green-600'}`;
     }
 
     /* ── OTP INPUT HANDLING ── */

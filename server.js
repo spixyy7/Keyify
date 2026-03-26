@@ -1057,6 +1057,96 @@ function escHTML(str) {
 }
 
 /* ─────────────────────────────────────────
+   PASSWORD RESET
+───────────────────────────────────────── */
+
+/**
+ * POST /api/forgot-password
+ * Body: { email }
+ * Sends reset link. Always returns success to prevent email enumeration.
+ */
+app.post('/api/forgot-password', authLimiter, async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Unesite email adresu' });
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('id, name, email')
+    .eq('email', email.toLowerCase().trim())
+    .maybeSingle();
+
+  const genericMsg = { message: 'Ako je email registrovan, poslan je link za reset lozinke.' };
+  if (!user) return res.json(genericMsg);
+
+  const token   = crypto.randomBytes(32).toString('hex');
+  const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+
+  await supabase
+    .from('users')
+    .update({ reset_token: token, reset_expires: expires })
+    .eq('id', user.id);
+
+  const frontendUrl = (process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+  const resetLink   = `${frontendUrl}/login.html?reset=${token}`;
+
+  const html = `
+    <div style="font-family:'Inter',Arial,sans-serif;max-width:440px;margin:0 auto;background:#0f0f1a;border-radius:16px;overflow:hidden">
+      <div style="background:linear-gradient(135deg,#1D6AFF,#A259FF);padding:24px 32px">
+        <h1 style="color:#fff;margin:0;font-size:22px;font-weight:700">🔑 Keyify Reset Lozinke</h1>
+      </div>
+      <div style="padding:32px">
+        <p style="color:#aaa;margin:0 0 8px">Zdravo, <strong style="color:#fff">${user.name}</strong>!</p>
+        <p style="color:#aaa;margin:0 0 24px">Primili smo zahtjev za reset lozinke. Kliknite dugme ispod:</p>
+        <div style="text-align:center;margin:24px 0">
+          <a href="${resetLink}" style="background:linear-gradient(135deg,#1D6AFF,#A259FF);color:#fff;text-decoration:none;padding:14px 32px;border-radius:12px;font-weight:700;font-size:15px;display:inline-block">Resetuj lozinku</a>
+        </div>
+        <p style="color:#666;font-size:12px;margin:20px 0 0;text-align:center">Link je važeći <strong style="color:#aaa">1 sat</strong>. Ako niste vi iniciirali, zanemarite ovaj email.</p>
+      </div>
+    </div>`;
+
+  try {
+    await transporter.sendMail({
+      from:    `"Keyify" <${process.env.EMAIL_USER}>`,
+      to:      user.email,
+      subject: 'Keyify – Reset lozinke',
+      html,
+    });
+  } catch (err) {
+    console.error('Reset email failed:', err.message);
+  }
+
+  return res.json(genericMsg);
+});
+
+/**
+ * POST /api/reset-password
+ * Body: { token, password }
+ */
+app.post('/api/reset-password', authLimiter, async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) return res.status(400).json({ error: 'Nedostaju podaci' });
+  if (password.length < 8)  return res.status(400).json({ error: 'Lozinka mora biti min. 8 karaktera' });
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('id, reset_expires')
+    .eq('reset_token', token)
+    .maybeSingle();
+
+  if (!user) return res.status(400).json({ error: 'Link je nevažeći ili je istekao' });
+  if (!user.reset_expires || new Date() > new Date(user.reset_expires))
+    return res.status(400).json({ error: 'Link je istekao. Zatražite novi reset.' });
+
+  const password_hash = await bcrypt.hash(password, 12);
+  await supabase
+    .from('users')
+    .update({ password_hash, reset_token: null, reset_expires: null })
+    .eq('id', user.id);
+
+  return res.json({ message: 'Lozinka je uspješno resetovana. Možete se prijaviti.' });
+});
+
+/* ─────────────────────────────────────────
    Health check
 ───────────────────────────────────────── */
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
