@@ -87,7 +87,20 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
+  connectionTimeout: 8000,
+  greetingTimeout:   8000,
+  socketTimeout:     10000,
 });
+
+/** Send mail with a hard timeout so a hanging SMTP never blocks the response */
+function sendMailSafe(mailOptions, timeoutMs = 12000) {
+  return Promise.race([
+    transporter.sendMail(mailOptions),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Email timeout')), timeoutMs)
+    ),
+  ]);
+}
 
 /* ─────────────────────────────────────────
    Helpers
@@ -290,7 +303,7 @@ app.post('/api/login', authLimiter, async (req, res) => {
     </div>`;
 
   try {
-    await transporter.sendMail({
+    await sendMailSafe({
       from:    `"Keyify" <${process.env.EMAIL_USER}>`,
       to:      user.email,
       subject: `Keyify – Vaš verifikacijski kod: ${otp}`,
@@ -843,7 +856,7 @@ app.put('/api/admin/tickets/:id/reply', authenticateToken, checkPermission('can_
     </div>`;
 
   try {
-    await transporter.sendMail({
+    await sendMailSafe({
       from:    `"Keyify Podrška" <${process.env.EMAIL_USER}>`,
       to:      ticket.email,
       subject: `Re: ${ticket.subject}`,
@@ -1105,7 +1118,7 @@ app.post('/api/forgot-password', authLimiter, async (req, res) => {
     </div>`;
 
   try {
-    await transporter.sendMail({
+    await sendMailSafe({
       from:    `"Keyify" <${process.env.EMAIL_USER}>`,
       to:      user.email,
       subject: 'Keyify – Reset lozinke',
