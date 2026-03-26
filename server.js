@@ -23,7 +23,7 @@ const bcrypt      = require('bcryptjs');
 const jwt         = require('jsonwebtoken');
 const crypto      = require('crypto');
 const rateLimit   = require('express-rate-limit');
-const { Resend }  = require('resend');
+const nodemailer  = require('nodemailer');
 const { createClient } = require('@supabase/supabase-js');
 
 /* ─────────────────────────────────────────
@@ -81,12 +81,16 @@ app.use('/api', apiLimiter);
    Nodemailer transporter (Gmail)
    Use an App Password: https://myaccount.google.com/apppasswords
 ───────────────────────────────────────── */
-const resend = new Resend(process.env.RESEND_API_KEY);
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
-/** Send mail via Resend HTTPS API (works on Railway/Vercel, no SMTP ports needed) */
-async function sendMailSafe({ from, to, subject, html }) {
-  const { error } = await resend.emails.send({ from, to, subject, html });
-  if (error) throw new Error(error.message);
+async function sendMailSafe(mailOptions) {
+  return transporter.sendMail(mailOptions);
 }
 
 /* ─────────────────────────────────────────
@@ -299,7 +303,7 @@ app.post('/api/login', authLimiter, async (req, res) => {
 
   try {
     await sendMailSafe({
-      from:    process.env.RESEND_FROM || 'Keyify <onboarding@resend.dev>',
+      from:    `"Keyify" <${process.env.EMAIL_USER}>`,
       to:      user.email,
       subject: `Keyify – Vaš verifikacijski kod: ${otp}`,
       html:    otpHTML,
@@ -852,7 +856,7 @@ app.put('/api/admin/tickets/:id/reply', authenticateToken, checkPermission('can_
 
   try {
     await sendMailSafe({
-      from:    process.env.RESEND_FROM || 'Keyify <onboarding@resend.dev>',
+      from:    `"Keyify" <${process.env.EMAIL_USER}>`,
       to:      ticket.email,
       subject: `Re: ${ticket.subject}`,
       html:    replyHTML,
