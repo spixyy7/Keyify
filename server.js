@@ -24,6 +24,7 @@ const bcrypt      = require('bcryptjs');
 const jwt         = require('jsonwebtoken');
 const crypto      = require('crypto');
 const rateLimit   = require('express-rate-limit');
+const multer      = require('multer');
 const { createClient } = require('@supabase/supabase-js');
 
 /* ─────────────────────────────────────────
@@ -618,6 +619,28 @@ app.post('/api/admin/settings', authenticateToken, requireAdmin, async (req, res
    PRODUCTS ROUTES
 ───────────────────────────────────────── */
 
+/* Multer: memory storage, 5 MB limit, images only */
+const productUpload = multer({
+  storage: multer.memoryStorage(),
+  limits:  { fileSize: 5 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Dozvoljene su samo slike (image/*)'));
+  },
+}).single('image');
+
+/* Upload a file buffer to Supabase Storage → returns public URL */
+async function uploadProductImage(file) {
+  const ext      = (file.originalname.split('.').pop() || 'jpg').toLowerCase();
+  const filePath = `products/${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
+  const { error } = await supabase.storage
+    .from('product-images')
+    .upload(filePath, file.buffer, { contentType: file.mimetype, upsert: false });
+  if (error) throw new Error(`Storage: ${error.message}`);
+  const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(filePath);
+  return publicUrl;
+}
+
 /** GET /api/products – public */
 app.get('/api/products', async (req, res) => {
   const { category } = req.query;
@@ -634,7 +657,12 @@ app.get('/api/products', async (req, res) => {
 });
 
 /** POST /api/products – admin only */
-app.post('/api/products', authenticateToken, requireAdmin, async (req, res) => {
+app.post('/api/products', authenticateToken, requireAdmin, (req, res, next) => {
+  productUpload(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    next();
+  });
+}, async (req, res) => {
   const {
     name_sr, name_en,
     description_sr, description_en,
@@ -644,6 +672,13 @@ app.post('/api/products', authenticateToken, requireAdmin, async (req, res) => {
 
   if (!name_sr || !price || !category)
     return res.status(400).json({ error: 'Naziv, cijena i kategorija su obavezni' });
+
+  // File upload takes priority over URL
+  let finalImageUrl = image_url || null;
+  if (req.file) {
+    try { finalImageUrl = await uploadProductImage(req.file); }
+    catch (e) { return res.status(500).json({ error: e.message }); }
+  }
 
   const starsVal = stars !== undefined ? Math.min(5, Math.max(1, parseInt(stars) || 5)) : 5;
 
@@ -655,7 +690,7 @@ app.post('/api/products', authenticateToken, requireAdmin, async (req, res) => {
       price:          parseFloat(price),
       original_price: original_price ? parseFloat(original_price) : null,
       category,
-      image_url:      image_url || null,
+      image_url:      finalImageUrl,
       badge:          badge || null,
       stars:          starsVal,
       created_at:     new Date().toISOString(),
@@ -671,7 +706,12 @@ app.post('/api/products', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 /** PUT /api/products/:id – admin only */
-app.put('/api/products/:id', authenticateToken, requireAdmin, async (req, res) => {
+app.put('/api/products/:id', authenticateToken, requireAdmin, (req, res, next) => {
+  productUpload(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    next();
+  });
+}, async (req, res) => {
   const { id } = req.params;
   const {
     name_sr, name_en, description_sr, description_en,
@@ -687,11 +727,18 @@ app.put('/api/products/:id', authenticateToken, requireAdmin, async (req, res) =
   if (price            !== undefined) updates.price            = parseFloat(price);
   if (original_price   !== undefined) updates.original_price   = original_price ? parseFloat(original_price) : null;
   if (category         !== undefined) updates.category         = category;
-  if (image_url        !== undefined) updates.image_url        = image_url || null;
   if (badge            !== undefined) updates.badge            = badge || null;
   if (stars            !== undefined) updates.stars            = Math.min(5, Math.max(1, parseInt(stars) || 5));
   if (card_size        !== undefined) updates.card_size        = card_size;
   if (grid_order       !== undefined) updates.grid_order       = Number(grid_order);
+
+  // File upload takes priority; fall back to URL field; undefined = keep existing
+  if (req.file) {
+    try { updates.image_url = await uploadProductImage(req.file); }
+    catch (e) { return res.status(500).json({ error: e.message }); }
+  } else if (image_url !== undefined) {
+    updates.image_url = image_url || null;
+  }
 
   if (!Object.keys(updates).length)
     return res.status(400).json({ error: 'Nema podataka za ažuriranje' });
@@ -1585,6 +1632,99 @@ app.get('/api/admin/reset-requests', authenticateToken, requireAdmin, async (req
   }));
 
   return res.json(result);
+});
+
+/**
+ * POST /api/admin/reset-requests/:id/reject
+ * Marks a password-reset request as rejected and optionally emails the user.
+ */
+app.post('/api/admin/reset-requests/:id/reject', authenticateToken, requireAdmin, async (req, res) => {
+  const { id }     = req.params;
+  const { reason } = req.body;   // optional string
+
+  // Fetch the original audit_log entry to get user info
+  const { data: logEntry } = await supabase
+    .from('audit_logs')
+    .select('id, user_id, users(name, email)')
+    .eq('id', id)
+    .eq('action', 'password_reset_request')
+    .maybeSingle();
+
+  if (!logEntry) return res.status(404).json({ error: 'Zahtjev nije pronađen' });
+
+  const userEmail = logEntry.users?.email;
+  const userName  = logEntry.users?.name || 'Korisnik';
+
+  // Insert rejection audit record
+  await supabase.from('audit_logs').insert({
+    user_id:    logEntry.user_id,
+    action:     'password_reset_rejected',
+    ip:         getClientIP(req),
+    created_at: new Date().toISOString(),
+  });
+
+  // Send rejection email
+  if (userEmail) {
+    const reasonBlock = reason?.trim()
+      ? `<tr><td style="padding:12px 0">
+           <div style="background:#1e1e3a;border-left:3px solid #ef4444;padding:12px 16px;border-radius:0 8px 8px 0">
+             <p style="margin:0;font-size:13px;color:#9090b8;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Razlog odbijanja</p>
+             <p style="margin:8px 0 0;color:#e2e2f0;font-size:15px">${reason.trim()}</p>
+           </div>
+         </td></tr>`
+      : '';
+
+    await sendMailSafe({
+      from:    `"Keyify" <${process.env.EMAIL_USER}>`,
+      to:      userEmail,
+      subject: 'Vaš zahtjev za reset lozinke je odbijen',
+      html: `
+        <!DOCTYPE html><html><body style="margin:0;padding:0;background:#0a0a1a;font-family:'Inter',Arial,sans-serif">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a1a;padding:40px 20px">
+          <tr><td align="center">
+            <table width="560" cellpadding="0" cellspacing="0"
+                   style="background:#13132a;border-radius:20px;border:1px solid rgba(255,255,255,0.08);overflow:hidden;max-width:100%">
+              <tr><td style="padding:0">
+                <div style="background:linear-gradient(135deg,#ef4444,#b91c1c);padding:28px 32px;text-align:center">
+                  <div style="font-size:32px;margin-bottom:8px">🔒</div>
+                  <h1 style="margin:0;color:#fff;font-size:20px;font-weight:700">Zahtjev odbijen</h1>
+                </div>
+              </td></tr>
+              <tr><td style="padding:28px 32px">
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr><td style="padding-bottom:16px">
+                    <p style="margin:0;color:#e2e2f0;font-size:15px;line-height:1.6">
+                      Pozdrav <strong>${userName}</strong>,
+                    </p>
+                  </td></tr>
+                  <tr><td style="padding-bottom:16px">
+                    <p style="margin:0;color:#9090b8;font-size:14px;line-height:1.6">
+                      Vaš zahtjev za reset lozinke je pregledan od strane administratora i
+                      <strong style="color:#ef4444">odbijen</strong>.
+                    </p>
+                  </td></tr>
+                  ${reasonBlock}
+                  <tr><td style="padding-top:20px">
+                    <p style="margin:0;color:#5050a0;font-size:13px;line-height:1.6">
+                      Ako smatrate da je ovo greška ili trebate pomoć,
+                      kontaktirajte našu podršku.
+                    </p>
+                  </td></tr>
+                </table>
+              </td></tr>
+              <tr><td style="padding:16px 32px 24px;border-top:1px solid rgba(255,255,255,0.06)">
+                <p style="margin:0;color:#5050a0;font-size:11px;text-align:center">
+                  © ${new Date().getFullYear()} Keyify · Sve poruke su automatski generisane
+                </p>
+              </td></tr>
+            </table>
+          </td></tr>
+        </table>
+        </body></html>`,
+    }).catch(() => {});  // don't fail the request if email fails
+  }
+
+  return res.json({ ok: true, email_sent: !!userEmail });
 });
 
 /* ─────────────────────────────────────────

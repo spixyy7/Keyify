@@ -988,18 +988,48 @@
 
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">URL slike</label>
-          <input type="url" id="prod-image-url" placeholder="https://..." class="admin-input"/>
+          <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Slika proizvoda</label>
+          <!-- Tab toggle -->
+          <div class="flex gap-1 mb-2 p-1 rounded-lg" style="background:rgba(255,255,255,0.05);width:fit-content">
+            <button type="button" id="img-tab-url" onclick="switchImgTab('url')"
+                    style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(29,106,255,0.8);color:#fff;border:none;cursor:pointer;transition:all .15s">
+              🔗 URL
+            </button>
+            <button type="button" id="img-tab-file" onclick="switchImgTab('file')"
+                    style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;background:transparent;color:#9090b8;border:none;cursor:pointer;transition:all .15s">
+              📁 Upload
+            </button>
+          </div>
+          <!-- URL input -->
+          <div id="img-url-wrap">
+            <input type="url" id="prod-image-url" placeholder="https://..." class="admin-input" oninput="updateImgPreview()"/>
+          </div>
+          <!-- File drop zone -->
+          <div id="img-file-wrap" style="display:none">
+            <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px dashed rgba(255,255,255,0.15);border-radius:10px;cursor:pointer;background:rgba(255,255,255,0.03);font-size:12px;color:#9090b8;transition:border-color .2s" onmouseover="this.style.borderColor='rgba(29,106,255,0.5)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.15)'">
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+              <span id="img-file-name">Klikni ili prevuci sliku (max 5 MB)</span>
+              <input type="file" id="prod-image-file" accept="image/*" style="display:none" onchange="handleImgFile(this)"/>
+            </label>
+          </div>
         </div>
-        <div>
-          <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Badge</label>
-          <select id="prod-badge" class="admin-input">
-            <option value="">Bez badge-a</option>
-            <option value="SALE">SALE</option>
-            <option value="Bestseller">Bestseller</option>
-            <option value="Novo">Novo</option>
-            <option value="Popular">Popular</option>
-          </select>
+        <div class="flex flex-col gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Badge</label>
+            <select id="prod-badge" class="admin-input">
+              <option value="">Bez badge-a</option>
+              <option value="SALE">SALE</option>
+              <option value="Bestseller">Bestseller</option>
+              <option value="Novo">Novo</option>
+              <option value="Popular">Popular</option>
+            </select>
+          </div>
+          <!-- Live preview -->
+          <div id="img-preview-wrap" style="display:none">
+            <div class="text-xs font-semibold text-dark-400 mb-1 uppercase tracking-wide">Preview</div>
+            <img id="prod-image-preview" alt="preview"
+                 style="max-height:60px;max-width:100%;border-radius:8px;object-fit:contain;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);padding:4px"/>
+          </div>
         </div>
       </div>
 
@@ -1559,6 +1589,55 @@
     });
   }
 
+  /* ── IMAGE HYBRID HELPERS ── */
+  function switchImgTab(tab) {
+    const isUrl = tab === 'url';
+    document.getElementById('img-url-wrap').style.display  = isUrl ? '' : 'none';
+    document.getElementById('img-file-wrap').style.display = isUrl ? 'none' : '';
+    document.getElementById('img-tab-url').style.background  = isUrl ? 'rgba(29,106,255,0.8)' : 'transparent';
+    document.getElementById('img-tab-url').style.color       = isUrl ? '#fff' : '#9090b8';
+    document.getElementById('img-tab-file').style.background = isUrl ? 'transparent' : 'rgba(29,106,255,0.8)';
+    document.getElementById('img-tab-file').style.color      = isUrl ? '#9090b8' : '#fff';
+    if (isUrl) {
+      document.getElementById('prod-image-file').value = '';
+      document.getElementById('img-file-name').textContent = 'Klikni ili prevuci sliku (max 5 MB)';
+      updateImgPreview();
+    } else {
+      // clear URL preview when switching to file tab (file not chosen yet)
+      if (!document.getElementById('prod-image-file').files.length) {
+        document.getElementById('img-preview-wrap').style.display = 'none';
+      }
+    }
+  }
+
+  function handleImgFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    document.getElementById('img-file-name').textContent = `✓ ${file.name}`;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img  = document.getElementById('prod-image-preview');
+      const wrap = document.getElementById('img-preview-wrap');
+      img.src = ev.target.result;
+      img.onerror = () => { wrap.style.display = 'none'; };
+      img.onload  = () => { wrap.style.display = ''; };
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function updateImgPreview() {
+    const url  = document.getElementById('prod-image-url').value.trim();
+    const img  = document.getElementById('prod-image-preview');
+    const wrap = document.getElementById('img-preview-wrap');
+    if (url) {
+      img.src     = url;
+      img.onerror = () => { wrap.style.display = 'none'; };
+      img.onload  = () => { wrap.style.display = ''; };
+    } else {
+      wrap.style.display = 'none';
+    }
+  }
+
   /* ── PRODUCT MODAL ── */
   function openProductModal(product) {
     editingProduct = product;
@@ -1571,8 +1650,13 @@
     document.getElementById('prod-price').value         = product?.price       || '';
     document.getElementById('prod-original-price').value = product?.original_price || '';
     document.getElementById('prod-category').value     = product?.category    || '';
-    document.getElementById('prod-image-url').value    = product?.image_url   || '';
     document.getElementById('prod-badge').value        = product?.badge       || '';
+    // Reset image section
+    document.getElementById('prod-image-file').value = '';
+    document.getElementById('img-file-name').textContent = 'Klikni ili prevuci sliku (max 5 MB)';
+    document.getElementById('prod-image-url').value = product?.image_url || '';
+    switchImgTab('url');
+    updateImgPreview();
     document.getElementById('modal-overlay').classList.add('open');
   }
 
@@ -1583,26 +1667,41 @@
 
   async function saveProduct(e) {
     e.preventDefault();
-    const id = document.getElementById('product-id').value;
-    const body = {
-      name_sr:          document.getElementById('prod-name-sr').value,
-      name_en:          document.getElementById('prod-name-en').value,
-      description_sr:   document.getElementById('prod-desc-sr').value,
-      description_en:   document.getElementById('prod-desc-en').value,
-      price:            document.getElementById('prod-price').value,
-      original_price:   document.getElementById('prod-original-price').value || null,
-      category:         document.getElementById('prod-category').value,
-      image_url:        document.getElementById('prod-image-url').value || null,
-      badge:            document.getElementById('prod-badge').value || null,
+    const id       = document.getElementById('product-id').value;
+    const fileInp  = document.getElementById('prod-image-file');
+    const hasFile  = fileInp.files.length > 0;
+
+    const fields = {
+      name_sr:        document.getElementById('prod-name-sr').value,
+      name_en:        document.getElementById('prod-name-en').value,
+      description_sr: document.getElementById('prod-desc-sr').value,
+      description_en: document.getElementById('prod-desc-en').value,
+      price:          document.getElementById('prod-price').value,
+      original_price: document.getElementById('prod-original-price').value || '',
+      category:       document.getElementById('prod-category').value,
+      image_url:      document.getElementById('prod-image-url').value || '',
+      badge:          document.getElementById('prod-badge').value || '',
     };
 
-    try {
-      const url    = id ? `${API_BASE}/products/${id}` : `${API_BASE}/products`;
-      const method = id ? 'PUT' : 'POST';
-      const res    = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(body) });
-      const data   = await res.json();
-      if (!res.ok) throw new Error(data.error);
+    const endpoint = id ? `${API_BASE}/products/${id}` : `${API_BASE}/products`;
+    const method   = id ? 'PUT' : 'POST';
+    const token    = localStorage.getItem('keyify_token');
 
+    let fetchOpts;
+    if (hasFile) {
+      // Multipart: file overrides URL field on the backend
+      const fd = new FormData();
+      Object.entries(fields).forEach(([k, v]) => fd.append(k, v));
+      fd.append('image', fileInp.files[0]);
+      fetchOpts = { method, headers: { 'Authorization': `Bearer ${token}` }, body: fd };
+    } else {
+      fetchOpts = { method, headers: authHeaders(), body: JSON.stringify(fields) };
+    }
+
+    try {
+      const res  = await fetch(endpoint, fetchOpts);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
       showToast(id ? 'Proizvod ažuriran!' : 'Proizvod dodan!');
       closeModal();
       loadProducts();
@@ -2275,19 +2374,131 @@
       const badge = document.getElementById('reset-badge');
       if (badge) { badge.textContent = data.length; badge.classList.toggle('hidden', data.length === 0); }
       tbody.innerHTML = data.length
-        ? data.map(r => `<tr>
+        ? data.map(r => `<tr id="rr-row-${escHtml(r.id)}">
             <td class="font-medium text-white">${escHtml(r.name || '–')}</td>
             <td class="text-dark-300">${escHtml(r.email || '–')}</td>
             <td class="text-dark-300">${fmtDate(r.created_at)}</td>
-            <td><button onclick="openUserDetail('${escHtml(String(r.user_id))}')"
-                class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-80"
-                style="background:rgba(245,158,11,0.25);border:1px solid rgba(245,158,11,0.4);color:#f59e0b">
-                Otvori korisnika
-            </button></td>
+            <td>
+              <div class="flex items-center gap-2">
+                <button onclick="openUserDetail('${escHtml(String(r.user_id))}')"
+                    class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80"
+                    style="background:rgba(245,158,11,0.25);border:1px solid rgba(245,158,11,0.4);color:#f59e0b">
+                    Otvori
+                </button>
+                <button onclick="openRejectModal('${escHtml(r.id)}','${escHtml(r.email||'')}','${escHtml(r.name||'')}')"
+                    class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80"
+                    style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.35);color:#f87171">
+                    Odbij
+                </button>
+              </div>
+            </td>
           </tr>`).join('')
         : '<tr><td colspan="4" class="text-center py-8 text-dark-300">Nema zahtjeva</td></tr>';
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-red-400">${escHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  /* ── Reject reset request ── */
+  function openRejectModal(id, email, name) {
+    document.getElementById('reject-modal-overlay')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'reject-modal-overlay';
+    overlay.style.cssText =
+      'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:99999;' +
+      'display:flex;align-items:center;justify-content:center;animation:fadein .15s ease';
+    overlay.innerHTML = `
+      <div style="background:#13132a;border:1px solid rgba(255,255,255,0.1);border-radius:20px;
+                  padding:28px;width:420px;max-width:calc(100vw - 24px);
+                  font-family:'Inter',sans-serif;box-shadow:0 24px 64px rgba(0,0,0,0.65);
+                  animation:slideup .18s ease">
+        <h4 style="margin:0 0 4px;font-family:'Poppins',sans-serif;font-size:16px;
+                   font-weight:700;color:#fff">
+          🚫 Odbij zahtjev za reset lozinke
+        </h4>
+        <p style="margin:0 0 20px;font-size:12px;color:#5050a0">
+          Korisnik: <strong style="color:#9090b8">${escHtml(name || email || '–')}</strong>
+          &nbsp;·&nbsp; ${escHtml(email || '')}
+        </p>
+
+        <label style="display:block;font-size:10px;font-weight:700;color:#5050a0;
+                      text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">
+          Razlog odbijanja (opciono)
+        </label>
+        <textarea id="reject-reason-ta" rows="4" placeholder="Npr: Ne možemo potvrditi identitet korisnika…"
+          style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);
+                 border:1px solid rgba(255,255,255,0.1);border-radius:10px;
+                 padding:10px 13px;font-size:13px;color:#e2e2f0;
+                 font-family:'Inter',sans-serif;resize:vertical;
+                 outline:none;transition:border-color .15s"
+          onfocus="this.style.borderColor='#ef4444'"
+          onblur="this.style.borderColor='rgba(255,255,255,0.1)'"></textarea>
+        <p style="margin:6px 0 20px;font-size:11px;color:#5050a0">
+          Ako ostavite prazno, korisnik će dobiti generičku poruku o odbijanju.
+        </p>
+
+        <div style="display:flex;gap:10px">
+          <button onclick="document.getElementById('reject-modal-overlay').remove()"
+                  style="flex:1;padding:11px;border-radius:10px;border:none;
+                         background:rgba(255,255,255,0.07);color:#9090b8;
+                         font-size:13px;font-weight:700;cursor:pointer;
+                         font-family:'Inter',sans-serif;transition:opacity .15s"
+                  onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'">
+            Otkaži
+          </button>
+          <button id="reject-confirm-btn"
+                  onclick="confirmRejectRequest('${escHtml(id)}')"
+                  style="flex:1;padding:11px;border-radius:10px;border:none;
+                         background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;
+                         font-size:13px;font-weight:700;cursor:pointer;
+                         font-family:'Inter',sans-serif;transition:opacity .15s"
+                  onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+            🚫 Potvrdi odbijanje
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    setTimeout(() => document.getElementById('reject-reason-ta')?.focus(), 60);
+  }
+
+  async function confirmRejectRequest(id) {
+    const reason  = document.getElementById('reject-reason-ta')?.value?.trim() || '';
+    const btn     = document.getElementById('reject-confirm-btn');
+    if (btn) { btn.textContent = '⏳ Odbijanje…'; btn.disabled = true; }
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/reset-requests/${encodeURIComponent(id)}/reject`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body:    JSON.stringify({ reason }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Greška');
+
+      document.getElementById('reject-modal-overlay')?.remove();
+
+      // Remove the row from the table immediately
+      document.getElementById(`rr-row-${id}`)?.remove();
+
+      // Update badge count
+      const tbody = document.getElementById('reset-requests-body');
+      if (tbody && !tbody.querySelector('tr[id]')) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-dark-300">Nema zahtjeva</td></tr>';
+      }
+      const badge = document.getElementById('reset-badge');
+      if (badge) {
+        const cnt = parseInt(badge.textContent || '0') - 1;
+        badge.textContent = cnt;
+        badge.classList.toggle('hidden', cnt <= 0);
+      }
+
+      showToast(data.email_sent ? '✅ Zahtjev odbijen i email poslan.' : '✅ Zahtjev odbijen.', 'success');
+    } catch (err) {
+      if (btn) { btn.textContent = '🚫 Potvrdi odbijanje'; btn.disabled = false; }
+      showToast('✗ ' + err.message, 'error');
     }
   }
 
