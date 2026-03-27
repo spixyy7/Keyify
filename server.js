@@ -51,7 +51,7 @@ app.use(cors({
     console.log('[CORS blocked] origin:', origin);
     callback(new Error('Not allowed by CORS'));
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(express.json());
@@ -165,6 +165,41 @@ function sanitizeUser(user) {
   if (!user) return user;
   const { password_hash, otp_code, otp_expires, ...safe } = user;
   return safe;
+}
+
+/** Server-side HTML escape for email templates */
+function escServerHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ─────────────────────────────────────────
+   AES-256-CBC ENCRYPTION HELPERS
+   Encrypts sensitive fields (email, amount) before storing in transaction_logs.
+   Env: AES_KEY = 64 hex chars (32 bytes). Generate with:
+     node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ⚠️  If AES_KEY is missing, a random key is used per process restart (logs unreadable after restart).
+───────────────────────────────────────── */
+const _aesKeyHex = (process.env.AES_KEY || '').replace(/[^0-9a-fA-F]/g, '').padEnd(64, '0').slice(0, 64);
+const AES_KEY    = Buffer.from(_aesKeyHex, 'hex');
+
+function encryptField(text) {
+  const iv     = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-cbc', AES_KEY, iv);
+  const enc    = Buffer.concat([cipher.update(String(text), 'utf8'), cipher.final()]);
+  return iv.toString('hex') + ':' + enc.toString('hex');
+}
+
+function decryptField(ciphertext) {
+  try {
+    const [ivHex, encHex] = (ciphertext || '').split(':');
+    if (!ivHex || !encHex) return '[encrypted]';
+    const iv       = Buffer.from(ivHex, 'hex');
+    const enc      = Buffer.from(encHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', AES_KEY, iv);
+    return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
+  } catch {
+    return '[decrypt error]';
+  }
 }
 
 /* ─────────────────────────────────────────
@@ -2000,6 +2035,262 @@ app.delete('/api/content/:key', authenticateToken, requireAdmin, async (req, res
     .eq('key', req.params.key);
   if (error) return res.status(500).json({ error: 'Greška' });
   return res.json({ message: 'Sadržaj resetovan na default' });
+});
+
+/* ─────────────────────────────────────────
+   ENCRYPTED TRANSACTION LOGS
+   Buyer email + amount stored AES-256-CBC encrypted in Supabase.
+   SQL (run once):
+   ┌──────────────────────────────────────────────────────────────┐
+   │ CREATE TABLE IF NOT EXISTS transaction_logs (                │
+   │   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),│
+   │   buyer_email_enc TEXT NOT NULL,                            │
+   │   amount_enc      TEXT NOT NULL,                            │
+   │   product_name    TEXT,                                     │
+   │   payment_method  TEXT,                                     │
+   │   tx_reference    TEXT,                                     │
+   │   status          TEXT DEFAULT 'completed',                 │
+   │   logged_by       UUID REFERENCES users(id) ON DELETE SET NULL,│
+   │   created_at      TIMESTAMPTZ DEFAULT now()                 │
+   │ );                                                          │
+   └──────────────────────────────────────────────────────────────┘
+───────────────────────────────────────── */
+
+/** POST /api/admin/transaction-logs – record an encrypted log entry */
+app.post('/api/admin/transaction-logs', authenticateToken, requireAdmin, async (req, res) => {
+  const { buyer_email, amount, product_name, payment_method, tx_reference, status } = req.body;
+  if (!buyer_email || !amount)
+    return res.status(400).json({ error: 'buyer_email i amount su obavezni' });
+
+  const { data, error } = await supabase
+    .from('transaction_logs')
+    .insert({
+      buyer_email_enc: encryptField(buyer_email),
+      amount_enc:      encryptField(String(amount)),
+      product_name:    product_name || null,
+      payment_method:  payment_method || null,
+      tx_reference:    tx_reference || null,
+      status:          status || 'completed',
+      logged_by:       req.user.id,
+    })
+    .select('id')
+    .single();
+
+  if (error) return res.status(500).json({ error: 'Greška pri zapisivanju loga' });
+  return res.status(201).json({ id: data.id });
+});
+
+/** GET /api/admin/transaction-logs – decrypt and paginate log entries */
+app.get('/api/admin/transaction-logs', authenticateToken, requireAdmin, async (req, res) => {
+  const page   = Math.max(1, parseInt(req.query.page) || 1);
+  const limit  = Math.min(100, parseInt(req.query.limit) || 20);
+  const offset = (page - 1) * limit;
+
+  const { data, error, count } = await supabase
+    .from('transaction_logs')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) return res.status(500).json({ error: 'Greška' });
+
+  const decrypted = (data || []).map(row => ({
+    id:             row.id,
+    buyer_email:    decryptField(row.buyer_email_enc),
+    amount:         decryptField(row.amount_enc),
+    product_name:   row.product_name,
+    payment_method: row.payment_method,
+    tx_reference:   row.tx_reference,
+    status:         row.status,
+    created_at:     row.created_at,
+  }));
+
+  return res.json({ logs: decrypted, total: count, page, limit });
+});
+
+/* ─────────────────────────────────────────
+   GUEST CHECKOUT CONFIRM
+   Validates purchase, records encrypted audit log, and sends
+   a license key / receipt email to the buyer (guest or logged-in).
+───────────────────────────────────────── */
+
+/** POST /api/checkout/confirm – confirm payment, send receipt, log encrypted entry */
+app.post('/api/checkout/confirm', async (req, res) => {
+  const { buyer_email, product_id, product_name, amount, payment_method, tx_reference } = req.body;
+
+  // Identify buyer
+  let userId = null;
+  let email  = buyer_email?.trim().toLowerCase() || null;
+  const authHeader = req.headers['authorization'];
+  const jwtToken   = authHeader && authHeader.split(' ')[1];
+  if (jwtToken) {
+    try {
+      const d = jwt.verify(jwtToken, process.env.JWT_SECRET);
+      userId  = d.id;
+      if (!email) email = d.email;
+    } catch {}
+  }
+
+  if (!email)
+    return res.status(400).json({ error: 'Email adresa kupca je obavezna (gost mora unijeti email)' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return res.status(400).json({ error: 'Unesite ispravnu email adresu' });
+  if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0)
+    return res.status(400).json({ error: 'Nevažeći iznos' });
+
+  const parsedAmount = parseFloat(amount);
+
+  // 1. Save transaction record
+  const { data: tx, error: txErr } = await supabase
+    .from('transactions')
+    .insert({
+      user_id:        userId,
+      product_id:     product_id || null,
+      product_name:   product_name || null,
+      amount:         parsedAmount,
+      payment_method: payment_method || 'manual',
+      status:         'completed',
+      tx_reference:   tx_reference || null,
+    })
+    .select('id')
+    .single();
+
+  if (txErr) {
+    console.error('[checkout/confirm] tx insert error:', txErr.message);
+    return res.status(500).json({ error: 'Greška pri snimanju transakcije' });
+  }
+
+  // 2. Write AES-256-CBC encrypted audit log (non-blocking)
+  supabase.from('transaction_logs').insert({
+    buyer_email_enc: encryptField(email),
+    amount_enc:      encryptField(String(parsedAmount)),
+    product_name:    product_name || null,
+    payment_method:  payment_method || null,
+    tx_reference:    tx_reference || tx.id,
+    status:          'completed',
+    logged_by:       null,
+  }).then(({ error: le }) => { if (le) console.error('[tx-log]', le.message); });
+
+  // 3. Generate license key & send receipt email
+  const licenseKey = [
+    crypto.randomBytes(4).toString('hex').toUpperCase(),
+    crypto.randomBytes(4).toString('hex').toUpperCase(),
+    crypto.randomBytes(4).toString('hex').toUpperCase(),
+  ].join('-');
+
+  const receiptHTML = `
+    <div style="font-family:'Inter',Arial,sans-serif;max-width:480px;margin:0 auto;background:#0a0a16;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,0.06)">
+      <div style="background:linear-gradient(135deg,#1D6AFF 0%,#A259FF 100%);padding:26px 32px">
+        <h1 style="color:#fff;margin:0;font-size:22px;font-weight:700;letter-spacing:-.02em">🎉 Narudžba potvrđena!</h1>
+        <p style="color:rgba(255,255,255,0.75);margin:6px 0 0;font-size:14px">Keyify – Digitalna tržnica</p>
+      </div>
+      <div style="padding:28px 32px">
+        <p style="color:#9090b8;margin:0 0 6px;font-size:14px">Hvala na kupovini!</p>
+        <p style="color:#9090b8;margin:0 0 22px;font-size:14px">Narudžba: <strong style="color:#e0e0ff">${escServerHtml(product_name || 'Proizvod')}</strong></p>
+        <div style="background:#12122a;border:2px solid #A259FF;border-radius:14px;padding:22px;text-align:center;margin-bottom:22px">
+          <div style="color:#7070a0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">Licencni ključ</div>
+          <div style="font-size:24px;font-weight:800;letter-spacing:6px;color:#A259FF;font-family:monospace">${licenseKey}</div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <tr>
+            <td style="padding:8px 0;color:#6060a0;border-bottom:1px solid rgba(255,255,255,0.06)">Iznos</td>
+            <td style="padding:8px 0;text-align:right;color:#e0e0ff;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06)">€ ${parsedAmount.toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 0;color:#6060a0;border-bottom:1px solid rgba(255,255,255,0.06)">Metoda plaćanja</td>
+            <td style="padding:8px 0;text-align:right;color:#e0e0ff;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06)">${escServerHtml(payment_method || 'Manual')}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 0;color:#6060a0">Referenca</td>
+            <td style="padding:8px 0;text-align:right;color:#e0e0ff;font-family:monospace;font-size:11px">${escServerHtml(tx.id)}</td>
+          </tr>
+        </table>
+        <p style="color:#3a3a6a;font-size:11px;text-align:center;margin-top:18px">Čuvajte ovaj ključ na sigurnom. Nije ponovljiv.</p>
+      </div>
+      <div style="padding:14px 32px 20px;border-top:1px solid rgba(255,255,255,0.06);text-align:center">
+        <p style="margin:0;color:#3a3a6a;font-size:11px">© ${new Date().getFullYear()} Keyify · Automatski generirano</p>
+      </div>
+    </div>`;
+
+  let emailSent = false;
+  try {
+    await sendMailSafe({
+      from:    `"Keyify" <${process.env.EMAIL_USER}>`,
+      to:      email,
+      subject: `🔑 Keyify – Vaš licencni ključ za ${product_name || 'narudžbu'}`,
+      html:    receiptHTML,
+    });
+    emailSent = true;
+  } catch (emailErr) {
+    console.error('[checkout/confirm] email error:', emailErr.message);
+  }
+
+  return res.json({
+    ok:             true,
+    transaction_id: tx.id,
+    license_key:    licenseKey,
+    email_sent_to:  email,
+    email_sent:     emailSent,
+  });
+});
+
+/* ─────────────────────────────────────────
+   COUPONS (alias for promo_codes with usage analytics)
+───────────────────────────────────────── */
+
+/** GET /api/admin/coupons – list all coupons with usage stats */
+app.get('/api/admin/coupons', authenticateToken, checkPermission('can_manage_promos'), async (req, res) => {
+  const { data, error } = await supabase
+    .from('promo_codes')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json(data || []);
+});
+
+/** POST /api/admin/coupons – create a coupon */
+app.post('/api/admin/coupons', authenticateToken, checkPermission('can_manage_promos'), async (req, res) => {
+  const { code, discount_percent, expiry_date, is_active, usage_limit } = req.body;
+  if (!code || !discount_percent)
+    return res.status(400).json({ error: 'code i discount_percent su obavezni' });
+  if (parseFloat(discount_percent) <= 0 || parseFloat(discount_percent) > 100)
+    return res.status(400).json({ error: 'Popust mora biti između 1 i 100%' });
+
+  const { data, error } = await supabase.from('promo_codes').insert({
+    code:           code.trim().toUpperCase(),
+    discount_type:  'percent',
+    discount_value: parseFloat(discount_percent),
+    usage_limit:    usage_limit ? parseInt(usage_limit) : null,
+    used_count:     0,
+    expires_at:     expiry_date || null,
+    is_active:      is_active !== false,
+    created_by:     req.user.id,
+  }).select().single();
+
+  if (error) {
+    if (error.code === '23505') return res.status(400).json({ error: 'Kupon s tim kodom već postoji' });
+    return res.status(500).json({ error: 'Greška pri kreiranju kupona' });
+  }
+  return res.status(201).json(data);
+});
+
+/** PATCH /api/admin/coupons/:id – toggle active/update coupon */
+app.patch('/api/admin/coupons/:id', authenticateToken, checkPermission('can_manage_promos'), async (req, res) => {
+  const updates = {};
+  if (req.body.is_active  !== undefined) updates.is_active  = Boolean(req.body.is_active);
+  if (req.body.expires_at !== undefined) updates.expires_at = req.body.expires_at || null;
+  if (req.body.usage_limit !== undefined) updates.usage_limit = req.body.usage_limit ? parseInt(req.body.usage_limit) : null;
+
+  const { error } = await supabase.from('promo_codes').update(updates).eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: 'Greška pri ažuriranju' });
+  return res.json({ message: 'Kupon ažuriran' });
+});
+
+/** DELETE /api/admin/coupons/:id */
+app.delete('/api/admin/coupons/:id', authenticateToken, checkPermission('can_manage_promos'), async (req, res) => {
+  const { error } = await supabase.from('promo_codes').delete().eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: 'Greška pri brisanju' });
+  return res.json({ message: 'Kupon obrisan' });
 });
 
 /* ─────────────────────────────────────────

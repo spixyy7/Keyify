@@ -2392,6 +2392,261 @@
   }
 
   /* ─────────────────────────────────────────────────────────────────
+     22. ELEMENT-LEVEL HOVER CONTROLS
+     Hovering over any non-editor element shows 🗑️ Delete + ⚙️ Edit
+     floating buttons. Right-click opens a Contextual Property Menu
+     to edit href, src, or add/remove Tailwind utility classes.
+  ──────────────────────────────────────────────────────────────────── */
+
+  (function initElementHoverControls() {
+    // Inject styles once
+    if (!document.getElementById('kve-elem-style')) {
+      const s = document.createElement('style');
+      s.id = 'kve-elem-style';
+      s.textContent = `
+        .kve-elem-wrap   { position:relative; outline:2px dashed transparent; transition:outline-color .12s; }
+        .kve-elem-wrap:hover { outline-color:rgba(29,106,255,0.55); }
+        .kve-elem-btns   { display:none;position:absolute;top:-14px;right:0;z-index:99999;
+                           gap:3px;align-items:center;pointer-events:all; }
+        .kve-elem-wrap:hover .kve-elem-btns { display:flex; }
+        .kve-elem-btn    { padding:2px 7px;font-size:11px;font-weight:700;border:none;border-radius:5px;
+                           cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+                           box-shadow:0 2px 8px rgba(0,0,0,.35);line-height:1.6; }
+        .kve-elem-del    { background:rgba(239,68,68,0.88);color:#fff; }
+        .kve-elem-del:hover  { background:#ef4444; }
+        .kve-elem-edit   { background:rgba(29,106,255,0.88);color:#fff; }
+        .kve-elem-edit:hover { background:#1D6AFF; }
+        /* Right-click context menu */
+        #kve-ctx-menu    { position:fixed;z-index:999999;background:rgba(8,10,24,0.97);
+                           border:1px solid rgba(255,255,255,0.1);border-radius:12px;
+                           box-shadow:0 20px 50px rgba(0,0,0,.6);padding:5px;min-width:200px;
+                           backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+                           animation:kve-ctx-in .14s cubic-bezier(.34,1.56,.64,1); }
+        @keyframes kve-ctx-in { from{opacity:0;transform:scale(.94)} to{opacity:1;transform:scale(1)} }
+        #kve-ctx-menu .kve-ctx-item { display:flex;align-items:center;gap:9px;padding:8px 12px;
+                           font-size:12px;font-weight:600;color:#c0c0e0;border-radius:8px;
+                           cursor:pointer;transition:background .12s; }
+        #kve-ctx-menu .kve-ctx-item:hover { background:rgba(29,106,255,0.18);color:#fff; }
+        #kve-ctx-menu .kve-ctx-sep  { height:1px;background:rgba(255,255,255,0.07);margin:3px 0; }
+        #kve-ctx-menu .kve-ctx-label { font-size:9px;font-weight:700;color:#4040a0;text-transform:uppercase;
+                           letter-spacing:.08em;padding:6px 12px 2px; }
+        /* Sync banner */
+        #kve-sync-bar    { position:fixed;bottom:72px;left:50%;transform:translateX(-50%);z-index:999998;
+                           background:rgba(8,10,24,0.97);border:1px solid rgba(162,89,255,0.35);
+                           border-radius:12px;padding:10px 16px;display:flex;align-items:center;gap:10px;
+                           font-size:12px;font-weight:600;color:#c0c0e0;
+                           box-shadow:0 8px 30px rgba(162,89,255,0.2);
+                           backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px); }
+        #kve-sync-bar button { padding:5px 12px;border-radius:7px;font-size:11px;font-weight:700;
+                           border:none;cursor:pointer;transition:all .15s; }
+        #kve-sync-apply  { background:linear-gradient(135deg,#1D6AFF,#A259FF);color:#fff; }
+        #kve-sync-apply:hover { opacity:.85; }
+        #kve-sync-dismiss { background:rgba(255,255,255,0.07);color:#9090b8; }
+        #kve-sync-dismiss:hover { background:rgba(255,255,255,0.12); }`;
+      document.head.appendChild(s);
+    }
+
+    // Wrap editable elements on demand (hover)
+    const SKIP_TAGS = new Set(['HTML','BODY','HEAD','SCRIPT','STYLE','META','LINK','TITLE','NOSCRIPT']);
+    const SKIP_ATTRS = ['data-kve-editor','id'];
+
+    function shouldSkip(el) {
+      if (!el || el.nodeType !== 1) return true;
+      if (SKIP_TAGS.has(el.tagName)) return true;
+      if (el.hasAttribute('data-kve-editor')) return true;
+      if (el.closest('[data-kve-editor]')) return true;
+      if (el.classList.contains('kve-elem-wrap')) return true;
+      return false;
+    }
+
+    // Floating btn overlay attached to hovered element
+    let _activeWrap = null;
+
+    document.addEventListener('mouseover', e => {
+      const el = e.target;
+      if (shouldSkip(el)) return;
+      if (el.classList.contains('kve-elem-btns') || el.closest('.kve-elem-btns')) return;
+      if (_activeWrap && _activeWrap !== el) {
+        _activeWrap.classList.remove('kve-elem-wrap');
+        const oldBtns = _activeWrap.querySelector(':scope > .kve-elem-btns');
+        if (oldBtns) oldBtns.remove();
+      }
+      if (!el.querySelector(':scope > .kve-elem-btns')) {
+        el.classList.add('kve-elem-wrap');
+        const btnWrap = document.createElement('div');
+        btnWrap.className = 'kve-elem-btns';
+        btnWrap.setAttribute('data-kve-editor', '1');
+        btnWrap.innerHTML = `<button class="kve-elem-btn kve-elem-del" title="Obriši element">🗑️</button><button class="kve-elem-btn kve-elem-edit" title="Uredi element">⚙️</button>`;
+        el.style.position = el.style.position || (window.getComputedStyle(el).position === 'static' ? 'relative' : '');
+        el.appendChild(btnWrap);
+        btnWrap.querySelector('.kve-elem-del').addEventListener('click', ev => {
+          ev.stopPropagation();
+          if (!confirm('Obrisati ovaj element?')) return;
+          el.style.transition = 'opacity .25s,transform .25s';
+          el.style.opacity = '0'; el.style.transform = 'scale(.95)';
+          setTimeout(() => el.remove(), 260);
+          toastMsg('🗑️ Element obrisan');
+        });
+        btnWrap.querySelector('.kve-elem-edit').addEventListener('click', ev => {
+          ev.stopPropagation();
+          openElementEditModal(el);
+        });
+      }
+      _activeWrap = el;
+    }, true);
+
+    // ── Right-click contextual menu ──────────────────────────────
+    let _ctxTarget = null;
+
+    document.addEventListener('contextmenu', e => {
+      if (shouldSkip(e.target)) return;
+      if (e.target.closest('[data-kve-editor]')) return;
+      e.preventDefault();
+      _ctxTarget = e.target;
+      _showCtxMenu(e.clientX, e.clientY, e.target);
+    }, true);
+
+    document.addEventListener('click', () => _hideCtxMenu(), true);
+    document.addEventListener('keydown', ev => { if (ev.key === 'Escape') _hideCtxMenu(); });
+
+    function _hideCtxMenu() {
+      document.getElementById('kve-ctx-menu')?.remove();
+    }
+
+    function _showCtxMenu(x, y, el) {
+      _hideCtxMenu();
+      const menu = document.createElement('div');
+      menu.id = 'kve-ctx-menu';
+      menu.setAttribute('data-kve-editor', '1');
+
+      const hasHref = el.hasAttribute('href') || el.closest('a');
+      const hasSrc  = el.hasAttribute('src')  || el.tagName === 'IMG';
+      const target  = hasHref ? (el.closest('a') || el) : el;
+
+      const items = [
+        { icon:'🎨', label:'Edituraj Tailwind klase', action: () => openClassEditor(el) },
+        hasHref ? { icon:'🔗', label:'Promijeni href link', action: () => openAttrEditor(target, 'href') } : null,
+        hasSrc  ? { icon:'🖼️', label:'Promijeni src sliku',  action: () => openAttrEditor(el.tagName==='IMG'?el:el.querySelector('img')||el, 'src') } : null,
+        { icon:'📋', label:'Kopiraj HTML element', action: () => { navigator.clipboard?.writeText(el.outerHTML); toastMsg('📋 Kopirano!'); } },
+        'sep',
+        { icon:'🗑️', label:'Obriši element', action: () => {
+          if (!confirm('Obrisati?')) return;
+          el.style.transition='opacity .25s'; el.style.opacity='0';
+          setTimeout(() => el.remove(), 260); toastMsg('🗑️ Obrisano');
+        }, danger: true },
+      ].filter(Boolean);
+
+      menu.innerHTML = `<div class="kve-ctx-label">${el.tagName.toLowerCase()}${el.id?'#'+el.id:''}</div>`;
+      items.forEach(item => {
+        if (item === 'sep') { menu.innerHTML += '<div class="kve-ctx-sep"></div>'; return; }
+        const div = document.createElement('div');
+        div.className = 'kve-ctx-item';
+        if (item.danger) div.style.color = '#f87171';
+        div.innerHTML = `<span>${item.icon}</span><span>${item.label}</span>`;
+        div.addEventListener('click', e => { e.stopPropagation(); _hideCtxMenu(); item.action(); });
+        menu.appendChild(div);
+      });
+
+      document.body.appendChild(menu);
+      // Clamp to viewport
+      const rect = menu.getBoundingClientRect();
+      if (x + rect.width  > window.innerWidth)  menu.style.left = (window.innerWidth  - rect.width  - 8) + 'px'; else menu.style.left = x + 'px';
+      if (y + rect.height > window.innerHeight) menu.style.top  = (window.innerHeight - rect.height - 8) + 'px'; else menu.style.top  = y + 'px';
+    }
+
+    // ── Tailwind class editor ──
+    function openClassEditor(el) {
+      const modal = createModal('🎨 Tailwind klase', `
+        <label>Trenutne klase (uredi direktno)</label>
+        <textarea id="kve-cls-input" rows="4" style="font-family:monospace;font-size:12px">${esc(el.className)}</textarea>
+        <label style="margin-top:10px">Dodaj klase</label>
+        <input type="text" id="kve-cls-add" placeholder="npr. rounded-xl shadow-lg text-blue-500"/>
+        <div id="kve-sync-cls-notice" style="margin-top:10px;font-size:11px;color:#9090b8;display:none">
+          💡 <strong style="color:#c084fc">Sync tip:</strong> Ova izmjena može se primijeniti na sve <code>&lt;${el.tagName.toLowerCase()}&gt;</code> elemente.
+        </div>`);
+
+      const txtarea = modal.overlay.querySelector('#kve-cls-input');
+      const addInp  = modal.overlay.querySelector('#kve-cls-add');
+      const notice  = modal.overlay.querySelector('#kve-sync-cls-notice');
+
+      txtarea.addEventListener('input', () => notice.style.display = 'block');
+
+      modal.ok.addEventListener('click', () => {
+        const combined = ((txtarea.value || '') + ' ' + (addInp.value || '')).trim().replace(/\s+/g,' ');
+        closeModal(modal.overlay);
+        el.className = combined;
+        toastMsg('✓ Klase ažurirane');
+        _offerSync(el, combined);
+      });
+    }
+
+    // ── href / src editor ──
+    function openAttrEditor(el, attr) {
+      if (!el) return;
+      const modal = createModal(`🔗 Uredi ${attr}`, `
+        <label>Trenutna vrijednost</label>
+        <input type="text" id="kve-attr-val" value="${esc(el.getAttribute(attr)||'')}" placeholder="${attr==='href'?'https://...':'https://images.../slika.jpg'}"/>`);
+      modal.ok.addEventListener('click', () => {
+        const v = modal.overlay.querySelector('#kve-attr-val').value.trim();
+        closeModal(modal.overlay);
+        if (v) el.setAttribute(attr, v);
+        else el.removeAttribute(attr);
+        toastMsg(`✓ ${attr} ažuriran`);
+      });
+    }
+
+    // ── Element edit modal (full) ──
+    function openElementEditModal(el) {
+      const modal = createModal(`⚙️ Uredi &lt;${el.tagName.toLowerCase()}&gt;`, `
+        <label>Tekst / Sadržaj</label>
+        <textarea id="kve-el-text" rows="3">${esc(el.innerText||'')}</textarea>
+        <label style="margin-top:10px">CSS klase</label>
+        <input type="text" id="kve-el-cls" value="${esc(el.className)}"/>
+        ${el.hasAttribute('href') ? `<label style="margin-top:10px">href link</label><input type="text" id="kve-el-href" value="${esc(el.getAttribute('href')||'')}"/>` : ''}
+        ${el.tagName === 'IMG' ? `<label style="margin-top:10px">src (URL slika)</label><input type="text" id="kve-el-src" value="${esc(el.getAttribute('src')||'')}"/>` : ''}`);
+
+      modal.ok.addEventListener('click', () => {
+        const txt  = modal.overlay.querySelector('#kve-el-text')?.value;
+        const cls  = modal.overlay.querySelector('#kve-el-cls')?.value;
+        const href = modal.overlay.querySelector('#kve-el-href')?.value;
+        const src  = modal.overlay.querySelector('#kve-el-src')?.value;
+        closeModal(modal.overlay);
+        if (txt  !== undefined && el.tagName !== 'IMG') el.innerText = txt;
+        if (cls  !== undefined) el.className = cls;
+        if (href !== undefined) el.setAttribute('href', href);
+        if (src  !== undefined) el.setAttribute('src', src);
+        toastMsg('✓ Element ažuriran');
+        _offerSync(el, cls);
+      });
+    }
+
+    // ── "Sync all similar elements" banner ──
+    function _offerSync(el, newClasses) {
+      document.getElementById('kve-sync-bar')?.remove();
+      const tag      = el.tagName;
+      const similar  = [...document.querySelectorAll(tag)].filter(x => x !== el && !x.closest('[data-kve-editor]'));
+      if (!similar.length) return;
+
+      const bar = document.createElement('div');
+      bar.id = 'kve-sync-bar';
+      bar.setAttribute('data-kve-editor', '1');
+      bar.innerHTML = `
+        <span>🔄 Sinkronizovati klase na svih <strong>${similar.length}</strong> &lt;${tag.toLowerCase()}&gt; elemenata?</span>
+        <button id="kve-sync-apply">✓ Primijeni</button>
+        <button id="kve-sync-dismiss">Zanemari</button>`;
+      document.body.appendChild(bar);
+
+      bar.querySelector('#kve-sync-apply').addEventListener('click', () => {
+        similar.forEach(s => { s.className = newClasses; });
+        bar.remove();
+        toastMsg(`✓ Klase sinkronizovane na ${similar.length} elemenata!`);
+      });
+      bar.querySelector('#kve-sync-dismiss').addEventListener('click', () => bar.remove());
+      setTimeout(() => { bar?.remove(); }, 9000);
+    }
+  })();
+
+  /* ─────────────────────────────────────────────────────────────────
      21. TOAST
   ──────────────────────────────────────────────────────────────────── */
   function toastMsg(text, isError = false) {

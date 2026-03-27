@@ -250,6 +250,14 @@
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
       <span>Promo kodovi</span>
     </a>
+    <a class="sidebar-link" onclick="showSection('coupons')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"/></svg>
+      <span>Kupon menadžer</span>
+    </a>
+    <a class="sidebar-link" onclick="showSection('txlogs')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+      <span>Encrypted Logs</span>
+    </a>
     <a class="sidebar-link" onclick="showSection('sql')">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
       <span>SQL Editor</span>
@@ -898,6 +906,105 @@
       </div>
     </div>
 
+    <!-- ═══════════════════════ COUPON MANAGER ═══════════════════════ -->
+    <div id="section-coupons" class="section space-y-5">
+
+      <!-- Create coupon form -->
+      <div class="glass rounded-2xl p-6" style="border:1px solid rgba(255,255,255,0.07)">
+        <h2 class="font-display font-bold text-white text-base mb-5">🎟️ Kreiranje kupona</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Kod kupona *</label>
+            <input id="coup-code" type="text" placeholder="SUMMER25" class="admin-input" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Popust % *</label>
+            <input id="coup-discount" type="number" min="1" max="100" placeholder="25" class="admin-input"/>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Datum isteka</label>
+            <input id="coup-expiry" type="date" class="admin-input"/>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Limit korišćenja</label>
+            <input id="coup-limit" type="number" min="1" placeholder="∞ neograničeno" class="admin-input"/>
+          </div>
+        </div>
+        <div id="coup-msg" style="display:none;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:500;margin-bottom:12px"></div>
+        <button onclick="createCoupon()" class="px-5 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all" style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
+          ✨ Kreiraj kupon
+        </button>
+      </div>
+
+      <!-- Coupons table -->
+      <div class="glass rounded-2xl overflow-hidden" style="border:1px solid rgba(255,255,255,0.07)">
+        <div class="p-5 border-b flex items-center justify-between" style="border-color:rgba(255,255,255,0.06)">
+          <h3 class="font-display font-semibold text-white text-sm">Aktivni kuponi</h3>
+          <button onclick="loadCoupons()" class="text-dark-300 hover:text-white text-xs transition-colors">↻ Osvježi</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead><tr><th>Kod</th><th>Popust</th><th>Iskorišćeno</th><th>Limit</th><th>Ističe</th><th>Status</th><th>Akcija</th></tr></thead>
+            <tbody id="coupons-tbody">
+              <tr><td colspan="7" class="text-center py-8 text-dark-300">Učitavanje...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ ENCRYPTED TRANSACTION LOGS ═══════════════════════ -->
+    <div id="section-txlogs" class="section space-y-5">
+
+      <div class="glass rounded-2xl p-5" style="border:1px solid rgba(162,89,255,0.2);background:rgba(162,89,255,0.04)">
+        <div class="flex items-center gap-3 mb-1">
+          <div class="w-9 h-9 rounded-xl flex items-center justify-center text-lg" style="background:rgba(162,89,255,0.15)">🔐</div>
+          <div>
+            <div class="font-display font-bold text-white text-sm">Encrypted Transaction Logs</div>
+            <div class="text-xs text-dark-300">Buyer email + iznos su AES-256-CBC enkriptovani u bazi. Dekriptuju se samo ovdje, u realnom vremenu.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters row -->
+      <div class="flex items-center gap-3 flex-wrap">
+        <select id="txlog-limit" class="admin-input" style="width:auto" onchange="loadTxLogs(1)">
+          <option value="20">20 po stranici</option>
+          <option value="50">50 po stranici</option>
+          <option value="100">100 po stranici</option>
+        </select>
+        <button onclick="loadTxLogs(1)" class="px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all" style="background:rgba(29,106,255,0.2);border:1px solid rgba(29,106,255,0.3)">
+          ↻ Osvježi logove
+        </button>
+        <span id="txlog-total" class="text-xs text-dark-300 ml-auto"></span>
+      </div>
+
+      <!-- Logs table -->
+      <div class="glass rounded-2xl overflow-hidden" style="border:1px solid rgba(255,255,255,0.07)">
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Email kupca</th>
+                <th>Iznos</th>
+                <th>Proizvod</th>
+                <th>Metoda</th>
+                <th>Status</th>
+                <th>Referenca</th>
+                <th>Datum</th>
+              </tr>
+            </thead>
+            <tbody id="txlogs-tbody">
+              <tr><td colspan="7" class="text-center py-8 text-dark-300">Kliknite Osvježi za učitavanje logova...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Pagination -->
+      <div id="txlog-pagination" class="flex items-center justify-center gap-2"></div>
+    </div>
+
   </main>
 </div>
 
@@ -1320,12 +1427,20 @@
       promos:    ['admin.section.securityTitle',  'admin.section.securitySub'],
       sql:       ['admin.section.securityTitle',  'admin.section.securitySub'],
     };
-    const sectionLabels = { support: ['🎧 Podrška', 'Tiketi korisnika'], promos: ['🏷️ Promo kodovi', 'Upravljanje kodovima za popust'], sql: ['🗄️ SQL Editor', 'Direktni pristup bazi podataka'] };
+    const sectionLabels = {
+      support:  ['🎧 Podrška',              'Tiketi korisnika'],
+      promos:   ['🏷️ Promo kodovi',         'Upravljanje kodovima za popust'],
+      coupons:  ['🎟️ Kupon menadžer',       'Kreiranje i praćenje kupona u realnom vremenu'],
+      txlogs:   ['🔐 Encrypted Logs',       'AES-256-CBC dekriptovani log transakcija'],
+      sql:      ['🗄️ SQL Editor',           'Direktni pristup bazi podataka'],
+    };
     if (sectionLabels[name]) {
       document.getElementById('section-title').textContent    = sectionLabels[name][0];
       document.getElementById('section-subtitle').textContent = sectionLabels[name][1];
       if (name === 'support')  { loadTickets(); loadInbox(); }
       if (name === 'promos')   loadPromos();
+      if (name === 'coupons')  loadCoupons();
+      if (name === 'txlogs')   loadTxLogs(1);
       if (name === 'sql')      loadSqlLogs();
       if (name === 'security') loadResetRequests();
       return;
@@ -2763,6 +2878,176 @@
   document.getElementById('create-user-overlay').addEventListener('click', (e) => {
     if (e.target === document.getElementById('create-user-overlay')) closeCreateUserModal();
   });
+
+  /* ── Handle kf_admin_goto (set by navbar SQL Editor link) ── */
+  const _adminGoto = localStorage.getItem('kf_admin_goto');
+  if (_adminGoto) { localStorage.removeItem('kf_admin_goto'); showSection(_adminGoto); }
+
+  /* ─────────────────────────────────────────────────────────
+     COUPON MANAGER
+  ───────────────────────────────────────────────────────── */
+  async function loadCoupons() {
+    const tbody = document.getElementById('coupons-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-dark-300">Učitavanje...</td></tr>';
+    try {
+      const res  = await fetch(`${API}/admin/coupons`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Greška');
+      if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-dark-300">Nema kupona. Kreirajte prvi!</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map(c => {
+        const isExp = c.expires_at && new Date(c.expires_at) < new Date();
+        const hitLimit = c.usage_limit && c.used_count >= c.usage_limit;
+        const active = c.is_active && !isExp && !hitLimit;
+        const pct = c.usage_limit ? Math.round((c.used_count / c.usage_limit) * 100) : null;
+        return `<tr>
+          <td><code style="background:rgba(29,106,255,0.12);color:#60a5fa;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:700">${esc(c.code)}</code></td>
+          <td><span style="color:#a78bfa;font-weight:700">${c.discount_value}%</span></td>
+          <td>
+            <div style="font-size:12px;color:#c0c0d8">${c.used_count}${c.usage_limit ? ' / ' + c.usage_limit : ''}</div>
+            ${pct !== null ? `<div style="height:3px;width:60px;background:rgba(255,255,255,0.08);border-radius:2px;margin-top:4px"><div style="height:3px;width:${Math.min(100,pct)}%;background:${pct>=100?'#ef4444':'#1D6AFF'};border-radius:2px"></div></div>` : ''}
+          </td>
+          <td style="color:#9090b8;font-size:12px">${c.usage_limit || '∞'}</td>
+          <td style="font-size:12px;color:${isExp?'#ef4444':'#9090b8'}">${c.expires_at ? new Date(c.expires_at).toLocaleDateString('sr-RS') : '∞'}</td>
+          <td>
+            <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:6px;font-size:11px;font-weight:600;${active ? 'background:rgba(16,185,129,0.12);color:#34d399' : 'background:rgba(239,68,68,0.1);color:#f87171'}">
+              ${active ? '✓ Aktivan' : (isExp ? '⌛ Istekao' : (hitLimit ? '🚫 Limit' : '✗ Neaktivan'))}
+            </span>
+          </td>
+          <td class="flex gap-2">
+            <button onclick="toggleCoupon('${c.id}',${!c.is_active})" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(255,255,255,0.06);color:#c0c0d8;border:none;cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(29,106,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+              ${c.is_active ? '⏸ Pauziraj' : '▶ Aktiviraj'}
+            </button>
+            <button onclick="deleteCoupon('${c.id}')" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(239,68,68,0.08);color:#f87171;border:none;cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.08)'">
+              🗑
+            </button>
+          </td>
+        </tr>`;
+      }).join('');
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-red-400">${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  async function createCoupon() {
+    const code     = document.getElementById('coup-code').value.trim();
+    const discount = document.getElementById('coup-discount').value;
+    const expiry   = document.getElementById('coup-expiry').value;
+    const limit    = document.getElementById('coup-limit').value;
+    const msg      = document.getElementById('coup-msg');
+    msg.style.display = 'none';
+
+    if (!code || !discount) { showCoupMsg('Kod i popust su obavezni', 'error'); return; }
+
+    try {
+      const res  = await fetch(`${API}/admin/coupons`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ code, discount_percent: discount, expiry_date: expiry || null, usage_limit: limit || null }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Greška');
+      showCoupMsg(`✓ Kupon "${data.code}" kreiran!`, 'success');
+      document.getElementById('coup-code').value = '';
+      document.getElementById('coup-discount').value = '';
+      document.getElementById('coup-expiry').value = '';
+      document.getElementById('coup-limit').value = '';
+      loadCoupons();
+    } catch (err) {
+      showCoupMsg(err.message, 'error');
+    }
+  }
+
+  function showCoupMsg(text, type) {
+    const msg = document.getElementById('coup-msg');
+    msg.textContent = text;
+    msg.style.display = 'block';
+    msg.style.background = type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)';
+    msg.style.color = type === 'success' ? '#34d399' : '#f87171';
+    msg.style.border = type === 'success' ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(239,68,68,0.2)';
+  }
+
+  async function toggleCoupon(id, is_active) {
+    await fetch(`${API}/admin/coupons/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ is_active }),
+    });
+    loadCoupons();
+  }
+
+  async function deleteCoupon(id) {
+    if (!confirm('Obrisati ovaj kupon?')) return;
+    await fetch(`${API}/admin/coupons/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    loadCoupons();
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     ENCRYPTED TRANSACTION LOGS
+  ───────────────────────────────────────────────────────── */
+  let _txPage = 1;
+
+  async function loadTxLogs(page = 1) {
+    _txPage = page;
+    const tbody = document.getElementById('txlogs-tbody');
+    const limit = parseInt(document.getElementById('txlog-limit')?.value || '20');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-dark-300">🔐 Dekriptovanje...</td></tr>';
+
+    try {
+      const res  = await fetch(`${API}/admin/transaction-logs?page=${page}&limit=${limit}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Greška');
+
+      const total = data.total || 0;
+      const pages = Math.ceil(total / limit);
+      document.getElementById('txlog-total').textContent = `${total} ukupno · Stranica ${page}/${pages || 1}`;
+
+      if (!data.logs?.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-dark-300">Nema logova. Logovi se kreiraju nakon svake transakcije.</td></tr>';
+        renderTxPagination(0, 1, limit);
+        return;
+      }
+
+      const statusColor = { completed:'#34d399', pending:'#fbbf24', failed:'#f87171', refunded:'#a78bfa' };
+      tbody.innerHTML = data.logs.map(l => `<tr>
+        <td style="font-family:monospace;font-size:12px;color:#60a5fa">${esc(l.buyer_email)}</td>
+        <td><span style="color:#a78bfa;font-weight:700">€ ${parseFloat(l.amount||0).toFixed(2)}</span></td>
+        <td style="color:#c0c0d8;font-size:12px">${esc(l.product_name || '–')}</td>
+        <td style="color:#9090b8;font-size:11px;text-transform:capitalize">${esc(l.payment_method || '–')}</td>
+        <td><span style="display:inline-flex;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600;background:rgba(255,255,255,0.06);color:${statusColor[l.status]||'#9090b8'}">${esc(l.status||'–')}</span></td>
+        <td style="font-family:monospace;font-size:10px;color:#6060a0;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(l.tx_reference||'')}">${esc(l.tx_reference||'–')}</td>
+        <td style="color:#6b7280;font-size:11px;white-space:nowrap">${l.created_at ? new Date(l.created_at).toLocaleString('sr-RS') : '–'}</td>
+      </tr>`).join('');
+
+      renderTxPagination(total, pages, limit);
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-red-400">Greška: ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  function renderTxPagination(total, pages, limit) {
+    const pg = document.getElementById('txlog-pagination');
+    if (!pg || pages <= 1) { if (pg) pg.innerHTML = ''; return; }
+    let html = '';
+    const btnStyle = 'padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;border:1px solid rgba(255,255,255,0.08);cursor:pointer;transition:all .15s';
+    if (_txPage > 1) html += `<button onclick="loadTxLogs(${_txPage-1})" style="${btnStyle};background:rgba(255,255,255,0.06);color:#c0c0d8">← Prethodna</button>`;
+    for (let i = Math.max(1,_txPage-2); i <= Math.min(pages,_txPage+2); i++) {
+      html += `<button onclick="loadTxLogs(${i})" style="${btnStyle};background:${i===_txPage?'rgba(29,106,255,0.3)':'rgba(255,255,255,0.04)'};color:${i===_txPage?'#60a5fa':'#9090b8'};border-color:${i===_txPage?'rgba(29,106,255,0.4)':'rgba(255,255,255,0.06)'}">${i}</button>`;
+    }
+    if (_txPage < pages) html += `<button onclick="loadTxLogs(${_txPage+1})" style="${btnStyle};background:rgba(255,255,255,0.06);color:#c0c0d8">Sljedeća →</button>`;
+    pg.innerHTML = html;
+  }
+
+  function esc(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
 </script>
 <script src="translations.js"></script>
 <script src="keyify.js"></script>

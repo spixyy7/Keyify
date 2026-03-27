@@ -577,10 +577,13 @@ const KEYIFY = (() => {
       const st = document.createElement('style');
       st.id = 'kf-dd-style';
       st.textContent = `
-        @keyframes kf-dd-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
-        #kf-dd-trigger:hover{background:rgba(29,106,255,0.1)!important;border-color:rgba(29,106,255,0.4)!important}
-        #kf-dd-panel a:hover,#kf-dd-panel .kf-item:hover{background:#f0f4ff!important}
-        #kf-dd-panel .kf-item-danger:hover{background:#fff5f5!important}`;
+        @keyframes kf-dd-in{from{opacity:0;transform:translateY(-10px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+        #kf-dd-trigger:hover{background:rgba(29,106,255,0.15)!important;border-color:rgba(29,106,255,0.5)!important;box-shadow:0 0 0 3px rgba(29,106,255,0.1)!important}
+        #kf-dd-panel .kf-item{border-radius:10px;transition:background .15s ease,transform .12s ease!important}
+        #kf-dd-panel a.kf-item:hover,#kf-dd-panel button.kf-item:hover{background:rgba(99,102,241,0.15)!important;transform:translateX(3px)!important}
+        #kf-dd-panel .kf-item-danger:hover{background:rgba(239,68,68,0.12)!important;transform:translateX(3px)!important}
+        #kf-dd-panel::-webkit-scrollbar{width:3px}
+        #kf-dd-panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}`;
       document.head.appendChild(st);
     }
 
@@ -609,46 +612,50 @@ const KEYIFY = (() => {
     /* ── Dropdown panel ── */
     const panel = document.createElement('div');
     panel.id = 'kf-dd-panel';
-    panel.style.cssText = 'display:none;position:absolute;top:calc(100% + 8px);right:0;width:224px;background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,0.12);z-index:9999;overflow:hidden;animation:kf-dd-in .13s ease;';
+    panel.style.cssText = 'display:none;position:absolute;top:calc(100% + 10px);right:0;width:248px;background:rgba(8,10,24,0.97);border:1px solid rgba(255,255,255,0.09);border-radius:18px;box-shadow:0 28px 70px rgba(0,0,0,0.65),0 0 0 1px rgba(255,255,255,0.04),inset 0 1px 0 rgba(255,255,255,0.06);z-index:9999;overflow:hidden;animation:kf-dd-in .2s cubic-bezier(.34,1.56,.64,1);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);';
 
     const perms = JSON.parse(localStorage.getItem('keyify_permissions') || '{}');
-    const isSuperAdmin = role === 'admin' && Object.keys(perms).length === 0;
+    const isSuperAdmin   = role === 'admin' && Object.keys(perms).length === 0;
     const isSupportAgent = role === 'admin' && (isSuperAdmin || perms.can_manage_support === true);
+    const canSQL         = role === 'admin' && (isSuperAdmin || perms.can_execute_sql === true);
 
-    const adminItem = role === 'admin' ? `
-      <a href="admin.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:9px 12px;font-size:13px;font-weight:600;color:#A259FF;text-decoration:none;transition:background .1s">
-        <svg style="width:15px;height:15px;flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        Admin panel
+    const sqlItem = canSQL ? `
+      <a href="admin.html" onclick="localStorage.setItem('kf_admin_goto','sql')" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:600;color:#a78bfa;text-decoration:none;">
+        <span style="font-size:16px;line-height:1;flex-shrink:0">🗄️</span>SQL Editor
       </a>` : '';
 
+    const adminItem = role === 'admin' ? `
+      <div style="height:1px;background:rgba(255,255,255,0.06);margin:3px 0"></div>
+      <a href="admin.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:700;color:#60a5fa;text-decoration:none;">
+        <span style="font-size:16px;line-height:1;flex-shrink:0">💻</span>Admin Panel
+      </a>
+      ${sqlItem}` : '';
+
     const inboxItem = isSupportAgent ? `
-      <a href="support-inbox.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:9px 12px;font-size:13px;font-weight:600;color:#1D6AFF;text-decoration:none;transition:background .1s">
-        <svg style="width:15px;height:15px;flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.862 9.862 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-        Support Inbox
-        <span id="kf-inbox-count" style="display:none;margin-left:auto;min-width:18px;height:18px;border-radius:9px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 4px"></span>
+      <a href="support-inbox.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:600;color:#34d399;text-decoration:none;">
+        <span style="font-size:16px;line-height:1;flex-shrink:0">💬</span>Support Inbox
+        <span id="kf-inbox-count" style="display:none;margin-left:auto;min-width:18px;height:18px;border-radius:9px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;align-items:center;justify-content:center;padding:0 4px"></span>
       </a>` : '';
 
     panel.innerHTML = `
-      <div style="padding:11px 13px;border-bottom:1px solid rgba(0,0,0,0.06)">
-        <div style="font-size:12px;font-weight:700;color:#111;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(name)}</div>
-        <div style="font-size:11px;color:#9ca3af;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(email)}</div>
+      <div style="padding:14px 15px;border-bottom:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.025)">
+        <div style="font-size:13px;font-weight:700;color:#f0f0ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(name)}</div>
+        <div style="font-size:11px;color:#6366f1;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(email)}</div>
+        ${role === 'admin' ? '<div style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:2px 8px;border-radius:6px;background:rgba(162,89,255,0.15);border:1px solid rgba(162,89,255,0.3);font-size:10px;font-weight:700;color:#c084fc;text-transform:uppercase;letter-spacing:.05em">⚡ Admin</div>' : ''}
       </div>
-      <div style="padding:4px">
-        <button class="kf-item" id="kf-orders-btn" style="display:flex;align-items:center;gap:10px;padding:9px 12px;font-size:13px;font-weight:500;color:#374151;background:transparent;border:none;width:100%;cursor:pointer;border-radius:8px;text-align:left;transition:background .1s">
-          <svg style="width:15px;height:15px;flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-          Narudžbe
+      <div style="padding:5px">
+        <button class="kf-item" id="kf-orders-btn" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:500;color:#c0c0e0;background:transparent;border:none;width:100%;cursor:pointer;border-radius:10px;text-align:left;">
+          <span style="font-size:16px;line-height:1;flex-shrink:0">📦</span>Narudžbe
         </button>
-        <a href="profile.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:9px 12px;font-size:13px;font-weight:500;color:#374151;text-decoration:none;border-radius:8px;transition:background .1s">
-          <svg style="width:15px;height:15px;flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-          Moj profil
+        <a href="profile.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:500;color:#c0c0e0;text-decoration:none;border-radius:10px;">
+          <span style="font-size:16px;line-height:1;flex-shrink:0">👤</span>Moj profil
         </a>
         ${adminItem}
         ${inboxItem}
       </div>
-      <div style="border-top:1px solid rgba(0,0,0,0.06);padding:4px">
-        <button class="kf-item kf-item-danger" id="kf-logout-btn" style="display:flex;align-items:center;gap:10px;padding:9px 12px;font-size:13px;font-weight:500;color:#ef4444;background:transparent;border:none;width:100%;cursor:pointer;border-radius:8px;text-align:left;transition:background .1s">
-          <svg style="width:15px;height:15px;flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-          Odjava
+      <div style="border-top:1px solid rgba(255,255,255,0.07);padding:5px">
+        <button class="kf-item kf-item-danger" id="kf-logout-btn" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:500;color:#f87171;background:transparent;border:none;width:100%;cursor:pointer;border-radius:10px;text-align:left;">
+          <span style="font-size:16px;line-height:1;flex-shrink:0">🚪</span>Odjava
         </button>
       </div>`;
 
