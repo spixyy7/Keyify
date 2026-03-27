@@ -9,7 +9,18 @@
   // Don't init on admin panel
   if (window.location.pathname.includes('admin')) return;
 
-  const API = () => window.KEYIFY_CONFIG?.API_BASE || 'http://localhost:3001/api';
+  const API = () => {
+    // Ako postoji custom config, koristi njega
+    if (window.KEYIFY_CONFIG?.API_BASE) return window.KEYIFY_CONFIG.API_BASE;
+
+    // Ako si na svom kompjuteru (localhost), gađaj port 3001
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:3001/api';
+    }
+
+    // Za Railway i pravi domen, koristi relativnu putanju
+    return '/api';
+  };
 
   const STORAGE = {
     getSessionId: () => sessionStorage.getItem('kfy_chat_sid'),
