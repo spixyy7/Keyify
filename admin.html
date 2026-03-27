@@ -1413,10 +1413,19 @@
       txlogs:   ['🔐 Encrypted Logs',       'AES-256-CBC dekriptovani log transakcija'],
       sql:      ['🗄️ SQL Editor',           'Direktni pristup bazi podataka'],
     };
+    // Zaustavi stari inbox tajmer ako postoji kada menjamo tabove
+    if (window._inboxQueueTimer) { clearInterval(window._inboxQueueTimer); window._inboxQueueTimer = null; }
+
     if (sectionLabels[name]) {
       document.getElementById('section-title').textContent    = sectionLabels[name][0];
       document.getElementById('section-subtitle').textContent = sectionLabels[name][1];
-      if (name === 'support')  { loadTickets(); loadInbox(); }
+
+      if (name === 'support')  {
+        loadTickets();
+        loadInbox();
+        // NOVO: Automatski osvežavaj listu chatova svakih 5 sekundi!
+        window._inboxQueueTimer = setInterval(() => loadInbox(), 5000);
+      }
       if (name === 'promos')   loadPromos();
       if (name === 'coupons')  loadCoupons();
       if (name === 'txlogs')   loadTxLogs(1);
