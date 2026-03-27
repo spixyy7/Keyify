@@ -444,7 +444,6 @@ app.post('/api/login', authLimiter, async (req, res) => {
     // Don't block login if email fails – log and continue
   }
 
-  const ip = getClientIP(req);
   await supabase.from('audit_logs').insert({
     user_id:    user.id,
     action:     'login_attempt',
