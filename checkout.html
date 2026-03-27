@@ -508,7 +508,7 @@
   }
 
   /* ── PLACE ORDER ── */
-  function placeOrder() {
+  async function placeOrder() {
     const name  = document.getElementById('buyer-name').value.trim();
     const email = document.getElementById('buyer-email').value.trim();
 
@@ -517,11 +517,65 @@
     if (!/\S+@\S+\.\S+/.test(email)) { shakeField('buyer-email'); alert('Nevažeća email adresa.'); return; }
     if (!selectedMethod) { alert('Izaberite način plaćanja.'); return; }
 
-    /* In production: POST to /api/transactions */
-    document.getElementById('checkout-grid').style.display = 'none';
-    document.getElementById('success-screen').style.display = 'block';
-    KEYIFY.CART.clear();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const btn = document.getElementById('place-order-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Obradom…'; }
+
+    const cart     = JSON.parse(localStorage.getItem('keyify_cart') || '[]');
+    const subtotal = cart.reduce((s, i) => s + i.price * (i.qty || 1), 0);
+    const discount = appliedPromo
+      ? (appliedPromo.discount_type === 'percent'
+          ? subtotal * (appliedPromo.discount_value / 100)
+          : appliedPromo.discount_value)
+      : 0;
+    const total    = Math.max(0, subtotal - discount);
+
+    // Build a single product reference (first item in cart)
+    const firstItem = cart[0] || {};
+
+    try {
+      const token = localStorage.getItem('kf_token') || null;
+      const res = await fetch(`${API_BASE}/checkout/confirm`, {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          guest_email:    email,
+          product_id:     firstItem.id     || null,
+          product_name:   cart.map(i => i.name || i.title).filter(Boolean).join(', ') || 'Digitalni proizvod',
+          amount:         total,
+          payment_method: selectedMethod,
+          tx_reference:   null,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Potvrdi narudžbu'; }
+        alert(data.error || 'Greška pri obradi narudžbe.');
+        return;
+      }
+
+      // Store order for the success page
+      sessionStorage.setItem('kfy_last_order', JSON.stringify({
+        transaction_id: data.transaction_id,
+        license_key:    data.license_key,
+        product_name:   data.product_name   || cart.map(i => i.name || i.title).join(', '),
+        product_image:  data.product_image  || firstItem.image || firstItem.image_url || null,
+        amount:         data.amount         ?? total,
+        order_date:     data.order_date     || new Date().toISOString(),
+        email_sent_to:  data.email_sent_to  || email,
+      }));
+
+      KEYIFY.CART.clear();
+      window.location.href = 'purchase-success.html';
+
+    } catch (err) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Potvrdi narudžbu'; }
+      alert('Mrežna greška. Pokušajte ponovo.');
+    }
   }
 
   /* ── PROMO CODE ── */

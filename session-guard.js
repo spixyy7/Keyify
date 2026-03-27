@@ -192,9 +192,15 @@
       return;
     }
 
-    injectModal();
-    watchActivity();
-    resetInactivityTimer();
+    // When the Live Editor is active, skip inactivity tracking so long
+    // editing sessions don't cause accidental logouts. Absolute JWT expiry
+    // is still enforced.
+    const editorActive = localStorage.getItem('keyify_editor_active') === 'true';
+    if (!editorActive) {
+      injectModal();
+      watchActivity();
+      resetInactivityTimer();
+    }
 
     // Schedule hard expiry at JWT exp
     if (payload.exp) {

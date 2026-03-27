@@ -231,7 +231,6 @@
     <a class="sidebar-link" onclick="showSection('security')">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       <span data-i18n="admin.nav.security">Sigurnost & Logovi</span>
-      <span id="reset-badge" class="hidden ml-auto w-5 h-5 rounded-full text-white text-xs font-bold flex items-center justify-center" style="background:#f59e0b;min-width:20px">0</span>
     </a>
 
     <div class="text-xs font-semibold text-dark-400 uppercase tracking-widest px-2 mt-5 mb-3" data-i18n="admin.nav.support">Podrška</div>
@@ -586,27 +585,6 @@
 
     <!-- ═══════════════════════ SECURITY ═══════════════════════ -->
     <div id="section-security" class="section space-y-5">
-
-      <!-- Password reset requests -->
-      <div class="glass rounded-2xl overflow-hidden" id="reset-requests-card">
-        <div class="p-5 border-b flex items-center justify-between" style="border-color:rgba(255,255,255,0.06)">
-          <div>
-            <h3 class="font-display font-semibold text-white">Zahtjevi za reset lozinke</h3>
-            <p class="text-xs text-dark-300 mt-0.5">Korisnici koji su tražili reset lozinke</p>
-          </div>
-          <button onclick="loadResetRequests()" class="text-xs text-dark-300 hover:text-white transition-colors">↻ Osvježi</button>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="admin-table w-full">
-            <thead><tr>
-              <th>Korisnik</th><th>Email</th><th>Vrijeme zahtjeva</th><th>Akcija</th>
-            </tr></thead>
-            <tbody id="reset-requests-body">
-              <tr><td colspan="4" class="text-center py-8 text-dark-300">Učitavanje...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
 
       <!-- Users table -->
       <div class="glass rounded-2xl overflow-hidden">
@@ -1443,13 +1421,11 @@
       if (name === 'coupons')  loadCoupons();
       if (name === 'txlogs')   loadTxLogs(1);
       if (name === 'sql')      loadSqlLogs();
-      if (name === 'security') loadResetRequests();
       return;
     }
     const [titleKey, subKey] = titles[name] || ['admin.section.dashboardTitle', 'admin.section.dashboardSub'];
     document.getElementById('section-title').textContent    = t(titleKey);
     document.getElementById('section-subtitle').textContent = t(subKey);
-    if (name === 'security') loadResetRequests();
   }
 
   /* ── SIDEBAR MOBILE ── */
@@ -2480,42 +2456,7 @@
     } catch { /* ignore */ }
   }
 
-  /* ── Reset requests ── */
-  async function loadResetRequests() {
-    const tbody = document.getElementById('reset-requests-body');
-    try {
-      const res  = await fetch(`${API_BASE}/admin/reset-requests`, { headers: authHeaders() });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      const badge = document.getElementById('reset-badge');
-      if (badge) { badge.textContent = data.length; badge.classList.toggle('hidden', data.length === 0); }
-      tbody.innerHTML = data.length
-        ? data.map(r => `<tr id="rr-row-${escHtml(r.id)}">
-            <td class="font-medium text-white">${escHtml(r.name || '–')}</td>
-            <td class="text-dark-300">${escHtml(r.email || '–')}</td>
-            <td class="text-dark-300">${fmtDate(r.created_at)}</td>
-            <td>
-              <div class="flex items-center gap-2">
-                <button onclick="openUserDetail('${escHtml(String(r.user_id))}')"
-                    class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80"
-                    style="background:rgba(245,158,11,0.25);border:1px solid rgba(245,158,11,0.4);color:#f59e0b">
-                    Otvori
-                </button>
-                <button onclick="openRejectModal('${escHtml(r.id)}','${escHtml(r.email||'')}','${escHtml(r.name||'')}')"
-                    class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80"
-                    style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.35);color:#f87171">
-                    Odbij
-                </button>
-              </div>
-            </td>
-          </tr>`).join('')
-        : '<tr><td colspan="4" class="text-center py-8 text-dark-300">Nema zahtjeva</td></tr>';
-    } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-red-400">${escHtml(err.message)}</td></tr>`;
-    }
-  }
-
-  /* ── Reject reset request ── */
+  /* ── Reject reset request (removed – see confirmRejectRequest below stub) ── */
   function openRejectModal(id, email, name) {
     document.getElementById('reject-modal-overlay')?.remove();
 
@@ -2644,16 +2585,6 @@
       const badge = document.getElementById('support-badge');
       if (badge && count > 0) { badge.textContent = count; badge.classList.remove('hidden'); }
     } catch { /* not enough permissions – ignore */ }
-  })();
-
-  (async function loadResetBadge() {
-    try {
-      const res  = await fetch(`${API_BASE}/admin/reset-requests`, { headers: authHeaders() });
-      if (!res.ok) return;
-      const data = await res.json();
-      const badge = document.getElementById('reset-badge');
-      if (badge && data.length > 0) { badge.textContent = data.length; badge.classList.remove('hidden'); }
-    } catch { /* ignore */ }
   })();
 
   /* ══════════════════════════════════════════════════════

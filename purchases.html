@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Keyify – Moje narudžbe</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { display: ['Poppins','sans-serif'], body: ['Inter','sans-serif'] },
+          colors: { brand: { blue: '#1D6AFF', purple: '#A259FF' } },
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; }
+    h1,h2,h3,.font-display { font-family: 'Poppins', sans-serif; }
+
+    /* ── Light ── */
+    :root {
+      --pu-bg:           #f4f6fb;
+      --pu-card-bg:      #ffffff;
+      --pu-card-border:  #e5e7eb;
+      --pu-card-shadow:  0 2px 12px rgba(0,0,0,0.07);
+      --pu-text:         #111827;
+      --pu-muted:        #6b7280;
+      --pu-tag-bg:       #f0fdf4;
+      --pu-tag-color:    #16a34a;
+      --pu-tag-border:   #bbf7d0;
+      --pu-key-bg:       #f8faff;
+      --pu-key-border:   #dbeafe;
+      --pu-key-color:    #1D6AFF;
+      --pu-input-bg:     #ffffff;
+      --pu-input-border: #d1d5db;
+      --pu-modal-bg:     #ffffff;
+      --pu-modal-border: #e5e7eb;
+      --pu-divider:      #f3f4f6;
+      --pu-img-bg:       #f9fafb;
+    }
+    /* ── Dark glass ── */
+    [data-theme="dark"] {
+      --pu-bg:           #020617;
+      --pu-card-bg:      rgba(15,18,40,0.80);
+      --pu-card-border:  rgba(255,255,255,0.07);
+      --pu-card-shadow:  0 4px 30px rgba(0,0,0,0.45);
+      --pu-text:         #f1f5f9;
+      --pu-muted:        #94a3b8;
+      --pu-tag-bg:       rgba(34,197,94,0.1);
+      --pu-tag-color:    #4ade80;
+      --pu-tag-border:   rgba(34,197,94,0.25);
+      --pu-key-bg:       rgba(29,106,255,0.08);
+      --pu-key-border:   rgba(29,106,255,0.30);
+      --pu-key-color:    #60a5fa;
+      --pu-input-bg:     rgba(255,255,255,0.05);
+      --pu-input-border: rgba(255,255,255,0.12);
+      --pu-modal-bg:     rgba(10,12,28,0.97);
+      --pu-modal-border: rgba(255,255,255,0.10);
+      --pu-divider:      rgba(255,255,255,0.06);
+      --pu-img-bg:       rgba(255,255,255,0.04);
+    }
+
+    body { background: var(--pu-bg); color: var(--pu-text); transition: background .3s, color .3s; }
+
+    /* ── Cards ── */
+    .pu-card {
+      background: var(--pu-card-bg);
+      border: 1px solid var(--pu-card-border);
+      box-shadow: var(--pu-card-shadow);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 18px;
+      overflow: hidden;
+      transition: box-shadow .2s, transform .2s;
+    }
+    .pu-card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(29,106,255,0.12); }
+    .pu-img-wrap {
+      background: var(--pu-img-bg);
+      border-bottom: 1px solid var(--pu-card-border);
+      height: 160px;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    .pu-img-wrap img { max-height: 130px; max-width: 90%; object-fit: contain; }
+    .pu-img-placeholder { font-size: 40px; }
+
+    /* Status tag */
+    .pu-tag {
+      display: inline-block;
+      background: var(--pu-tag-bg);
+      color: var(--pu-tag-color);
+      border: 1px solid var(--pu-tag-border);
+      border-radius: 20px;
+      font-size: 10px; font-weight: 700; letter-spacing: .06em;
+      padding: 2px 9px; text-transform: uppercase;
+    }
+
+    /* Key preview inside card */
+    .pu-key-chip {
+      background: var(--pu-key-bg);
+      border: 1px solid var(--pu-key-border);
+      color: var(--pu-key-color);
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px; font-weight: 700;
+      padding: 5px 10px;
+      letter-spacing: 2px;
+    }
+
+    /* Modal */
+    .pu-modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 1000;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+      animation: fadeIn .15s ease;
+    }
+    @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+    .pu-modal {
+      background: var(--pu-modal-bg);
+      border: 1px solid var(--pu-modal-border);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      border-radius: 20px;
+      width: 100%; max-width: 480px;
+      padding: 36px;
+      animation: slideUp .25s cubic-bezier(.34,1.56,.64,1) both;
+    }
+    @keyframes slideUp { from { opacity:0; transform:translateY(20px) } to { opacity:1; transform:translateY(0) } }
+    .pu-modal h3 { font-family:'Poppins',sans-serif; font-size:20px; font-weight:700; margin:0 0 20px; color:var(--pu-text); }
+    .pu-modal-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--pu-divider); font-size:13px; }
+    .pu-modal-row:last-of-type { border-bottom:none; }
+    .pu-modal-label { color: var(--pu-muted); }
+    .pu-modal-val { font-weight:600; color:var(--pu-text); text-align:right; max-width:60%; word-break:break-all; }
+    .pu-key-big {
+      background: var(--pu-key-bg);
+      border: 2px solid var(--pu-key-border);
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+      margin: 16px 0;
+    }
+    .pu-key-big .label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--pu-muted); margin-bottom:10px; }
+    .pu-key-big .key { font-family:'Courier New',monospace; font-size:20px; font-weight:800; letter-spacing:5px; color:var(--pu-key-color); word-break:break-all; }
+
+    /* Guest email gate */
+    .pu-gate {
+      background: var(--pu-card-bg);
+      border: 1px solid var(--pu-card-border);
+      backdrop-filter: blur(20px);
+      border-radius: 20px;
+      padding: 40px 36px;
+      max-width: 420px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .pu-gate input {
+      width: 100%;
+      background: var(--pu-input-bg);
+      border: 1px solid var(--pu-input-border);
+      border-radius: 10px;
+      padding: 11px 14px;
+      font-size: 14px;
+      color: var(--pu-text);
+      font-family: inherit;
+      margin: 16px 0 12px;
+    }
+    .pu-gate input:focus { outline: none; border-color: #1D6AFF; }
+    .pu-gate input::placeholder { color: var(--pu-muted); }
+
+    /* Skeleton */
+    .pu-skeleton {
+      background: linear-gradient(90deg, var(--pu-card-border) 25%, var(--pu-divider) 50%, var(--pu-card-border) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 8px;
+    }
+    @keyframes shimmer { 0% { background-position:200% 0 } 100% { background-position:-200% 0 } }
+
+    /* Print invoice */
+    @media print {
+      body * { visibility: hidden; }
+      #pu-invoice-print, #pu-invoice-print * { visibility: visible; }
+      #pu-invoice-print { position: fixed; inset: 0; width: 100%; padding: 30px; background: #fff; }
+    }
+
+    /* Fade in cards */
+    @keyframes cardFadeIn { from { opacity:0; transform:translateY(16px) } to { opacity:1; transform:translateY(0) } }
+    .pu-card-anim { animation: cardFadeIn .4s ease both; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- Navbar -->
+  <div id="kf-navbar-root"></div>
+
+  <!-- Hidden print invoice -->
+  <div id="pu-invoice-print" style="display:none"></div>
+
+  <!-- Modal container -->
+  <div id="pu-modal-root"></div>
+
+  <main class="max-w-6xl mx-auto px-4 py-10">
+
+    <!-- Page header -->
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+      <div>
+        <h1 class="text-2xl font-bold font-display" style="color:var(--pu-text)">📦 Moje narudžbe</h1>
+        <p class="text-sm mt-1" style="color:var(--pu-muted)">Pregled svih kupljenih proizvoda i licencnih ključeva</p>
+      </div>
+      <div id="pu-count-badge" style="display:none">
+        <span class="text-xs font-bold px-3 py-1 rounded-full"
+              style="background:rgba(29,106,255,0.1);color:#1D6AFF;border:1px solid rgba(29,106,255,0.2)">
+          <span id="pu-count">0</span> narudžbi
+        </span>
+      </div>
+    </div>
+
+    <!-- Guest email gate (shown when not logged in) -->
+    <div id="pu-gate" style="display:none">
+      <div class="pu-gate">
+        <div style="font-size:44px;margin-bottom:12px">📧</div>
+        <h2 class="text-xl font-bold font-display mb-1" style="color:var(--pu-text)">Unesite vaš email</h2>
+        <p class="text-sm mb-2" style="color:var(--pu-muted)">Unesite email koji ste koristili pri kupovini da vidite istoriju.</p>
+        <input type="email" id="pu-guest-email" placeholder="vas@email.com" autocomplete="email"/>
+        <button onclick="loadAsGuest()"
+                class="w-full py-3 rounded-xl font-bold text-white text-sm transition-all hover:opacity-90"
+                style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
+          Pregledaj narudžbe
+        </button>
+        <p id="pu-gate-err" class="text-xs mt-2" style="color:#ef4444;display:none"></p>
+      </div>
+    </div>
+
+    <!-- Skeleton loader -->
+    <div id="pu-skeleton" style="display:none">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        ${[1,2,3,4].map(() => `
+          <div class="pu-card p-0">
+            <div class="pu-skeleton" style="height:160px;border-radius:18px 18px 0 0"></div>
+            <div class="p-5 space-y-3">
+              <div class="pu-skeleton" style="height:14px;width:70%"></div>
+              <div class="pu-skeleton" style="height:12px;width:50%"></div>
+              <div class="pu-skeleton" style="height:32px;width:100%"></div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div id="pu-empty" style="display:none" class="text-center py-24">
+      <div style="font-size:60px;margin-bottom:16px">🛍️</div>
+      <h2 class="text-xl font-bold font-display mb-2" style="color:var(--pu-text)">Nema narudžbi</h2>
+      <p class="text-sm mb-6" style="color:var(--pu-muted)">Još niste kupili ništa. Pregledajte prodavnicu!</p>
+      <a href="index.html"
+         class="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white text-sm"
+         style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
+        🏪 Idi u prodavnicu
+      </a>
+    </div>
+
+    <!-- Error state -->
+    <div id="pu-error" style="display:none" class="text-center py-16">
+      <div style="font-size:48px;margin-bottom:12px">⚠️</div>
+      <p id="pu-error-msg" class="text-sm font-semibold" style="color:#ef4444">Greška pri učitavanju.</p>
+      <button onclick="retryLoad()" class="mt-4 text-sm font-bold px-4 py-2 rounded-lg" style="background:rgba(29,106,255,0.1);color:#1D6AFF">Pokušaj ponovo</button>
+    </div>
+
+    <!-- Grid -->
+    <div id="pu-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5" style="display:none"></div>
+
+  </main>
+
+  <script src="config.js"></script>
+  <script src="keyify.js"></script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    const API     = (window.KF_CONFIG?.API_BASE || window.API_BASE || '').replace(/\/$/, '');
+    const LANG    = () => localStorage.getItem('kf_lang') || 'bs';
+
+    /* ── State ── */
+    let currentEmail = null;
+    let currentToken = localStorage.getItem('keyify_token') || null;
+    let allOrders    = [];
+
+    /* ── Show / hide helpers ── */
+    function showOnly(id) {
+      ['pu-gate','pu-skeleton','pu-empty','pu-error','pu-grid'].forEach(i => {
+        document.getElementById(i).style.display = i === id ? (id === 'pu-grid' ? 'grid' : 'block') : 'none';
+      });
+    }
+
+    /* ── Boot ── */
+    function boot() {
+      if (currentToken) {
+        loadPurchases(); // authenticated
+      } else {
+        // Check if email is in sessionStorage from recent order
+        const lastOrder = (() => { try { return JSON.parse(sessionStorage.getItem('kfy_last_order') || 'null'); } catch { return null; } })();
+        if (lastOrder?.email_sent_to) {
+          currentEmail = lastOrder.email_sent_to;
+          loadPurchases();
+        } else {
+          showOnly('pu-gate');
+        }
+      }
+    }
+
+    /* ── Guest gate ── */
+    window.loadAsGuest = function () {
+      const email = document.getElementById('pu-guest-email').value.trim().toLowerCase();
+      const err   = document.getElementById('pu-gate-err');
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        err.textContent = 'Unesite važeću email adresu.';
+        err.style.display = 'block';
+        return;
+      }
+      err.style.display = 'none';
+      currentEmail = email;
+      loadPurchases();
+    };
+
+    window.retryLoad = function () { loadPurchases(); };
+
+    /* ── Fetch ── */
+    async function loadPurchases() {
+      showOnly('pu-skeleton');
+
+      let url = `${API}/user/purchases`;
+      const headers = {};
+
+      if (currentToken) {
+        headers['Authorization'] = `Bearer ${currentToken}`;
+      } else if (currentEmail) {
+        url += `?email=${encodeURIComponent(currentEmail)}`;
+      } else {
+        showOnly('pu-gate');
+        return;
+      }
+
+      try {
+        const res  = await fetch(url, { headers });
+        const data = await res.json();
+        if (!res.ok) { showError(data.error || 'Greška'); return; }
+        allOrders = Array.isArray(data) ? data : [];
+        renderGrid(allOrders);
+      } catch (err) {
+        showError('Mrežna greška. Provjeri internet vezu.');
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById('pu-error-msg').textContent = msg;
+      showOnly('pu-error');
+    }
+
+    /* ── Render ── */
+    function esc(s) {
+      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function renderGrid(orders) {
+      const grid = document.getElementById('pu-grid');
+
+      if (!orders.length) { showOnly('pu-empty'); return; }
+
+      // Count badge
+      document.getElementById('pu-count').textContent = orders.length;
+      document.getElementById('pu-count-badge').style.display = 'block';
+
+      grid.innerHTML = orders.map((o, idx) => {
+        const dateStr  = new Date(o.created_at).toLocaleDateString('bs-BA', { year:'numeric', month:'short', day:'numeric' });
+        const imgBlock = o.product_image
+          ? `<img src="${esc(o.product_image)}" alt="${esc(o.product_name)}" loading="lazy" onerror="this.parentElement.innerHTML='<span class=pu-img-placeholder>📦</span>'"/>`
+          : `<span class="pu-img-placeholder">📦</span>`;
+        const statusLabel = o.status === 'completed' ? 'Završeno'
+          : o.status === 'pending'   ? 'Na čekanju'
+          : o.status === 'refunded'  ? 'Vraćeno'
+          : o.status;
+
+        const keyMasked = o.license_key
+          ? o.license_key.split('-').map((part, i) => i === 0 ? part : '••••').join('-')
+          : '—';
+
+        return `
+          <div class="pu-card pu-card-anim" style="animation-delay:${idx * 0.05}s">
+            <div class="pu-img-wrap">${imgBlock}</div>
+            <div class="p-5">
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <h3 class="font-semibold text-sm leading-snug" style="color:var(--pu-text)">${esc(o.product_name || 'Digitalni proizvod')}</h3>
+                <span class="pu-tag flex-shrink-0">${esc(statusLabel)}</span>
+              </div>
+              <p class="text-xs mb-1" style="color:var(--pu-muted)">${dateStr}</p>
+              <p class="text-base font-bold mb-4" style="color:#1D6AFF">€ ${parseFloat(o.amount || 0).toFixed(2)}</p>
+
+              ${o.license_key ? `
+              <div class="pu-key-chip mb-4 text-center">${esc(keyMasked)}</div>` : ''}
+
+              <div class="flex gap-2">
+                <button onclick="openKeyModal(${idx})"
+                        class="flex-1 text-xs font-bold py-2 px-3 rounded-lg transition-all hover:opacity-90"
+                        style="background:rgba(29,106,255,0.1);color:#1D6AFF;border:1px solid rgba(29,106,255,0.2)">
+                  🔑 Prikaži ključ
+                </button>
+                <button onclick="downloadReceipt(${idx})"
+                        class="flex-1 text-xs font-bold py-2 px-3 rounded-lg transition-all hover:opacity-90"
+                        style="background:rgba(162,89,255,0.1);color:#A259FF;border:1px solid rgba(162,89,255,0.2)">
+                  🖨 Račun
+                </button>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+
+      showOnly('pu-grid');
+    }
+
+    /* ── Key modal ── */
+    window.openKeyModal = function (idx) {
+      const o = allOrders[idx];
+      if (!o) return;
+      const dateStr = new Date(o.created_at).toLocaleDateString('bs-BA', { year:'numeric', month:'long', day:'numeric' });
+
+      const root = document.getElementById('pu-modal-root');
+      root.innerHTML = `
+        <div class="pu-modal-overlay" id="pu-overlay" onclick="if(event.target.id==='pu-overlay')closeModal()">
+          <div class="pu-modal">
+            <h3>🔑 Detalji narudžbe</h3>
+
+            <div class="pu-key-big">
+              <div class="label">Licencni ključ</div>
+              <div class="key" id="pu-key-display">${esc(o.license_key || '—')}</div>
+            </div>
+
+            <button onclick="copyKey()" class="w-full mb-5 text-xs font-bold py-2 rounded-lg transition-all hover:opacity-90"
+                    style="background:rgba(29,106,255,0.1);color:#1D6AFF;border:1px solid rgba(29,106,255,0.2)">
+              📋 Kopiraj ključ
+            </button>
+
+            <div class="pu-modal-row"><span class="pu-modal-label">Proizvod</span><span class="pu-modal-val">${esc(o.product_name || '—')}</span></div>
+            <div class="pu-modal-row"><span class="pu-modal-label">Iznos</span><span class="pu-modal-val font-bold" style="color:#1D6AFF">€ ${parseFloat(o.amount || 0).toFixed(2)}</span></div>
+            <div class="pu-modal-row"><span class="pu-modal-label">Metoda</span><span class="pu-modal-val">${esc(o.payment_method || '—')}</span></div>
+            <div class="pu-modal-row"><span class="pu-modal-label">Datum</span><span class="pu-modal-val">${dateStr}</span></div>
+            <div class="pu-modal-row"><span class="pu-modal-label">ID</span><span class="pu-modal-val font-mono text-xs" style="color:var(--pu-muted)">${esc(o.id)}</span></div>
+
+            <button onclick="closeModal()" class="mt-6 w-full py-3 rounded-xl font-bold text-sm"
+                    style="background:var(--pu-divider);color:var(--pu-text)">
+              Zatvori
+            </button>
+          </div>
+        </div>`;
+    };
+
+    window.copyKey = function () {
+      const key = document.getElementById('pu-key-display')?.textContent;
+      if (!key || key === '—') return;
+      navigator.clipboard?.writeText(key).then(() => {
+        const btn = document.querySelector('#pu-overlay .pu-modal button[onclick="copyKey()"]');
+        if (!btn) return;
+        const orig = btn.textContent;
+        btn.textContent = '✓ Kopirano!';
+        setTimeout(() => btn.textContent = orig, 1800);
+      });
+    };
+
+    window.closeModal = function () {
+      document.getElementById('pu-modal-root').innerHTML = '';
+    };
+
+    /* ── Print receipt ── */
+    window.downloadReceipt = function (idx) {
+      const o = allOrders[idx];
+      if (!o) return;
+      const dateStr = new Date(o.created_at).toLocaleDateString('bs-BA', { year:'numeric', month:'long', day:'numeric' });
+
+      const receiptHtml = `
+        <!DOCTYPE html><html lang="bs"><head>
+        <meta charset="UTF-8"/>
+        <style>
+          * { box-sizing:border-box; }
+          body { font-family:'Segoe UI',Arial,sans-serif; background:#f4f6f9; padding:30px; color:#111827; }
+          .card { background:#fff; border-radius:18px; max-width:520px; margin:0 auto; overflow:hidden; border:1px solid #e5e7eb; }
+          .hdr { background:linear-gradient(135deg,#1D6AFF,#A259FF); padding:30px 36px; text-align:center; color:#fff; }
+          .hdr h1 { margin:0; font-size:22px; font-weight:800; }
+          .hdr p  { margin:6px 0 0; opacity:.8; font-size:13px; }
+          .body { padding:28px 36px; }
+          .key-box { background:linear-gradient(135deg,#f0f4ff,#faf5ff); border:2px solid #A259FF; border-radius:14px; padding:22px; text-align:center; margin:0 0 22px; }
+          .key-box .label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#7c3aed; margin-bottom:8px; }
+          .key-box .key   { font-size:22px; font-weight:800; letter-spacing:5px; color:#1D6AFF; font-family:'Courier New',monospace; word-break:break-all; }
+          table { width:100%; border-collapse:collapse; font-size:13px; }
+          td { padding:9px 0; border-bottom:1px solid #f3f4f6; }
+          td:last-child { text-align:right; font-weight:600; color:#111827; }
+          td:first-child { color:#6b7280; }
+          .ftr { background:#f9fafb; border-top:1px solid #e5e7eb; padding:16px 36px; text-align:center; font-size:11px; color:#9ca3af; }
+          @media print { body { background:#fff; padding:0; } }
+        </style></head><body>
+        <div class="card">
+          <div class="hdr"><h1>🔑 Keyify Račun</h1><p>Keyify · Digitalna tržnica</p></div>
+          <div class="body">
+            <div class="key-box">
+              <div class="label">Licencni ključ</div>
+              <div class="key">${esc(o.license_key || '—')}</div>
+            </div>
+            <table>
+              <tr><td>Proizvod</td><td>${esc(o.product_name || '—')}</td></tr>
+              <tr><td>Iznos</td><td style="color:#1D6AFF;font-size:15px">€ ${parseFloat(o.amount || 0).toFixed(2)}</td></tr>
+              <tr><td>Metoda</td><td>${esc(o.payment_method || '—')}</td></tr>
+              <tr><td>Datum</td><td>${dateStr}</td></tr>
+              <tr><td>ID narudžbe</td><td style="font-family:monospace;font-size:11px;color:#9ca3af">${esc(o.id)}</td></tr>
+            </table>
+          </div>
+          <div class="ftr">© ${new Date().getFullYear()} Keyify · Automatski generirani račun</div>
+        </div>
+        <script>window.onload=function(){window.print();}<\/script>
+        </body></html>`;
+
+      const win = window.open('', '_blank');
+      win.document.write(receiptHtml);
+      win.document.close();
+    };
+
+    /* ── Keyboard ESC ── */
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+    /* ── Init ── */
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', boot);
+    } else {
+      boot();
+    }
+
+  })();
+  </script>
+</body>
+</html>

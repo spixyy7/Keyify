@@ -119,18 +119,18 @@
       bottom:92px !important;
       right:24px !important;
       z-index:99998 !important;
-      width:360px !important;
-      max-height:520px !important;
-      border-radius:20px !important;
+      width:368px !important;
+      max-height:540px !important;
+      border-radius:22px !important;
       overflow:hidden !important;
-      box-shadow:0 24px 64px rgba(0,0,0,.38),0 4px 20px rgba(0,0,0,.2) !important;
+      box-shadow:0 32px 80px rgba(0,0,0,.32),0 8px 24px rgba(0,0,0,.16),0 0 0 1px rgba(0,0,0,.05) !important;
       display:flex !important;
       flex-direction:column !important;
       opacity:0 !important;
       pointer-events:none !important;
-      transform:translateY(14px) scale(.97) !important;
-      transition:transform .24s cubic-bezier(.4,0,.2,1),
-                 opacity .24s cubic-bezier(.4,0,.2,1) !important;
+      transform:translateY(16px) scale(.96) !important;
+      transition:transform .28s cubic-bezier(.34,1.56,.64,1),
+                 opacity .22s cubic-bezier(.4,0,.2,1) !important;
       font-family:'Inter','Segoe UI',system-ui,sans-serif !important;
     }
     #kfy-chat-win.kfy-visible {
@@ -138,6 +138,61 @@
       pointer-events:all !important;
       transform:translateY(0) scale(1) !important;
     }
+
+    /* ── Guest email gate (full-screen inside chat window) ── */
+    #kfy-guest-gate {
+      position:absolute !important;
+      inset:0 !important;
+      z-index:10 !important;
+      display:flex !important;
+      flex-direction:column !important;
+      align-items:center !important;
+      justify-content:center !important;
+      padding:28px 24px !important;
+      background:var(--kfy-header-bg,#fff) !important;
+      text-align:center !important;
+      transition:background .25s ease !important;
+    }
+    #kfy-guest-gate.kfy-gate-hidden { display:none !important; }
+    .kfy-gate-icon {
+      width:56px;height:56px;border-radius:16px;margin-bottom:16px;
+      background:linear-gradient(135deg,#3b82f6,#60a5fa);
+      display:flex;align-items:center;justify-content:center;flex-shrink:0;
+      box-shadow:0 8px 24px rgba(59,130,246,0.35);
+    }
+    .kfy-gate-title {
+      font-size:17px;font-weight:700;margin-bottom:6px;
+      color:var(--kfy-agent-title,#111827);line-height:1.3;
+    }
+    .kfy-gate-sub {
+      font-size:12px;color:var(--kfy-inp-ph,#9ca3af);margin-bottom:20px;line-height:1.5;
+    }
+    .kfy-gate-input {
+      width:100%;padding:11px 14px;border:1.5px solid var(--kfy-inp-border,#e5e7eb);
+      border-radius:12px;font-size:13px;outline:none;box-sizing:border-box;
+      color:var(--kfy-inp-color,#111827);background:var(--kfy-inp-bg,#f9fafb);
+      font-family:inherit;transition:border-color .15s,box-shadow .15s;
+      margin-bottom:10px;
+    }
+    .kfy-gate-input::placeholder { color:var(--kfy-inp-ph,#9ca3af); }
+    .kfy-gate-input:focus { border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.12);background:var(--kfy-inp-focus-bg,#fff); }
+    .kfy-gate-btn {
+      width:100%;padding:12px;border:none;border-radius:12px;
+      background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff;
+      font-size:14px;font-weight:700;cursor:pointer;
+      box-shadow:0 4px 14px rgba(59,130,246,0.40);
+      transition:opacity .15s,transform .1s;letter-spacing:.01em;
+    }
+    .kfy-gate-btn:hover   { opacity:.9;transform:translateY(-1px); }
+    .kfy-gate-btn:active  { transform:translateY(0); }
+    .kfy-gate-btn:disabled { opacity:.45;cursor:not-allowed;transform:none; }
+    .kfy-gate-err { font-size:11px;color:#ef4444;margin-top:6px;text-align:left;display:none; }
+    .kfy-gate-skip {
+      margin-top:12px;font-size:11px;color:var(--kfy-inp-ph,#9ca3af);
+      cursor:pointer;text-decoration:underline;background:none;border:none;
+      font-family:inherit;
+    }
+    .kfy-gate-skip:hover { color:#3b82f6; }
 
     /* ── Header (theme-aware via CSS variables) ── */
     .kfy-header {
@@ -209,9 +264,9 @@
       box-shadow:var(--kfy-bubble-bot-shad,0 1px 4px rgba(0,0,0,.07));
     }
     .kfy-bubble.user {
-      background:linear-gradient(135deg,#1D6AFF,#4f8fff);color:#fff;
+      background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff;
       align-self:flex-end;border-bottom-right-radius:4px;
-      box-shadow:0 4px 12px rgba(29,106,255,0.3);
+      box-shadow:0 4px 12px rgba(59,130,246,0.35);
     }
 
     /* ── Email capture card ── */
@@ -236,10 +291,11 @@
     .kfy-email-input::placeholder { color:var(--kfy-inp-ph,#9ca3af); }
     .kfy-email-input:focus { border-color:#1D6AFF;background:var(--kfy-inp-focus-bg,#fff);box-shadow:0 0 0 3px rgba(29,106,255,0.1); }
     .kfy-email-btn {
-      width:100%;margin-top:10px;padding:10px;border:none;border-radius:10px;
-      background:linear-gradient(135deg,#1D6AFF,#A259FF);color:#fff;
-      font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s,transform .1s;
-      display:block;box-sizing:border-box;box-shadow:0 4px 14px rgba(29,106,255,0.3);
+      width:100%;margin-top:10px;padding:11px;border:none;border-radius:10px;
+      background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff;
+      font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .1s;
+      display:block;box-sizing:border-box;box-shadow:0 4px 14px rgba(59,130,246,0.35);
+      letter-spacing:.01em;
     }
     .kfy-email-btn:hover   { opacity:.88;transform:translateY(-1px); }
     .kfy-email-btn:active  { transform:translateY(0); }
@@ -268,9 +324,10 @@
     .kfy-send-btn {
       width:36px;height:36px;min-width:36px;flex-shrink:0;
       border:none;border-radius:50%;cursor:pointer;
-      background:linear-gradient(135deg,#1D6AFF,#A259FF);
+      background:linear-gradient(135deg,#3b82f6,#60a5fa);
       display:flex;align-items:center;justify-content:center;
       transition:opacity .15s,transform .15s;padding:0;
+      box-shadow:0 2px 8px rgba(59,130,246,0.35);
     }
     .kfy-send-btn:hover   { opacity:.85;transform:scale(1.08); }
     .kfy-send-btn:active  { transform:scale(.93); }
@@ -321,6 +378,27 @@
 
     <!-- ── Chat window ── -->
     <div id="kfy-chat-win" role="dialog" aria-modal="true" aria-label="Live chat podrška">
+
+      <!-- Guest Email Gate (covers window until email submitted) -->
+      <div id="kfy-guest-gate" class="kfy-gate-hidden">
+        <div class="kfy-gate-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+        <div class="kfy-gate-title">Počnite razgovor</div>
+        <div class="kfy-gate-sub">Unesite email kako bismo vam mogli odgovoriti i čuvali historiju razgovora.</div>
+        <input type="email" id="kfy-gate-inp" class="kfy-gate-input"
+               placeholder="vas@email.com" autocomplete="email"/>
+        <div class="kfy-gate-err" id="kfy-gate-err"></div>
+        <button class="kfy-gate-btn" id="kfy-gate-btn" type="button"
+                onclick="window._kfyGateSubmit()">
+          Počni razgovor →
+        </button>
+        <button class="kfy-gate-skip" type="button" onclick="window._kfyGateSkip()">
+          Nastavi bez email-a
+        </button>
+      </div>
 
       <!-- Header tabs -->
       <div class="kfy-header">
@@ -448,6 +526,49 @@
   };
 
   /* ─────────────────────────────────────────────────────────────
+     GUEST GATE (full-screen email entry before chat opens)
+  ───────────────────────────────────────────────────────────── */
+  const guestGate    = document.getElementById('kfy-guest-gate');
+  const gateInp      = document.getElementById('kfy-gate-inp');
+  const gateBtn      = document.getElementById('kfy-gate-btn');
+  const gateErr      = document.getElementById('kfy-gate-err');
+
+  function _showGate() {
+    guestGate.classList.remove('kfy-gate-hidden');
+    setTimeout(() => gateInp && gateInp.focus(), 220);
+  }
+
+  function _hideGate() {
+    guestGate.classList.add('kfy-gate-hidden');
+  }
+
+  window._kfyGateSubmit = async function () {
+    const val = (gateInp.value || '').trim();
+    if (!val || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+      gateErr.textContent   = 'Unesite ispravnu email adresu.';
+      gateErr.style.display = 'block';
+      return;
+    }
+    gateErr.style.display = 'none';
+    gateBtn.disabled      = true;
+    gateBtn.textContent   = 'Pokretanje...';
+    STORAGE.setEmail(val);
+    await _startSession(val);
+    gateBtn.disabled    = false;
+    gateBtn.textContent = 'Počni razgovor →';
+  };
+
+  window._kfyGateSkip = async function () {
+    _hideGate();
+    // Attempt anonymous session; if it fails, show email card in body
+    await _startSession(null);
+  };
+
+  gateInp && gateInp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); window._kfyGateSubmit(); }
+  });
+
+  /* ─────────────────────────────────────────────────────────────
      INIT STATE (called when window opens)
   ───────────────────────────────────────────────────────────── */
   function _initState() {
@@ -457,18 +578,21 @@
 
     if (sid) {
       // Resume existing session
+      _hideGate();
       _activateChat();
       _loadMessages(sid);
       _startPoll(sid);
     } else if (email) {
       // Previously entered email – auto-start session with it
+      _hideGate();
       _startSession(email);
     } else if (token) {
       // Logged-in user (no email needed – backend reads JWT)
+      _hideGate();
       _startSession(null);
     } else {
-      // Guest – show email capture form
-      setTimeout(() => emailInp && emailInp.focus(), 220);
+      // Guest – show the full-screen gate first
+      _showGate();
     }
   }
 
@@ -519,12 +643,16 @@
       _activateChat();
       _startPoll(data.session_id);
     } catch (err) {
-      // If auto-started from token (no email provided) and it failed,
-      // silently fall back to email capture form instead of showing an error
+      // If auto-started (no email provided) and it failed, show gate so
+      // guest can enter their email — never show a raw error on first open
       if (!guestEmail) {
-        emailCard.style.display = 'block';
-        setTimeout(() => emailInp && emailInp.focus(), 50);
+        _showGate();
         return;
+      }
+      // Guest submitted email but server rejected — show error on gate
+      if (gateErr) {
+        gateErr.textContent   = err.message || 'Greška servera. Pokušajte ponovo.';
+        gateErr.style.display = 'block';
       }
       _showEmailErr(err.message || 'Greška servera. Pokušajte ponovo.');
     }
