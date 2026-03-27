@@ -427,13 +427,18 @@
     const token = STORAGE.getToken();
 
     if (sid) {
+      // Resume existing session
       _activateChat();
       _loadMessages(sid);
       _startPoll(sid);
-    } else if (token || email) {
+    } else if (email) {
+      // Previously entered email – auto-start session with it
       _startSession(email);
+    } else if (token) {
+      // Logged-in user (no email needed – backend reads JWT)
+      _startSession(null);
     } else {
-      // Show email capture – focus the input
+      // Guest – show email capture form
       setTimeout(() => emailInp && emailInp.focus(), 220);
     }
   }
@@ -485,7 +490,14 @@
       _activateChat();
       _startPoll(data.session_id);
     } catch (err) {
-      _showEmailErr(err.message || 'Greška. Pokušajte ponovo.');
+      // If auto-started from token (no email provided) and it failed,
+      // silently fall back to email capture form instead of showing an error
+      if (!guestEmail) {
+        emailCard.style.display = 'block';
+        setTimeout(() => emailInp && emailInp.focus(), 50);
+        return;
+      }
+      _showEmailErr(err.message || 'Greška servera. Pokušajte ponovo.');
     }
   }
 

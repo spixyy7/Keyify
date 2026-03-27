@@ -328,9 +328,18 @@
                 <p id="otp-error" class="text-center text-red-500 text-xs font-medium hidden mb-3"></p>
 
                 <button type="button" id="verify-btn" onclick="submitOTP()"
-                        class="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold py-3.5 rounded-xl transition-all duration-200 shadow-sm hover:shadow-blue-200 hover:shadow-lg text-sm mt-2 mb-4">
+                        class="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold py-3.5 rounded-xl transition-all duration-200 shadow-sm hover:shadow-blue-200 hover:shadow-lg text-sm mt-2 mb-3">
                     Verificiraj kod
                 </button>
+
+                <!-- Remember device — shown only at verification step -->
+                <label class="flex items-center gap-2.5 cursor-pointer select-none mb-4 px-1" for="remember-device">
+                    <input type="checkbox" id="remember-device"
+                           class="w-4 h-4 rounded border-gray-300 accent-blue-600 cursor-pointer flex-shrink-0"/>
+                    <span class="text-sm text-gray-600">Zapamti ovaj uređaj
+                        <span class="text-gray-400 text-xs">(preskoči verifikaciju 30 dana)</span>
+                    </span>
+                </label>
 
                 <div class="text-center text-sm">
                     <span class="text-gray-400">Niste primili kod?</span>
@@ -452,13 +461,6 @@
                             <button type="button" onclick="showForgot()" class="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors">Zaboravili ste lozinku?</button>
                         </div>
                     </div>
-
-                    <!-- Remember device -->
-                    <label class="flex items-center gap-2.5 cursor-pointer select-none mt-1" for="remember-device">
-                        <input type="checkbox" id="remember-device"
-                               class="w-4 h-4 rounded border-gray-300 accent-blue-600 cursor-pointer flex-shrink-0"/>
-                        <span class="text-sm text-gray-600">Zapamti ovaj uređaj <span class="text-gray-400 text-xs">(30 dana, preskoci verifikaciju)</span></span>
-                    </label>
 
                     <button type="submit" id="login-btn"
                             class="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold py-3.5 rounded-xl transition-all duration-200 shadow-sm hover:shadow-blue-200 hover:shadow-lg text-sm mt-2">
@@ -877,7 +879,6 @@
         e.preventDefault();
         const email    = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
-        const remember = document.getElementById('remember-device').checked;
 
         document.getElementById('login-error').classList.add('hidden');
         setLoading('login-btn', true, 'Prijavi se');
@@ -905,8 +906,7 @@
             }
 
             // Normal OTP flow
-            pendingUserId  = data.user_id;
-            pendingRemember = remember;
+            pendingUserId = data.user_id;
             showOTPStep(email);
         } catch (err) {
             showError('login-error', err.message);
@@ -1110,7 +1110,7 @@
             const res  = await fetch(`${getApiBase()}/verify`, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ user_id: pendingUserId, otp, remember_device: pendingRemember }),
+                body:    JSON.stringify({ user_id: pendingUserId, otp, remember_device: document.getElementById('remember-device').checked }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Pogrešan kod');
@@ -1213,5 +1213,6 @@
 </script>
 <script src="translations.js"></script>
 <script src="keyify.js"></script>
+<script src="chat-widget.js"></script>
 </body>
 </html>
