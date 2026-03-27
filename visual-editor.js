@@ -615,6 +615,67 @@
         outline: none; border-color: #1D6AFF;
         box-shadow: 0 0 0 3px rgba(29,106,255,0.15);
       }
+
+      /* ── Hybrid Media Modal ──────────────────────── */
+      .kve-hm-tabs {
+        display: flex; gap: 8px; margin-bottom: 18px;
+      }
+      .kve-hm-tab {
+        flex: 1; padding: 8px 6px; border-radius: 9px;
+        border: 1.5px solid rgba(255,255,255,0.1);
+        background: transparent; color: #9090b8;
+        font-size: 11px; font-weight: 700; cursor: pointer;
+        transition: all .15s; font-family: inherit; text-align: center;
+      }
+      .kve-hm-tab:hover { border-color: rgba(255,255,255,0.22); color: #c0c0e0; }
+      .kve-hm-tab.active { background: rgba(29,106,255,0.22); border-color: #1D6AFF; color: #fff; }
+      .kve-hm-drop {
+        border: 2px dashed rgba(255,255,255,0.15); border-radius: 12px;
+        padding: 22px 14px; text-align: center; cursor: pointer;
+        transition: border-color .2s, background .2s; margin-bottom: 10px;
+        user-select: none;
+      }
+      .kve-hm-drop:hover, .kve-hm-drop.kve-drag-over {
+        border-color: #1D6AFF; background: rgba(29,106,255,0.08);
+      }
+      .kve-hm-drop-icon { font-size: 24px; line-height: 1; margin-bottom: 6px; }
+      .kve-hm-drop-text { font-size: 12px; color: #c0c0e0; font-weight: 600; }
+      .kve-hm-drop-sub  { font-size: 10px; color: #5050a0; margin-top: 4px; }
+      .kve-hm-preview-wrap { min-height: 56px; margin: 10px 0 4px; text-align: center; }
+      .kve-hm-preview {
+        display: inline-block; max-height: 88px; max-width: 100%;
+        object-fit: contain; border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.1);
+      }
+      .kve-hm-preview-empty {
+        height: 56px; background: rgba(255,255,255,0.03);
+        border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 11px; color: #5050a0;
+      }
+      .kve-hm-filename { font-size: 11px; color: #22c55e; text-align: center; margin-top: 4px; }
+      .kve-hm-panel.hidden { display: none; }
+      .kve-hm-spinner { text-align: center; font-size: 12px; color: #9090b8; padding: 6px 0; }
+      /* Transform tools */
+      .kve-hm-transform {
+        display: flex; gap: 10px; margin-top: 14px; align-items: flex-end;
+      }
+      .kve-hm-transform label { font-size: 10px; font-weight: 700; color: #7070a0; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; display: block; }
+      .kve-hm-transform .kve-tf-group { flex: 1; }
+      .kve-hm-transform input[type=number] {
+        width: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 8px; padding: 7px 10px; font-size: 12px; color: #e2e2f0;
+        font-family: inherit; box-sizing: border-box;
+      }
+      .kve-hm-transform input[type=number]:focus { outline: none; border-color: #1D6AFF; }
+      /* Sync bar inside modal */
+      .kve-hm-sync-row {
+        margin-top: 14px; padding: 10px 14px; background: rgba(29,106,255,0.10);
+        border: 1px solid rgba(29,106,255,0.25); border-radius: 10px;
+        display: flex; align-items: center; gap: 10px; cursor: pointer;
+      }
+      .kve-hm-sync-row input[type=checkbox] { cursor: pointer; accent-color: #1D6AFF; }
+      .kve-hm-sync-row span { font-size: 12px; color: #a0b0ff; font-weight: 600; }
     `;
     document.head.appendChild(s);
   }
@@ -905,26 +966,23 @@
   }
 
   /* ─────────────────────────────────────────────────────────────────
-     9. IMAGE MODAL
+     9. IMAGE MODAL  (product card – upload or URL)
   ──────────────────────────────────────────────────────────────────── */
   function openImageModal(product, id, wrap) {
-    const modal = createModal('🖼️ Promijeni sliku', `
-      <label>URL slike</label>
-      <input type="url" id="kve-img-url" placeholder="https://…" value="${esc(product.image_url || '')}"/>
-    `);
-    modal.ok.addEventListener('click', async () => {
-      const newUrl = modal.overlay.querySelector('#kve-img-url').value.trim();
-      closeModal(modal.overlay);
-      if (!newUrl) return;
-      await saveField(id, 'image_url', newUrl, wrap);
-      const img = wrap.querySelector('img');
-      if (img) { img.src = newUrl; }
-      else {
-        const placeholder = wrap.querySelector('.glass-card div[style]');
-        if (placeholder) placeholder.outerHTML = `<img src="${esc(newUrl)}" class="max-h-24 w-auto object-contain" alt="product"/>`;
-      }
+    const imgEl = wrap.querySelector('img');
+    openHybridMediaModal(imgEl || null, {
+      title: '🖼️ Promijeni sliku proizvoda',
+      initSrc: product.image_url || '',
+      onApply: async (url) => {
+        await saveField(id, 'image_url', url, wrap);
+        if (imgEl) { imgEl.src = url; imgEl.setAttribute('src', url); }
+        else {
+          const placeholder = wrap.querySelector('.glass-card div[style]');
+          if (placeholder)
+            placeholder.outerHTML = `<img src="${esc(url)}" class="max-h-24 w-auto object-contain" alt="product"/>`;
+        }
+      },
     });
-    setTimeout(() => modal.overlay.querySelector('#kve-img-url').focus(), 60);
   }
 
   /* ─────────────────────────────────────────────────────────────────
@@ -1461,7 +1519,10 @@
       btns += `<button data-kve-action="navlist-add">＋ Dodaj link</button>`;
     }
     if (type === 'sociallink') {
-      btns += `<button data-kve-action="social-edit">✏️ Icon & href</button>`;
+      btns += `
+        <button data-kve-action="social-media">📁 Upload ikone</button>
+        <button data-kve-action="social-edit">✏️ href & SVG</button>
+      `;
     }
 
     btns += `<div class="kve-st-sep"></div><button data-kve-action="deselect">✕</button>`;
@@ -1625,6 +1686,10 @@
         _openAddNavItemModal(el);
         break;
 
+      case 'social-media':
+        openHybridMediaModal(el, { isIcon: true });
+        break;
+
       case 'social-edit':
         _openSocialLinkModal(el);
         break;
@@ -1772,64 +1837,216 @@
     });
   }
 
-  function _openSrcModal(el) {
-    const m = createModal('🖼 Uredi sliku', `
-      <label>URL slike</label>
-      <input type="url" id="kve-src-inp" placeholder="https://…" value="${esc(el.getAttribute('src') || '')}"/>
-      <label style="margin-top:14px">Alt tekst</label>
-      <input type="text" id="kve-src-alt" value="${esc(el.alt || '')}"/>
-    `);
-    m.ok.addEventListener('click', () => {
-      const src = m.overlay.querySelector('#kve-src-inp').value.trim();
-      const alt = m.overlay.querySelector('#kve-src-alt').value;
-      closeModal(m.overlay);
-      if (src) { el.src = src; el.setAttribute('src', src); }
-      el.alt = alt;
-      toastMsg('🖼 Slika izmijenjena.');
-    });
-    setTimeout(() => m.overlay.querySelector('#kve-src-inp').select(), 60);
-  }
+  function _openSrcModal(el) { openHybridMediaModal(el); }
 
-  /* ── Full Media Editor modal (combines src + alt) ── */
-  function _openMediaEditorModal(el) {
-    const curSrc = el.getAttribute('src') || '';
-    const curAlt = el.alt || '';
-    const m = createModal('🖼 Media Editor', `
-      <label>URL slike</label>
-      <input type="url" id="kve-med-src" placeholder="https://…" value="${esc(curSrc)}"/>
-      <div style="margin-top:10px;text-align:center">
-        ${curSrc
-          ? `<img src="${esc(curSrc)}" style="max-height:80px;max-width:100%;border-radius:8px;
-                      object-fit:cover;border:1px solid rgba(255,255,255,0.1)" id="kve-med-preview"/>`
-          : `<div id="kve-med-preview" style="height:60px;background:rgba(255,255,255,0.04);
-                    border-radius:8px;border:1px dashed rgba(255,255,255,0.1);
-                    display:flex;align-items:center;justify-content:center;
-                    font-size:11px;color:#5050a0">Pregled će se pojaviti ovdje</div>`
-        }
+  function _openMediaEditorModal(el) { openHybridMediaModal(el); }
+
+  /* ─────────────────────────────────────────────────────────────────
+     HYBRID MEDIA MODAL
+     Universal modal: Upload file (PNG/JPG/SVG) OR paste URL.
+     Works for <img> tags and icon containers (social links).
+
+     opts = {
+       title   : string              — override modal title
+       initSrc : string              — initial preview src (used when el is null)
+       onApply : (url, alt) => void  — custom apply callback (skips default DOM update)
+       isIcon  : bool                — true = icon container mode (no alt field)
+     }
+  ──────────────────────────────────────────────────────────────────── */
+  function openHybridMediaModal(el, opts = {}) {
+    const isImg    = el && el.tagName === 'IMG';
+    const isIcon   = opts.isIcon || false;
+    const showAlt  = isImg && !isIcon;
+    const curSrc   = opts.initSrc ?? (el ? (el.getAttribute('src') || '') : '');
+    const curAlt   = isImg ? (el.alt || '') : '';
+    const title    = opts.title || (isIcon ? '🎨 Uredi ikonu' : '🖼 Media Editor');
+
+    const previewHtml = curSrc
+      ? `<img class="kve-hm-preview" src="${esc(curSrc)}" alt="preview"/>`
+      : `<div class="kve-hm-preview-empty">Pregled će se pojaviti ovdje</div>`;
+
+    const m = createModal(title, `
+      <div class="kve-hm-tabs">
+        <button class="kve-hm-tab active" data-tab="upload">📁 Upload fajla</button>
+        <button class="kve-hm-tab"        data-tab="url">🔗 URL slike</button>
       </div>
-      <label style="margin-top:14px">Alt tekst</label>
-      <input type="text" id="kve-med-alt" placeholder="Opis slike (SEO)" value="${esc(curAlt)}"/>
+
+      <div class="kve-hm-panel" id="kve-hm-upload-panel">
+        <div class="kve-hm-drop" id="kve-hm-dropzone">
+          <div class="kve-hm-drop-icon">📁</div>
+          <div class="kve-hm-drop-text">Prevuci fajl ovdje ili klikni za odabir</div>
+          <div class="kve-hm-drop-sub">PNG · JPG · SVG &nbsp;·&nbsp; Max 5 MB</div>
+          <input type="file" id="kve-hm-file" accept=".png,.jpg,.jpeg,.svg,image/*" style="display:none"/>
+        </div>
+        <div id="kve-hm-filename" class="kve-hm-filename" style="display:none"></div>
+      </div>
+
+      <div class="kve-hm-panel hidden" id="kve-hm-url-panel">
+        <label>URL slike</label>
+        <input type="url" id="kve-hm-url-inp" placeholder="https://…" value="${esc(curSrc)}"/>
+      </div>
+
+      <div class="kve-hm-preview-wrap" id="kve-hm-pw">${previewHtml}</div>
+
+      ${showAlt ? `
+        <label style="margin-top:10px">Alt tekst (SEO)</label>
+        <input type="text" id="kve-hm-alt" placeholder="Opis slike" value="${esc(curAlt)}"/>
+      ` : ''}
+
+      <!-- Transformation tools -->
+      <div class="kve-hm-transform">
+        <div class="kve-tf-group">
+          <label>Širina (px / %)</label>
+          <input type="number" id="kve-hm-width" placeholder="auto" min="1"
+                 value="${el && el.style.width ? parseInt(el.style.width) || '' : ''}"/>
+        </div>
+        <div class="kve-tf-group">
+          <label>Visina (px / %)</label>
+          <input type="number" id="kve-hm-height" placeholder="auto" min="1"
+                 value="${el && el.style.height ? parseInt(el.style.height) || '' : ''}"/>
+        </div>
+      </div>
+
+      <!-- Global sync option -->
+      <label class="kve-hm-sync-row" id="kve-hm-sync-row">
+        <input type="checkbox" id="kve-hm-sync-chk"/>
+        <span>🔄 Primijeni na sve slične elemente (isti tag + klase)</span>
+      </label>
     `);
-    // Live preview
-    const srcInp = m.overlay.querySelector('#kve-med-src');
-    srcInp.addEventListener('input', () => {
-      const prev = m.overlay.querySelector('#kve-med-preview');
-      if (!prev) return;
-      if (srcInp.value.trim()) {
-        prev.outerHTML = `<img src="${esc(srcInp.value.trim())}"
-          style="max-height:80px;max-width:100%;border-radius:8px;object-fit:cover;
-                 border:1px solid rgba(255,255,255,0.1);margin-top:8px" id="kve-med-preview"/>`;
+
+    let activeTab    = 'upload';
+    let selectedFile = null;
+
+    /* ── Tab switching ── */
+    m.overlay.querySelectorAll('.kve-hm-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        m.overlay.querySelectorAll('.kve-hm-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        activeTab = tab.dataset.tab;
+        m.overlay.querySelector('#kve-hm-upload-panel').classList.toggle('hidden', activeTab !== 'upload');
+        m.overlay.querySelector('#kve-hm-url-panel').classList.toggle('hidden', activeTab !== 'url');
+        if (activeTab === 'url') setTimeout(() => m.overlay.querySelector('#kve-hm-url-inp')?.select(), 40);
+      });
+    });
+
+    /* ── Dropzone ── */
+    const dropzone = m.overlay.querySelector('#kve-hm-dropzone');
+    const fileInp  = m.overlay.querySelector('#kve-hm-file');
+
+    dropzone.addEventListener('click', () => fileInp.click());
+    dropzone.addEventListener('dragover',  e => { e.preventDefault(); dropzone.classList.add('kve-drag-over'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('kve-drag-over'));
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropzone.classList.remove('kve-drag-over');
+      const f = e.dataTransfer.files[0];
+      if (f) _hmHandleFile(f, m.overlay);
+    });
+    fileInp.addEventListener('change', () => {
+      if (fileInp.files[0]) _hmHandleFile(fileInp.files[0], m.overlay);
+    });
+
+    /* ── Live URL preview ── */
+    const urlInp = m.overlay.querySelector('#kve-hm-url-inp');
+    urlInp.addEventListener('input', () => _hmUpdatePreview(m.overlay, urlInp.value.trim()));
+
+    function _hmHandleFile(file, overlay) {
+      selectedFile = file;
+      const nameEl = overlay.querySelector('#kve-hm-filename');
+      nameEl.textContent = `✓ ${file.name}`;
+      nameEl.style.display = 'block';
+      _hmUpdatePreview(overlay, URL.createObjectURL(file));
+    }
+
+    function _hmUpdatePreview(overlay, src) {
+      const wrap = overlay.querySelector('#kve-hm-pw');
+      if (!wrap) return;
+      wrap.innerHTML = src
+        ? `<img class="kve-hm-preview" src="${esc(src)}" alt="preview"/>`
+        : `<div class="kve-hm-preview-empty">Pregled će se pojaviti ovdje</div>`;
+    }
+
+    /* ── OK / Apply ── */
+    m.ok.addEventListener('click', async () => {
+      const altText  = m.overlay.querySelector('#kve-hm-alt')?.value || '';
+      const wVal     = parseInt(m.overlay.querySelector('#kve-hm-width')?.value)  || 0;
+      const hVal     = parseInt(m.overlay.querySelector('#kve-hm-height')?.value) || 0;
+      const doSync   = m.overlay.querySelector('#kve-hm-sync-chk')?.checked || false;
+      const dims     = { w: wVal, h: hVal };
+
+      if (activeTab === 'upload') {
+        if (!selectedFile) { toastMsg('Odaberi fajl ili prebaci na URL tab.', true); return; }
+        m.ok.textContent = '⏳ Upload…';
+        m.ok.disabled    = true;
+        try {
+          const fd = new FormData();
+          fd.append('file', selectedFile);
+          const res = await fetch(`${API}/admin/upload-asset`, {
+            method:  'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body:    fd,
+          });
+          if (!res.ok) throw new Error((await res.json()).error || 'Upload greška');
+          const { url } = await res.json();
+          closeModal(m.overlay);
+          _hmApply(el, url, altText, isIcon, isImg, opts.onApply, dims, doSync);
+        } catch (err) {
+          m.ok.textContent = 'Sačuvaj';
+          m.ok.disabled    = false;
+          toastMsg(`✗ ${err.message}`, true);
+        }
+      } else {
+        const url = urlInp.value.trim();
+        closeModal(m.overlay);
+        if (url) _hmApply(el, url, altText, isIcon, isImg, opts.onApply, dims, doSync);
       }
     });
-    m.ok.addEventListener('click', () => {
-      const src = m.overlay.querySelector('#kve-med-src').value.trim();
-      const alt = m.overlay.querySelector('#kve-med-alt').value;
-      closeModal(m.overlay);
-      if (src) { el.src = src; el.setAttribute('src', src); }
-      el.alt = alt;
-      toastMsg('🖼 Slika izmijenjena — klikni "Sačuvaj stranicu".');
-    });
-    setTimeout(() => srcInp.select(), 60);
+  }
+
+  /**
+   * Apply media to element(s).
+   * dims = { w: number, h: number }  — 0 = skip
+   * doSync = bool — if true, find all elements with same tag+classes and apply
+   */
+  function _hmApply(el, url, altText, isIcon, isImg, customOnApply, dims = {}, doSync = false) {
+    if (typeof customOnApply === 'function') {
+      customOnApply(url, altText);
+      return;
+    }
+
+    function _applyToOne(target) {
+      if (isIcon && target) {
+        target.querySelectorAll('svg, i, img').forEach(c => c.remove());
+        const img      = document.createElement('img');
+        img.src        = url;
+        img.alt        = altText || 'icon';
+        img.style.cssText = `object-fit:contain;vertical-align:middle;${dims.w ? `width:${dims.w}px;` : 'width:1.4em;'}${dims.h ? `height:${dims.h}px;` : 'height:1.4em;'}`;
+        target.prepend(img);
+      } else if (isImg && target) {
+        target.src = url;
+        target.setAttribute('src', url);
+        if (altText !== undefined) target.alt = altText;
+        if (dims.w) target.style.width  = dims.w + 'px';
+        if (dims.h) target.style.height = dims.h + 'px';
+      }
+    }
+
+    _applyToOne(el);
+
+    if (doSync && el) {
+      const tag      = el.tagName.toLowerCase();
+      const classes  = Array.from(el.classList).join('.');
+      const selector = classes ? `${tag}.${classes}` : tag;
+      let count = 0;
+      try {
+        document.querySelectorAll(selector).forEach(similar => {
+          if (similar !== el) { _applyToOne(similar); count++; }
+        });
+      } catch {}
+      toastMsg(`${isIcon ? '🎨 Ikona' : '🖼 Slika'} izmijenjena na ${1 + count} element${count ? 'a' : 'u'} — klikni "Sačuvaj stranicu".`);
+    } else {
+      toastMsg(`${isIcon ? '🎨 Ikona' : '🖼 Slika'} izmijenjena — klikni "Sačuvaj stranicu".`);
+    }
   }
 
   /* ── Button style modal: Tailwind colour swatches + border-radius shape ── */

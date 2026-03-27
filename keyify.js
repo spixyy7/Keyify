@@ -344,7 +344,10 @@ const KEYIFY = (() => {
       }
     }
 
-    /* ── 2. WRAP CART BUTTON SPAN so we can update it ── */
+    /* ── 2. THEME TOGGLE ── */
+    _injectThemeToggle(cartBtnContainer);
+
+    /* ── 3. WRAP CART BUTTON SPAN so we can update it ── */
     cartBtnContainer.querySelectorAll('button').forEach(btn => {
       const span = btn.querySelector('span');
       if (span && span.textContent.includes('Korpa') && !span.classList.contains('kf-cart-label')) {
@@ -355,7 +358,7 @@ const KEYIFY = (() => {
       }
     });
 
-    /* ── 3. BADGE OVERLAY on cart button ── */
+    /* ── 4. BADGE OVERLAY on cart button ── */
     cartBtnContainer.querySelectorAll('button').forEach(btn => {
       if (btn.querySelector('.kf-cart-label') && !btn.querySelector('.kf-cart-badge')) {
         btn.style.position = 'relative';
@@ -578,12 +581,12 @@ const KEYIFY = (() => {
       st.id = 'kf-dd-style';
       st.textContent = `
         @keyframes kf-dd-in{from{opacity:0;transform:translateY(-10px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
-        #kf-dd-trigger:hover{background:rgba(29,106,255,0.15)!important;border-color:rgba(29,106,255,0.5)!important;box-shadow:0 0 0 3px rgba(29,106,255,0.1)!important}
+        #kf-dd-trigger:hover{background:rgba(29,106,255,0.12)!important;border-color:rgba(29,106,255,0.45)!important;box-shadow:0 0 0 3px rgba(29,106,255,0.08)!important}
         #kf-dd-panel .kf-item{border-radius:10px;transition:background .15s ease,transform .12s ease!important}
-        #kf-dd-panel a.kf-item:hover,#kf-dd-panel button.kf-item:hover{background:rgba(99,102,241,0.15)!important;transform:translateX(3px)!important}
-        #kf-dd-panel .kf-item-danger:hover{background:rgba(239,68,68,0.12)!important;transform:translateX(3px)!important}
+        #kf-dd-panel a.kf-item:hover,#kf-dd-panel button.kf-item:hover{background:var(--kf-dd-hover)!important;transform:translateX(3px)!important}
+        #kf-dd-panel .kf-item-danger:hover{background:rgba(239,68,68,0.10)!important;transform:translateX(3px)!important}
         #kf-dd-panel::-webkit-scrollbar{width:3px}
-        #kf-dd-panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}`;
+        #kf-dd-panel::-webkit-scrollbar-thumb{background:var(--kf-dd-border);border-radius:3px}`;
       document.head.appendChild(st);
     }
 
@@ -612,7 +615,7 @@ const KEYIFY = (() => {
     /* ── Dropdown panel ── */
     const panel = document.createElement('div');
     panel.id = 'kf-dd-panel';
-    panel.style.cssText = 'display:none;position:absolute;top:calc(100% + 10px);right:0;width:248px;background:rgba(8,10,24,0.97);border:1px solid rgba(255,255,255,0.09);border-radius:18px;box-shadow:0 28px 70px rgba(0,0,0,0.65),0 0 0 1px rgba(255,255,255,0.04),inset 0 1px 0 rgba(255,255,255,0.06);z-index:9999;overflow:hidden;animation:kf-dd-in .2s cubic-bezier(.34,1.56,.64,1);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);';
+    panel.style.cssText = 'display:none;position:absolute;top:calc(100% + 10px);right:0;width:248px;background:var(--kf-dd-bg);border:1px solid var(--kf-dd-border);border-radius:var(--kf-dd-radius);box-shadow:var(--kf-dd-shadow);z-index:9999;overflow:hidden;animation:kf-dd-in .2s cubic-bezier(.34,1.56,.64,1);backdrop-filter:var(--kf-dd-blur);-webkit-backdrop-filter:var(--kf-dd-blur);';
 
     const perms = JSON.parse(localStorage.getItem('keyify_permissions') || '{}');
     const isSuperAdmin   = role === 'admin' && Object.keys(perms).length === 0;
@@ -620,41 +623,41 @@ const KEYIFY = (() => {
     const canSQL         = role === 'admin' && (isSuperAdmin || perms.can_execute_sql === true);
 
     const sqlItem = canSQL ? `
-      <a href="admin.html" onclick="localStorage.setItem('kf_admin_goto','sql')" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:600;color:#a78bfa;text-decoration:none;">
+      <a href="admin.html" onclick="localStorage.setItem('kf_admin_goto','sql')" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:600;color:#a259ff;text-decoration:none;">
         <span style="font-size:16px;line-height:1;flex-shrink:0">🗄️</span>SQL Editor
       </a>` : '';
 
     const adminItem = role === 'admin' ? `
-      <div style="height:1px;background:rgba(255,255,255,0.06);margin:3px 0"></div>
-      <a href="admin.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:700;color:#60a5fa;text-decoration:none;">
+      <div style="height:1px;background:var(--kf-dd-divider);margin:3px 0"></div>
+      <a href="admin.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:700;color:#1D6AFF;text-decoration:none;">
         <span style="font-size:16px;line-height:1;flex-shrink:0">💻</span>Admin Panel
       </a>
       ${sqlItem}` : '';
 
     const inboxItem = isSupportAgent ? `
-      <a href="support-inbox.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:600;color:#34d399;text-decoration:none;">
+      <a href="support-inbox.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:600;color:#10b981;text-decoration:none;">
         <span style="font-size:16px;line-height:1;flex-shrink:0">💬</span>Support Inbox
         <span id="kf-inbox-count" style="display:none;margin-left:auto;min-width:18px;height:18px;border-radius:9px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;align-items:center;justify-content:center;padding:0 4px"></span>
       </a>` : '';
 
     panel.innerHTML = `
-      <div style="padding:14px 15px;border-bottom:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.025)">
-        <div style="font-size:13px;font-weight:700;color:#f0f0ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(name)}</div>
-        <div style="font-size:11px;color:#6366f1;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(email)}</div>
-        ${role === 'admin' ? '<div style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:2px 8px;border-radius:6px;background:rgba(162,89,255,0.15);border:1px solid rgba(162,89,255,0.3);font-size:10px;font-weight:700;color:#c084fc;text-transform:uppercase;letter-spacing:.05em">⚡ Admin</div>' : ''}
+      <div style="padding:14px 15px;border-bottom:1px solid var(--kf-dd-hdr-border);background:var(--kf-dd-hdr-bg)">
+        <div style="font-size:13px;font-weight:700;color:var(--kf-dd-name);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(name)}</div>
+        <div style="font-size:11px;color:var(--kf-dd-email);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(email)}</div>
+        ${role === 'admin' ? '<div style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:2px 8px;border-radius:6px;background:rgba(162,89,255,0.12);border:1px solid rgba(162,89,255,0.25);font-size:10px;font-weight:700;color:#a259ff;text-transform:uppercase;letter-spacing:.05em">⚡ Admin</div>' : ''}
       </div>
       <div style="padding:5px">
-        <button class="kf-item" id="kf-orders-btn" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:500;color:#c0c0e0;background:transparent;border:none;width:100%;cursor:pointer;border-radius:10px;text-align:left;">
+        <button class="kf-item" id="kf-orders-btn" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:500;color:var(--kf-dd-item);background:transparent;border:none;width:100%;cursor:pointer;border-radius:10px;text-align:left;">
           <span style="font-size:16px;line-height:1;flex-shrink:0">📦</span>Narudžbe
         </button>
-        <a href="profile.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:500;color:#c0c0e0;text-decoration:none;border-radius:10px;">
+        <a href="profile.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:500;color:var(--kf-dd-item);text-decoration:none;border-radius:10px;">
           <span style="font-size:16px;line-height:1;flex-shrink:0">👤</span>Moj profil
         </a>
         ${adminItem}
         ${inboxItem}
       </div>
-      <div style="border-top:1px solid rgba(255,255,255,0.07);padding:5px">
-        <button class="kf-item kf-item-danger" id="kf-logout-btn" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:500;color:#f87171;background:transparent;border:none;width:100%;cursor:pointer;border-radius:10px;text-align:left;">
+      <div style="border-top:1px solid var(--kf-dd-divider);padding:5px">
+        <button class="kf-item kf-item-danger" id="kf-logout-btn" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:500;color:#ef4444;background:transparent;border:none;width:100%;cursor:pointer;border-radius:10px;text-align:left;">
           <span style="font-size:16px;line-height:1;flex-shrink:0">🚪</span>Odjava
         </button>
       </div>`;
@@ -758,9 +761,186 @@ const KEYIFY = (() => {
 
 
   /* ─────────────────────────────────────────────────────────
+     DUAL-THEME SYSTEM
+     Injects CSS custom properties for Light ↔ Dark mode.
+     Controls: data-theme="dark" on <html> + Tailwind .dark class.
+     Stored in: localStorage['keyify_theme'] ('light' | 'dark')
+  ───────────────────────────────────────────────────────── */
+  function _injectThemeVars() {
+    if (document.getElementById('kf-theme-vars')) return;
+    const s = document.createElement('style');
+    s.id = 'kf-theme-vars';
+    s.textContent = `
+      /* ── LIGHT MODE (default) ── */
+      :root {
+        /* Chat widget */
+        --kfy-win-shadow:      0 24px 64px rgba(0,0,0,.14),0 4px 20px rgba(0,0,0,.08);
+        --kfy-header-bg:       #ffffff;
+        --kfy-header-border:   rgba(0,0,0,0.07);
+        --kfy-tab-color:       #9ca3af;
+        --kfy-tab-hover:       #374151;
+        --kfy-tab-active:      #1D6AFF;
+        --kfy-agent-bg:        #ffffff;
+        --kfy-agent-border:    #f3f4f6;
+        --kfy-agent-title:     #111827;
+        --kfy-avatar-border:   #ffffff;
+        --kfy-body-bg:         #f9fafb;
+        --kfy-scrollbar:       #d1d5db;
+        --kfy-bubble-bot-bg:   #ffffff;
+        --kfy-bubble-bot-color:#111827;
+        --kfy-bubble-bot-bdr:  transparent;
+        --kfy-bubble-bot-shad: 0 1px 4px rgba(0,0,0,.07);
+        --kfy-email-card-bg:   #ffffff;
+        --kfy-email-card-bdr:  transparent;
+        --kfy-email-card-shad: 0 1px 4px rgba(0,0,0,.07);
+        --kfy-email-h4:        #111827;
+        --kfy-email-p:         #6b7280;
+        --kfy-inp-bg:          #f9fafb;
+        --kfy-inp-border:      #e5e7eb;
+        --kfy-inp-color:       #111827;
+        --kfy-inp-ph:          #9ca3af;
+        --kfy-inp-focus-bg:    #ffffff;
+        --kfy-row-bg:          #ffffff;
+        --kfy-row-border:      #f0f0f0;
+        --kfy-closed-bg:       #fef3c7;
+        --kfy-closed-color:    #92400e;
+        --kfy-closed-bdr:      #fde68a;
+        --kfy-articles-bg:     #f9fafb;
+        --kfy-articles-color:  #9ca3af;
+        /* Dropdown */
+        --kf-dd-bg:            #ffffff;
+        --kf-dd-border:        rgba(0,0,0,0.08);
+        --kf-dd-radius:        14px;
+        --kf-dd-shadow:        0 8px 30px rgba(0,0,0,0.12);
+        --kf-dd-blur:          none;
+        --kf-dd-hdr-bg:        rgba(0,0,0,0.02);
+        --kf-dd-hdr-border:    rgba(0,0,0,0.06);
+        --kf-dd-name:          #111827;
+        --kf-dd-email:         #9ca3af;
+        --kf-dd-item:          #374151;
+        --kf-dd-hover:         rgba(240,244,255,1);
+        --kf-dd-divider:       rgba(0,0,0,0.06);
+        /* Theme toggle button */
+        --kf-theme-btn-bg:     #ffffff;
+        --kf-theme-btn-border: #e5e7eb;
+        --kf-theme-btn-hover:  #f0f4ff;
+      }
+
+      /* ── DARK MODE ── */
+      [data-theme="dark"] {
+        /* Chat widget */
+        --kfy-win-shadow:      0 24px 64px rgba(0,0,0,.6),0 4px 20px rgba(0,0,0,.4);
+        --kfy-header-bg:       rgba(10,12,28,0.98);
+        --kfy-header-border:   rgba(255,255,255,0.07);
+        --kfy-tab-color:       rgba(255,255,255,0.35);
+        --kfy-tab-hover:       rgba(255,255,255,0.65);
+        --kfy-tab-active:      #60a5fa;
+        --kfy-agent-bg:        rgba(10,12,28,0.98);
+        --kfy-agent-border:    rgba(255,255,255,0.06);
+        --kfy-agent-title:     #e0e0f8;
+        --kfy-avatar-border:   rgba(255,255,255,0.1);
+        --kfy-body-bg:         rgba(6,8,18,0.95);
+        --kfy-scrollbar:       rgba(99,102,241,0.3);
+        --kfy-bubble-bot-bg:   rgba(25,30,60,0.9);
+        --kfy-bubble-bot-color:#d0d0f0;
+        --kfy-bubble-bot-bdr:  rgba(99,102,241,0.15);
+        --kfy-bubble-bot-shad: 0 2px 8px rgba(0,0,0,.3);
+        --kfy-email-card-bg:   rgba(20,24,48,0.9);
+        --kfy-email-card-bdr:  rgba(99,102,241,0.2);
+        --kfy-email-card-shad: 0 4px 20px rgba(0,0,0,0.3);
+        --kfy-email-h4:        #e0e0f8;
+        --kfy-email-p:         #6b7280;
+        --kfy-inp-bg:          rgba(255,255,255,0.04);
+        --kfy-inp-border:      rgba(99,102,241,0.25);
+        --kfy-inp-color:       #e0e0f8;
+        --kfy-inp-ph:          rgba(255,255,255,0.25);
+        --kfy-inp-focus-bg:    rgba(29,106,255,0.05);
+        --kfy-row-bg:          rgba(10,12,28,0.98);
+        --kfy-row-border:      rgba(255,255,255,0.06);
+        --kfy-closed-bg:       rgba(245,158,11,0.1);
+        --kfy-closed-color:    #fbbf24;
+        --kfy-closed-bdr:      rgba(245,158,11,0.2);
+        --kfy-articles-bg:     rgba(6,8,18,0.95);
+        --kfy-articles-color:  rgba(255,255,255,0.3);
+        /* Dropdown */
+        --kf-dd-bg:            rgba(8,10,24,0.97);
+        --kf-dd-border:        rgba(255,255,255,0.09);
+        --kf-dd-radius:        18px;
+        --kf-dd-shadow:        0 28px 70px rgba(0,0,0,0.65),0 0 0 1px rgba(255,255,255,0.04);
+        --kf-dd-blur:          blur(28px);
+        --kf-dd-hdr-bg:        rgba(255,255,255,0.025);
+        --kf-dd-hdr-border:    rgba(255,255,255,0.07);
+        --kf-dd-name:          #f0f0ff;
+        --kf-dd-email:         #6366f1;
+        --kf-dd-item:          #c0c0e0;
+        --kf-dd-hover:         rgba(99,102,241,0.15);
+        --kf-dd-divider:       rgba(255,255,255,0.07);
+        /* Theme toggle button */
+        --kf-theme-btn-bg:     rgba(255,255,255,0.07);
+        --kf-theme-btn-border: rgba(255,255,255,0.15);
+        --kf-theme-btn-hover:  rgba(29,106,255,0.2);
+      }
+
+      /* Theme toggle button */
+      #kf-theme-toggle {
+        display:inline-flex;align-items:center;justify-content:center;
+        width:32px;height:32px;border-radius:10px;
+        border:1px solid var(--kf-theme-btn-border);
+        background:var(--kf-theme-btn-bg);
+        cursor:pointer;font-size:15px;transition:all .2s ease;
+        flex-shrink:0;
+      }
+      #kf-theme-toggle:hover {
+        border-color:#1D6AFF;
+        background:var(--kf-theme-btn-hover);
+        transform:scale(1.05);
+      }
+
+      /* Smooth page background transitions */
+      body, header, nav { transition: background-color .3s ease, border-color .3s ease, color .3s ease; }
+      #kf-dd-panel      { transition: background .25s ease, border-color .25s ease, box-shadow .25s ease; }
+    `;
+    document.head.insertBefore(s, document.head.firstChild);
+  }
+
+  function _applyTheme(theme) {
+    const html = document.documentElement;
+    if (theme === 'dark') {
+      html.setAttribute('data-theme', 'dark');
+      html.classList.add('dark');
+    } else {
+      html.removeAttribute('data-theme');
+      html.classList.remove('dark');
+    }
+    localStorage.setItem('keyify_theme', theme);
+    const btn = document.getElementById('kf-theme-toggle');
+    if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+  }
+
+  function _initTheme() {
+    _injectThemeVars();
+    const saved = localStorage.getItem('keyify_theme') || 'light';
+    _applyTheme(saved);
+  }
+
+  function _injectThemeToggle(container) {
+    if (document.getElementById('kf-theme-toggle')) return;
+    const btn = document.createElement('button');
+    btn.id = 'kf-theme-toggle';
+    btn.title = 'Promijeni temu (Light / Dark)';
+    btn.textContent = (localStorage.getItem('keyify_theme') || 'light') === 'dark' ? '☀️' : '🌙';
+    btn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+      _applyTheme(current === 'dark' ? 'light' : 'dark');
+    });
+    container.prepend(btn);
+  }
+
+  /* ─────────────────────────────────────────────────────────
      INIT
   ───────────────────────────────────────────────────────── */
   function init() {
+    _initTheme();
     _injectCartDrawer();
     _injectNavbarExtras();
     _wireProductButtons();
@@ -775,7 +955,7 @@ const KEYIFY = (() => {
   }
 
   /* Public API */
-  return { LANG, CART, lang: _lang, init, escHtml, escAttr, logout: _logout };
+  return { LANG, CART, lang: _lang, init, escHtml, escAttr, logout: _logout, setTheme: _applyTheme };
 
 })();
 

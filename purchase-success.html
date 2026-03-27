@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Keyify – Narudžba potvrđena</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { display: ['Poppins','sans-serif'], body: ['Inter','sans-serif'] },
+          colors: { brand: { blue: '#1D6AFF', purple: '#A259FF' } },
+          animation: { 'check-pop': 'checkPop .6s cubic-bezier(.34,1.56,.64,1) both' },
+          keyframes: { checkPop: { '0%': { transform:'scale(0)', opacity:'0' }, '100%': { transform:'scale(1)', opacity:'1' } } },
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; }
+    h1,h2,h3,.font-display { font-family: 'Poppins', sans-serif; }
+
+    /* ── Light ── */
+    :root {
+      --ps-bg:          #f4f6fb;
+      --ps-card-bg:     #ffffff;
+      --ps-card-border: #e5e7eb;
+      --ps-text:        #111827;
+      --ps-muted:       #6b7280;
+      --ps-key-bg:      linear-gradient(135deg,#f0f4ff 0%,#faf5ff 100%);
+      --ps-key-border:  #A259FF;
+      --ps-key-color:   #1D6AFF;
+      --ps-key-label:   #7c3aed;
+      --ps-row-border:  #f3f4f6;
+      --ps-footer-bg:   #f9fafb;
+      --ps-footer-bdr:  #e5e7eb;
+      --ps-footer-txt:  #9ca3af;
+    }
+    /* ── Dark glass ── */
+    [data-theme="dark"] {
+      --ps-bg:          #020617;
+      --ps-card-bg:     rgba(15,18,40,0.85);
+      --ps-card-border: rgba(255,255,255,0.08);
+      --ps-text:        #f1f5f9;
+      --ps-muted:       #94a3b8;
+      --ps-key-bg:      linear-gradient(135deg,rgba(29,106,255,0.12) 0%,rgba(162,89,255,0.12) 100%);
+      --ps-key-border:  rgba(162,89,255,0.6);
+      --ps-key-color:   #60a5fa;
+      --ps-key-label:   #a78bfa;
+      --ps-row-border:  rgba(255,255,255,0.06);
+      --ps-footer-bg:   rgba(255,255,255,0.03);
+      --ps-footer-bdr:  rgba(255,255,255,0.06);
+      --ps-footer-txt:  #475569;
+    }
+
+    body { background: var(--ps-bg); color: var(--ps-text); transition: background .3s, color .3s; }
+
+    .ps-card {
+      background: var(--ps-card-bg);
+      border: 1px solid var(--ps-card-border);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+    .ps-key-box {
+      background: var(--ps-key-bg);
+      border: 2px solid var(--ps-key-border);
+    }
+    .ps-key-text { color: var(--ps-key-color); }
+    .ps-key-label { color: var(--ps-key-label); }
+    .ps-muted { color: var(--ps-muted); }
+    .ps-row { border-bottom: 1px solid var(--ps-row-border); }
+    .ps-footer {
+      background: var(--ps-footer-bg);
+      border-top: 1px solid var(--ps-footer-bdr);
+      color: var(--ps-footer-txt);
+    }
+
+    /* Confetti canvas */
+    #ps-confetti { position:fixed;inset:0;pointer-events:none;z-index:0; }
+
+    @keyframes fadeSlideUp {
+      from { opacity:0; transform:translateY(24px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .ps-animate { animation: fadeSlideUp .6s ease both; }
+    .ps-delay-1 { animation-delay:.1s; }
+    .ps-delay-2 { animation-delay:.2s; }
+    .ps-delay-3 { animation-delay:.35s; }
+
+    /* Copy button */
+    .ps-copy-btn {
+      font-size:10px;padding:4px 10px;border-radius:6px;cursor:pointer;
+      background:rgba(29,106,255,0.12);border:1px solid rgba(29,106,255,0.3);
+      color:#1D6AFF;font-weight:700;letter-spacing:.04em;transition:all .15s;
+    }
+    .ps-copy-btn:hover { background:rgba(29,106,255,0.22); }
+
+    /* Print receipt button */
+    @media print {
+      #ps-actions, #ps-confetti, .ps-print-hide { display:none!important; }
+      body { background:#fff!important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <canvas id="ps-confetti"></canvas>
+
+  <!-- Navbar injected by keyify.js -->
+  <div id="kf-navbar-root"></div>
+
+  <main class="flex-1 flex items-center justify-center px-4 py-12 relative z-10">
+    <div class="w-full max-w-lg">
+
+      <!-- Check icon + heading -->
+      <div class="text-center mb-8 ps-animate">
+        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full mb-5"
+             style="background:linear-gradient(135deg,#1D6AFF 0%,#A259FF 100%);animation:checkPop .6s cubic-bezier(.34,1.56,.64,1) both">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        <h1 class="text-3xl font-bold font-display mb-2" style="color:var(--ps-text)">Narudžba potvrđena!</h1>
+        <p class="ps-muted text-sm">Vaš ključ i račun su poslani na email adresu ispod.</p>
+      </div>
+
+      <!-- Main card -->
+      <div class="ps-card rounded-2xl overflow-hidden shadow-xl ps-animate ps-delay-1">
+
+        <!-- Product image (shown only if available) -->
+        <div id="ps-img-wrap" style="display:none;text-align:center;padding:24px 24px 0">
+          <img id="ps-product-img" src="" alt=""
+               class="max-h-32 max-w-xs w-auto object-contain rounded-xl mx-auto"
+               style="border:1px solid var(--ps-card-border)"/>
+        </div>
+
+        <div class="p-8">
+          <!-- License key -->
+          <div class="ps-key-box rounded-2xl p-6 text-center mb-6">
+            <div class="ps-key-label text-xs font-bold uppercase tracking-widest mb-3">🔑 Licencni ključ</div>
+            <div id="ps-license-key" class="ps-key-text text-xl font-extrabold tracking-widest font-mono break-all mb-3">—</div>
+            <button class="ps-copy-btn" onclick="copyKey()">KOPIRAJ</button>
+          </div>
+
+          <!-- Order details -->
+          <div class="space-y-0 text-sm">
+            <div class="ps-row flex justify-between py-3">
+              <span class="ps-muted">Proizvod</span>
+              <span id="ps-product-name" class="font-semibold text-right max-w-[60%] truncate" style="color:var(--ps-text)">—</span>
+            </div>
+            <div class="ps-row flex justify-between py-3">
+              <span class="ps-muted">Iznos</span>
+              <span id="ps-amount" class="font-bold text-base" style="color:#1D6AFF">—</span>
+            </div>
+            <div class="ps-row flex justify-between py-3">
+              <span class="ps-muted">Email</span>
+              <span id="ps-email" class="font-medium" style="color:var(--ps-text)">—</span>
+            </div>
+            <div class="ps-row flex justify-between py-3">
+              <span class="ps-muted">Datum</span>
+              <span id="ps-date" style="color:var(--ps-text)">—</span>
+            </div>
+            <div class="flex justify-between py-3">
+              <span class="ps-muted">ID narudžbe</span>
+              <span id="ps-tx-id" class="font-mono text-xs" style="color:var(--ps-muted)">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="ps-footer px-8 py-4 flex flex-wrap items-center justify-between gap-3" id="ps-actions">
+          <button onclick="printReceipt()"
+                  class="text-xs font-semibold px-4 py-2 rounded-lg border transition-all"
+                  style="border-color:var(--ps-card-border);color:var(--ps-muted)">
+            🖨 Štampaj račun
+          </button>
+          <a href="purchases.html"
+             class="text-xs font-semibold px-4 py-2 rounded-lg text-white transition-all"
+             style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
+            📦 Moje narudžbe
+          </a>
+        </div>
+      </div>
+
+      <!-- Back to shop -->
+      <div class="text-center mt-6 ps-animate ps-delay-3">
+        <a href="index.html" class="text-sm font-medium" style="color:#1D6AFF">← Povratak u prodavnicu</a>
+      </div>
+    </div>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="keyify.js"></script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    /* ── Read order data from sessionStorage (set by checkout.html on success) ── */
+    let order = {};
+    try { order = JSON.parse(sessionStorage.getItem('kfy_last_order') || '{}'); } catch {}
+
+    /* Also accept URL params as fallback (?tx=xxx&key=KFY-…) */
+    const params = new URLSearchParams(location.search);
+    if (!order.transaction_id && params.get('tx')) {
+      order.transaction_id = params.get('tx');
+      order.license_key    = params.get('key') || '';
+    }
+
+    function qs(id) { return document.getElementById(id); }
+
+    function fill() {
+      if (order.license_key)    qs('ps-license-key').textContent  = order.license_key;
+      if (order.product_name)   qs('ps-product-name').textContent = order.product_name;
+      if (order.amount != null) qs('ps-amount').textContent       = '€ ' + parseFloat(order.amount).toFixed(2);
+      if (order.email_sent_to)  qs('ps-email').textContent        = order.email_sent_to;
+      if (order.transaction_id) qs('ps-tx-id').textContent        = order.transaction_id;
+
+      const dateStr = order.order_date
+        ? new Date(order.order_date).toLocaleDateString('bs-BA', { year:'numeric', month:'long', day:'numeric' })
+        : new Date().toLocaleDateString('bs-BA', { year:'numeric', month:'long', day:'numeric' });
+      qs('ps-date').textContent = dateStr;
+
+      if (order.product_image) {
+        qs('ps-product-img').src = order.product_image;
+        qs('ps-img-wrap').style.display = 'block';
+      }
+
+      document.title = `Keyify – Narudžba ${order.product_name || 'potvrđena'}`;
+    }
+
+    fill();
+    runConfetti();
+
+    /* ── Copy key ── */
+    window.copyKey = function() {
+      const key = qs('ps-license-key').textContent;
+      if (!key || key === '—') return;
+      navigator.clipboard?.writeText(key).then(() => {
+        const btn = document.querySelector('.ps-copy-btn');
+        const orig = btn.textContent;
+        btn.textContent = '✓ KOPIRANO';
+        setTimeout(() => btn.textContent = orig, 1800);
+      });
+    };
+
+    /* ── Print receipt ── */
+    window.printReceipt = function() { window.print(); };
+
+    /* ── Confetti ── */
+    function runConfetti() {
+      const canvas = document.getElementById('ps-confetti');
+      const ctx    = canvas.getContext('2d');
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const colors  = ['#1D6AFF','#A259FF','#22c55e','#f59e0b','#ef4444','#06b6d4'];
+      const pieces  = Array.from({ length: 120 }, () => ({
+        x:    Math.random() * canvas.width,
+        y:    Math.random() * canvas.height - canvas.height,
+        w:    6 + Math.random() * 8,
+        h:    3 + Math.random() * 4,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        rot:  Math.random() * 360,
+        vx:   (Math.random() - 0.5) * 2,
+        vy:   2 + Math.random() * 3,
+        vr:   (Math.random() - 0.5) * 6,
+        alpha: 1,
+      }));
+
+      let frame = 0;
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pieces.forEach(p => {
+          p.x   += p.vx;
+          p.y   += p.vy;
+          p.rot += p.vr;
+          if (frame > 80) p.alpha = Math.max(0, p.alpha - 0.012);
+          ctx.save();
+          ctx.globalAlpha = p.alpha;
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot * Math.PI / 180);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          ctx.restore();
+        });
+        frame++;
+        if (frame < 160) requestAnimationFrame(draw);
+        else ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      draw();
+    }
+  })();
+  </script>
+</body>
+</html>

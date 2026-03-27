@@ -25,6 +25,7 @@ const jwt         = require('jsonwebtoken');
 const crypto      = require('crypto');
 const rateLimit   = require('express-rate-limit');
 const multer      = require('multer');
+const nodemailer  = require('nodemailer');
 const { createClient } = require('@supabase/supabase-js');
 
 /* ─────────────────────────────────────────
@@ -79,6 +80,24 @@ const apiLimiter = rateLimit({
 app.use('/api', apiLimiter);
 
 /* ─────────────────────────────────────────
+   SMTP TRANSPORT (Gmail App Password)
+   Env: EMAIL_USER + EMAIL_PASS (16-char App Password from Google Account)
+   Preferred when EMAIL_PASS is set; falls back to Gmail REST API.
+───────────────────────────────────────── */
+let _smtpTransport = null;
+function _getSmtpTransport() {
+  if (!_smtpTransport) {
+    _smtpTransport = nodemailer.createTransport({
+      host:   'smtp.gmail.com',
+      port:   465,
+      secure: true,
+      auth:   { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+    });
+  }
+  return _smtpTransport;
+}
+
+/* ─────────────────────────────────────────
    Gmail REST API (HTTPS – no SMTP ports needed)
    Requires: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, EMAIL_USER
    Run GET /api/auth/gmail-setup once to obtain the refresh token.
@@ -117,7 +136,7 @@ function buildRawEmail({ from, to, subject, html }) {
 }
 
 /** Send email via Gmail REST API (port 443, works everywhere) */
-async function sendMailSafe({ from, to, subject, html }) {
+async function _sendViaGmailApi({ from, to, subject, html }) {
   const accessToken = await getGmailAccessToken();
   const raw = buildRawEmail({ from, to, subject, html });
   const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
@@ -130,6 +149,19 @@ async function sendMailSafe({ from, to, subject, html }) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error?.message || 'Gmail API send failed');
+}
+
+/**
+ * Universal mail sender.
+ * • If EMAIL_PASS is set → Gmail SMTP (App Password, port 465)
+ * • Otherwise → Gmail REST API (OAuth2 – requires GOOGLE_* env vars)
+ */
+async function sendMailSafe({ from, to, subject, html }) {
+  if (process.env.EMAIL_PASS) {
+    await _getSmtpTransport().sendMail({ from, to, subject, html });
+  } else {
+    await _sendViaGmailApi({ from, to, subject, html });
+  }
 }
 
 /* ─────────────────────────────────────────
@@ -876,13 +908,37 @@ app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, 
    USER: Self-service settings
 ───────────────────────────────────────── */
 
-/** GET /api/user/purchases */
-app.get('/api/user/purchases', authenticateToken, async (req, res) => {
-  const { data, error } = await supabase
+/**
+ * GET /api/user/purchases
+ * Logged-in:  Bearer token  → filters by user_id
+ * Guest:      ?email=x@y.z  → filters by buyer_email (no token needed)
+ */
+app.get('/api/user/purchases', async (req, res) => {
+  // Try to resolve logged-in user from JWT
+  let userId    = null;
+  let guestEmail = null;
+  const authHeader = req.headers['authorization'];
+  const jwtToken   = authHeader && authHeader.split(' ')[1];
+  if (jwtToken) {
+    try { const d = jwt.verify(jwtToken, process.env.JWT_SECRET); userId = d.id; } catch {}
+  }
+
+  if (!userId) {
+    guestEmail = (req.query.email || '').trim().toLowerCase();
+    if (!guestEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail))
+      return res.status(401).json({ error: 'Prijavite se ili proslijedite ?email= parametar' });
+  }
+
+  let q = supabase
     .from('transactions')
-    .select('*')
-    .eq('user_id', req.user.id)
-    .order('created_at', { ascending: false });
+    .select('id, product_id, product_name, amount, payment_method, status, license_key, buyer_email, created_at')
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (userId)     q = q.eq('user_id', userId);
+  else            q = q.eq('buyer_email', guestEmail);
+
+  const { data, error } = await q;
   if (error) return res.status(500).json({ error: 'Greška' });
   return res.json(data || []);
 });
@@ -2140,7 +2196,26 @@ app.post('/api/checkout/confirm', async (req, res) => {
 
   const parsedAmount = parseFloat(amount);
 
-  // 1. Save transaction record
+  // 1. Generate license key first (needed for insert + email)
+  const licenseKey = 'KFY-' + [
+    crypto.randomBytes(4).toString('hex').toUpperCase(),
+    crypto.randomBytes(4).toString('hex').toUpperCase(),
+    crypto.randomBytes(4).toString('hex').toUpperCase(),
+  ].join('-');
+
+  const orderDate = new Date().toLocaleDateString('bs-BA', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+
+  // Fetch product image if product_id is known
+  let productImageUrl = null;
+  if (product_id) {
+    const { data: prod } = await supabase
+      .from('products').select('image_url').eq('id', product_id).maybeSingle();
+    productImageUrl = prod?.image_url || null;
+  }
+
+  // 2. Save transaction record (includes license_key + buyer_email for guest retrieval)
   const { data: tx, error: txErr } = await supabase
     .from('transactions')
     .insert({
@@ -2151,6 +2226,8 @@ app.post('/api/checkout/confirm', async (req, res) => {
       payment_method: payment_method || 'manual',
       status:         'completed',
       tx_reference:   tx_reference || null,
+      license_key:    licenseKey,
+      buyer_email:    email,
     })
     .select('id')
     .single();
@@ -2160,7 +2237,7 @@ app.post('/api/checkout/confirm', async (req, res) => {
     return res.status(500).json({ error: 'Greška pri snimanju transakcije' });
   }
 
-  // 2. Write AES-256-CBC encrypted audit log (non-blocking)
+  // 3. Write AES-256-CBC encrypted audit log (non-blocking)
   supabase.from('transaction_logs').insert({
     buyer_email_enc: encryptField(email),
     amount_enc:      encryptField(String(parsedAmount)),
@@ -2171,53 +2248,84 @@ app.post('/api/checkout/confirm', async (req, res) => {
     logged_by:       null,
   }).then(({ error: le }) => { if (le) console.error('[tx-log]', le.message); });
 
-  // 3. Generate license key & send receipt email
-  const licenseKey = [
-    crypto.randomBytes(4).toString('hex').toUpperCase(),
-    crypto.randomBytes(4).toString('hex').toUpperCase(),
-    crypto.randomBytes(4).toString('hex').toUpperCase(),
-  ].join('-');
+  // 4. Build premium receipt email
+  const imgBlock = productImageUrl
+    ? `<div style="text-align:center;padding:20px 32px 0">
+         <img src="${escServerHtml(productImageUrl)}" alt="${escServerHtml(product_name || '')}"
+              style="max-height:120px;max-width:220px;object-fit:contain;border-radius:12px;
+                     border:1px solid rgba(255,255,255,0.08);"/>
+       </div>`
+    : '';
 
-  const receiptHTML = `
-    <div style="font-family:'Inter',Arial,sans-serif;max-width:480px;margin:0 auto;background:#0a0a16;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,0.06)">
-      <div style="background:linear-gradient(135deg,#1D6AFF 0%,#A259FF 100%);padding:26px 32px">
-        <h1 style="color:#fff;margin:0;font-size:22px;font-weight:700;letter-spacing:-.02em">🎉 Narudžba potvrđena!</h1>
-        <p style="color:rgba(255,255,255,0.75);margin:6px 0 0;font-size:14px">Keyify – Digitalna tržnica</p>
+  const receiptHTML = `<!DOCTYPE html>
+<html lang="bs"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+<body style="margin:0;padding:20px 0;background:#f4f6f9;font-family:'Segoe UI',Arial,sans-serif">
+<div style="max-width:520px;margin:0 auto">
+
+  <!-- Header gradient -->
+  <div style="background:linear-gradient(135deg,#1D6AFF 0%,#A259FF 100%);border-radius:18px 18px 0 0;padding:32px 36px 28px;text-align:center">
+    <div style="display:inline-block;background:rgba(255,255,255,0.15);border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px;margin-bottom:12px">🔑</div>
+    <h1 style="color:#fff;margin:0;font-size:24px;font-weight:800;letter-spacing:-.02em">Narudžba potvrđena!</h1>
+    <p style="color:rgba(255,255,255,0.80);margin:6px 0 0;font-size:14px;font-weight:400">Keyify · Digitalna tržnica</p>
+  </div>
+
+  <!-- Body card -->
+  <div style="background:#fff;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;padding:0 0 28px">
+
+    ${imgBlock}
+
+    <div style="padding:28px 36px 0">
+      <p style="margin:0 0 4px;font-size:15px;font-weight:700;color:#111827">Hvala na kupovini, ${escServerHtml(email.split('@')[0])}!</p>
+      <p style="margin:0 0 24px;font-size:14px;color:#6b7280">Vaša narudžba je obrađena. Licencni ključ i detalji nalaze se ispod.</p>
+
+      <!-- License key box -->
+      <div style="background:linear-gradient(135deg,#f0f4ff 0%,#faf5ff 100%);border:2px solid #A259FF;border-radius:14px;padding:22px;text-align:center;margin-bottom:24px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#7c3aed;margin-bottom:10px">Licencni ključ</div>
+        <div style="font-size:22px;font-weight:800;letter-spacing:5px;color:#1D6AFF;font-family:'Courier New',monospace;word-break:break-all">${escServerHtml(licenseKey)}</div>
+        <div style="font-size:11px;color:#9ca3af;margin-top:8px">Čuvajte ovaj ključ na sigurnom · nije ponovljiv</div>
       </div>
-      <div style="padding:28px 32px">
-        <p style="color:#9090b8;margin:0 0 6px;font-size:14px">Hvala na kupovini!</p>
-        <p style="color:#9090b8;margin:0 0 22px;font-size:14px">Narudžba: <strong style="color:#e0e0ff">${escServerHtml(product_name || 'Proizvod')}</strong></p>
-        <div style="background:#12122a;border:2px solid #A259FF;border-radius:14px;padding:22px;text-align:center;margin-bottom:22px">
-          <div style="color:#7070a0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">Licencni ključ</div>
-          <div style="font-size:24px;font-weight:800;letter-spacing:6px;color:#A259FF;font-family:monospace">${licenseKey}</div>
-        </div>
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
-          <tr>
-            <td style="padding:8px 0;color:#6060a0;border-bottom:1px solid rgba(255,255,255,0.06)">Iznos</td>
-            <td style="padding:8px 0;text-align:right;color:#e0e0ff;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06)">€ ${parsedAmount.toFixed(2)}</td>
-          </tr>
-          <tr>
-            <td style="padding:8px 0;color:#6060a0;border-bottom:1px solid rgba(255,255,255,0.06)">Metoda plaćanja</td>
-            <td style="padding:8px 0;text-align:right;color:#e0e0ff;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06)">${escServerHtml(payment_method || 'Manual')}</td>
-          </tr>
-          <tr>
-            <td style="padding:8px 0;color:#6060a0">Referenca</td>
-            <td style="padding:8px 0;text-align:right;color:#e0e0ff;font-family:monospace;font-size:11px">${escServerHtml(tx.id)}</td>
-          </tr>
-        </table>
-        <p style="color:#3a3a6a;font-size:11px;text-align:center;margin-top:18px">Čuvajte ovaj ključ na sigurnom. Nije ponovljiv.</p>
-      </div>
-      <div style="padding:14px 32px 20px;border-top:1px solid rgba(255,255,255,0.06);text-align:center">
-        <p style="margin:0;color:#3a3a6a;font-size:11px">© ${new Date().getFullYear()} Keyify · Automatski generirano</p>
-      </div>
-    </div>`;
+
+      <!-- Order details table -->
+      <table style="width:100%;border-collapse:collapse;font-size:13px;color:#374151">
+        <tr>
+          <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;color:#6b7280">Proizvod</td>
+          <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;text-align:right;font-weight:600;color:#111827">${escServerHtml(product_name || 'Digitalni proizvod')}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;color:#6b7280">Iznos</td>
+          <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;text-align:right;font-weight:700;color:#1D6AFF;font-size:15px">€ ${parsedAmount.toFixed(2)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;color:#6b7280">Metoda plaćanja</td>
+          <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;text-align:right;font-weight:600">${escServerHtml(payment_method || 'Manual')}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;color:#6b7280">Datum</td>
+          <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;text-align:right">${orderDate}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;color:#6b7280">ID narudžbe</td>
+          <td style="padding:10px 0;text-align:right;font-family:'Courier New',monospace;font-size:11px;color:#9ca3af">${escServerHtml(tx.id)}</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="background:#f9fafb;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 18px 18px;padding:20px 36px;text-align:center">
+    <p style="margin:0 0 6px;font-size:12px;color:#9ca3af">Pitanja? Kontaktirajte nas na <a href="mailto:${escServerHtml(process.env.EMAIL_USER || 'support@keyify.app')}" style="color:#1D6AFF;text-decoration:none">${escServerHtml(process.env.EMAIL_USER || 'support@keyify.app')}</a></p>
+    <p style="margin:0;font-size:11px;color:#d1d5db">© ${new Date().getFullYear()} Keyify · Automatski generirani račun · Ne odgovarajte na ovaj email</p>
+  </div>
+
+</div>
+</body></html>`;
 
   let emailSent = false;
   try {
     await sendMailSafe({
       from:    `"Keyify" <${process.env.EMAIL_USER}>`,
       to:      email,
-      subject: `🔑 Keyify – Vaš licencni ključ za ${product_name || 'narudžbu'}`,
+      subject: `🔑 Keyify – Vaš ključ za ${escServerHtml(product_name || 'narudžbu')} · ${licenseKey}`,
       html:    receiptHTML,
     });
     emailSent = true;
@@ -2229,6 +2337,10 @@ app.post('/api/checkout/confirm', async (req, res) => {
     ok:             true,
     transaction_id: tx.id,
     license_key:    licenseKey,
+    product_name:   product_name || null,
+    product_image:  productImageUrl,
+    amount:         parsedAmount,
+    order_date:     new Date().toISOString(),
     email_sent_to:  email,
     email_sent:     emailSent,
   });
@@ -2297,6 +2409,39 @@ app.delete('/api/admin/coupons/:id', authenticateToken, checkPermission('can_man
    Health check
 ───────────────────────────────────────── */
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+
+/* ─────────────────────────────────────────
+   SITE ASSET UPLOAD
+   POST /api/admin/upload-asset
+   Accepts PNG/JPG/SVG (≤5 MB), stores in Supabase Storage bucket "site-assets",
+   returns the public URL for immediate use in the Live Editor.
+───────────────────────────────────────── */
+const assetUpload = multer({
+  storage: multer.memoryStorage(),
+  limits:  { fileSize: 5 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    const ok = file.mimetype.startsWith('image/') || file.mimetype === 'image/svg+xml';
+    if (ok) cb(null, true);
+    else cb(new Error('Dozvoljeni tipovi: PNG, JPG, SVG'));
+  },
+}).single('file');
+
+app.post('/api/admin/upload-asset', authenticateToken, requireAdmin, (req, res) => {
+  assetUpload(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: 'Nije priložen fajl' });
+
+    const ext      = (req.file.originalname.split('.').pop() || 'bin').toLowerCase();
+    const filePath = `assets/${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from('site-assets')
+      .upload(filePath, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
+    if (upErr) return res.status(500).json({ error: `Storage: ${upErr.message}` });
+
+    const { data: { publicUrl } } = supabase.storage.from('site-assets').getPublicUrl(filePath);
+    return res.json({ url: publicUrl });
+  });
+});
 
 /* ─────────────────────────────────────────
    Page Builder Routes
