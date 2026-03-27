@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Support Inbox – Keyify</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        fontFamily: { display: ['Poppins','sans-serif'], sans: ['Inter','sans-serif'] },
+        colors: { dark: { 100:'#c8c8d8',200:'#a0a0b8',300:'#707090',400:'#505070',500:'#303050',600:'#202040',700:'#14142a',800:'#0d0d1f',900:'#080815' } },
+      }}
+    }
+  </script>
+  <style>
+    *{box-sizing:border-box}
+    body{background:#0d0d1f;font-family:'Inter',sans-serif;min-height:100vh;overflow:hidden}
+    .glass{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);backdrop-filter:blur(12px)}
+    ::-webkit-scrollbar{width:4px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:4px}
+
+    /* Session item */
+    .session-item{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);transition:background .12s}
+    .session-item:hover{background:rgba(255,255,255,0.05)}
+    .session-item.active{background:rgba(29,106,255,0.12);border-left:2px solid #1D6AFF}
+
+    /* Status badge */
+    .status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px}
+    .status-dot.new{background:#ef4444;box-shadow:0 0 6px #ef4444}
+    .status-dot.seen{background:#f59e0b;box-shadow:0 0 6px #f59e0b}
+    .status-dot.answered{background:#10b981;box-shadow:0 0 6px #10b981}
+    .status-dot.closed{background:#4b5563}
+
+    /* Chat bubble */
+    .bubble{max-width:78%;padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.5;word-break:break-word}
+    .bubble.user{background:rgba(255,255,255,0.08);color:#e2e8f0;align-self:flex-start;border-bottom-left-radius:4px}
+    .bubble.admin{background:rgba(29,106,255,0.25);color:#93c5fd;align-self:flex-end;border-bottom-right-radius:4px}
+
+    /* Reply input */
+    .reply-input{background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.1);color:#e2e8f0;border-radius:12px;padding:10px 14px;font-size:13px;resize:none;outline:none;width:100%;font-family:inherit;transition:border-color .15s}
+    .reply-input:focus{border-color:rgba(29,106,255,0.6)}
+    .reply-input::placeholder{color:#505070}
+
+    /* Send button */
+    .send-btn{padding:10px 20px;border-radius:12px;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#fff;background:linear-gradient(135deg,#1D6AFF,#A259FF);transition:opacity .15s,transform .15s;flex-shrink:0}
+    .send-btn:hover{opacity:.88}
+    .send-btn:active{transform:scale(.96)}
+    .send-btn:disabled{opacity:.45;cursor:not-allowed}
+
+    /* Filter tab */
+    .ftab{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:background .12s,color .12s;background:transparent;color:#707090}
+    .ftab.active{background:rgba(29,106,255,0.15);color:#60a5fa}
+  </style>
+</head>
+<body class="flex flex-col" style="height:100vh">
+
+<!-- ── TOPBAR ─────────────────────────────────────────────────── -->
+<header class="glass border-b flex-shrink-0" style="border-color:rgba(255,255,255,0.07)">
+  <div class="flex items-center justify-between px-5 py-3">
+    <div class="flex items-center gap-3">
+      <a href="index.html" style="color:#707090;display:flex;align-items:center;gap:6px;font-size:13px;text-decoration:none;transition:color .15s" onmouseover="this.style.color='#e2e8f0'" onmouseout="this.style.color='#707090'">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+        Nazad
+      </a>
+      <span style="color:rgba(255,255,255,0.15)">|</span>
+      <div class="flex items-center gap-2">
+        <svg width="16" height="16" fill="none" stroke="#1D6AFF" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.862 9.862 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        <span class="font-display font-bold text-white text-sm">Support Inbox</span>
+        <span id="hdr-new-badge" style="display:none;padding:1px 7px;border-radius:20px;background:#ef4444;color:#fff;font-size:11px;font-weight:700"></span>
+      </div>
+    </div>
+    <div class="flex items-center gap-2" id="hdr-filters">
+      <button class="ftab active" data-filter="active" onclick="setFilter('active',this)">Aktivni</button>
+      <button class="ftab"        data-filter="closed" onclick="setFilter('closed',this)">Zatvoreni</button>
+    </div>
+  </div>
+</header>
+
+<!-- ── SPLIT PANE ──────────────────────────────────────────────── -->
+<div class="flex flex-1 min-h-0">
+
+  <!-- LEFT: Queue sidebar -->
+  <div style="width:300px;flex-shrink:0;border-right:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;min-height:0">
+
+    <!-- Search -->
+    <div class="p-3 border-b flex-shrink-0" style="border-color:rgba(255,255,255,0.06)">
+      <input id="queue-search" type="text" placeholder="Pretraži po emailu..."
+             style="width:100%;background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.08);color:#e2e8f0;border-radius:10px;padding:7px 12px;font-size:12px;outline:none;font-family:inherit"
+             oninput="filterQueue(this.value)"/>
+    </div>
+
+    <!-- Session list -->
+    <div id="queue-list" style="flex:1;overflow-y:auto">
+      <div class="text-center py-10" style="color:#505070;font-size:13px">Učitavanje...</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Chat window -->
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0;min-height:0">
+
+    <!-- Empty state -->
+    <div id="chat-empty" style="flex:1;display:flex;align-items:center;justify-content:center">
+      <div style="text-align:center;color:#505070">
+        <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24" style="margin:0 auto 12px;opacity:.4"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.862 9.862 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        <p style="font-size:14px;font-weight:600;color:#707090">Izaberi razgovor</p>
+        <p style="font-size:12px;margin-top:4px">Klikni na sesiju lijevo</p>
+      </div>
+    </div>
+
+    <!-- Active chat -->
+    <div id="chat-active" style="display:none;flex-direction:column;flex:1;min-height:0">
+
+      <!-- Chat header -->
+      <div class="glass border-b flex-shrink-0 px-5 py-3 flex items-center justify-between" style="border-color:rgba(255,255,255,0.07)">
+        <div>
+          <div id="chat-hdr-name" class="font-semibold text-white text-sm"></div>
+          <div id="chat-hdr-email" style="font-size:11px;color:#707090;margin-top:1px"></div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="chat-hdr-status" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600"></span>
+          <button id="chat-close-btn" onclick="closeActiveSession()"
+                  style="padding:5px 12px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:600;background:rgba(220,38,38,0.15);color:#f87171;transition:background .15s"
+                  onmouseover="this.style.background='rgba(220,38,38,0.25)'" onmouseout="this.style.background='rgba(220,38,38,0.15)'">
+            Zatvori sesiju
+          </button>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div id="chat-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;min-height:0"></div>
+
+      <!-- Reply input -->
+      <div id="chat-reply-area" class="border-t flex-shrink-0 p-4 flex gap-3 items-end" style="border-color:rgba(255,255,255,0.07)">
+        <textarea id="chat-reply-input" class="reply-input" rows="2" placeholder="Napišite odgovor..."></textarea>
+        <button class="send-btn" id="chat-reply-btn" onclick="sendInboxReply()">
+          <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2.5" viewBox="0 0 24 24" style="display:inline;vertical-align:middle;margin-right:5px"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Pošalji
+        </button>
+      </div>
+
+      <!-- Closed notice -->
+      <div id="chat-closed-notice" style="display:none;padding:10px 16px;background:rgba(245,158,11,0.12);border-top:1px solid rgba(245,158,11,0.2);font-size:12px;color:#fbbf24;text-align:center;flex-shrink:0">
+        Sesija je zatvorena. Korisnik više ne može slati poruke.
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+  /* ── AUTH CHECK ──────────────────────────────────────────────── */
+  const _token = localStorage.getItem('keyify_token');
+  const _role  = localStorage.getItem('keyify_role');
+  const _perms = JSON.parse(localStorage.getItem('keyify_permissions') || '{}');
+  const _isSA  = _role === 'admin' && Object.keys(_perms).length === 0;
+  if (!_token || _role !== 'admin' || (!_isSA && _perms.can_manage_support !== true)) {
+    window.location.href = 'index.html';
+  }
+
+  const API   = () => window.KEYIFY_CONFIG?.API_BASE || 'http://localhost:3001/api';
+  const HDRS  = () => ({ 'Content-Type':'application/json','Authorization':`Bearer ${_token}` });
+  const escH  = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  let _sessions        = [];
+  let _activeId        = null;
+  let _activeClosed    = false;
+  let _queuePoll       = null;
+  let _msgPoll         = null;
+  let _lastMsgCount    = 0;
+  let _currentFilter   = 'active';
+  let _searchQuery     = '';
+
+  /* ── STATUS HELPERS ─────────────────────────────────────────── */
+  function statusDot(s)   { return `<span class="status-dot ${s}"></span>`; }
+  function statusLabel(s) {
+    return { new:'🔴 Novo', seen:'🟡 Viđeno', answered:'🟢 Odgovoreno', closed:'⚫ Zatvoreno' }[s] || s;
+  }
+  function statusBadgeStyle(s) {
+    const m = {
+      new:      'background:rgba(239,68,68,0.2);color:#f87171',
+      seen:     'background:rgba(245,158,11,0.2);color:#fbbf24',
+      answered: 'background:rgba(16,185,129,0.2);color:#10b981',
+      closed:   'background:rgba(255,255,255,0.06);color:#707090',
+    };
+    return m[s] || '';
+  }
+  function fmtTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    return sameDay
+      ? d.toLocaleTimeString('sr-RS',{hour:'2-digit',minute:'2-digit'})
+      : d.toLocaleDateString('sr-RS',{day:'2-digit',month:'2-digit'});
+  }
+  function fmtFull(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleString('sr-RS',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  }
+
+  /* ── QUEUE LOAD & RENDER ────────────────────────────────────── */
+  async function loadQueue() {
+    const closed = _currentFilter === 'closed' ? '?closed=1' : '';
+    try {
+      const r = await fetch(`${API()}/admin/chat/sessions${closed}`, { headers: HDRS() });
+      if (!r.ok) return;
+      _sessions = await r.json();
+      renderQueue();
+      updateHeaderBadge();
+    } catch {}
+  }
+
+  function renderQueue() {
+    const list = document.getElementById('queue-list');
+    let filtered = _sessions;
+    if (_searchQuery) {
+      const q = _searchQuery.toLowerCase();
+      filtered = _sessions.filter(s =>
+        (s.guest_email||'').toLowerCase().includes(q) ||
+        (s.users?.name||'').toLowerCase().includes(q) ||
+        (s.users?.email||'').toLowerCase().includes(q)
+      );
+    }
+    if (!filtered.length) {
+      list.innerHTML = `<div class="text-center py-10" style="color:#505070;font-size:13px">${_sessions.length ? 'Nema rezultata.' : 'Nema sesija.'}</div>`;
+      return;
+    }
+    list.innerHTML = filtered.map(s => {
+      const name    = s.users?.name  || s.guest_email || 'Gost';
+      const sub     = s.users?.email || s.guest_email || '';
+      const preview = s.last_message_preview || 'Sesija pokrenuta';
+      const time    = fmtTime(s.last_message_at || s.created_at);
+      const active  = s.id === _activeId ? ' active' : '';
+      return `<div class="session-item${active}" onclick="selectSession('${escH(s.id)}')">
+        ${statusDot(s.status)}
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px">
+            <span style="font-size:13px;font-weight:600;color:${s.status==='new'?'#fff':'#a0a0b8'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(name)}</span>
+            <span style="font-size:10px;color:#505070;flex-shrink:0">${time}</span>
+          </div>
+          <div style="font-size:11px;color:#505070;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(preview)}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function updateHeaderBadge() {
+    const newCount = _sessions.filter(s => s.status === 'new').length;
+    const badge = document.getElementById('hdr-new-badge');
+    if (badge) { badge.textContent = newCount || ''; badge.style.display = newCount ? '' : 'none'; }
+  }
+
+  /* ── FILTER & SEARCH ────────────────────────────────────────── */
+  function setFilter(f, btn) {
+    _currentFilter = f;
+    document.querySelectorAll('.ftab').forEach(b => b.classList.toggle('active', b === btn));
+    loadQueue();
+  }
+  function filterQueue(q) { _searchQuery = q; renderQueue(); }
+
+  /* ── SELECT SESSION ─────────────────────────────────────────── */
+  async function selectSession(id) {
+    if (_activeId === id) return;
+    _activeId     = id;
+    _lastMsgCount = 0;
+    _stopMsgPoll();
+
+    const s = _sessions.find(x => x.id === id);
+    if (!s) return;
+
+    _activeClosed = s.status === 'closed';
+
+    // Update active highlight in queue
+    renderQueue();
+
+    // Show chat panel
+    document.getElementById('chat-empty').style.display  = 'none';
+    const chatPanel = document.getElementById('chat-active');
+    chatPanel.style.display = 'flex';
+
+    // Header
+    const name  = s.users?.name  || s.guest_email || 'Gost';
+    const email = s.users?.email || s.guest_email || '';
+    document.getElementById('chat-hdr-name').textContent  = name;
+    document.getElementById('chat-hdr-email').textContent = email;
+    const hdrStatus = document.getElementById('chat-hdr-status');
+    hdrStatus.textContent = statusLabel(s.status);
+    hdrStatus.style.cssText = `padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;${statusBadgeStyle(s.status)}`;
+    document.getElementById('chat-close-btn').style.display    = _activeClosed ? 'none' : '';
+    document.getElementById('chat-reply-area').style.display   = _activeClosed ? 'none' : 'flex';
+    document.getElementById('chat-closed-notice').style.display = _activeClosed ? 'block' : 'none';
+
+    // Clear messages
+    document.getElementById('chat-messages').innerHTML = '<div style="text-align:center;color:#505070;font-size:13px;padding:20px">Učitavanje poruka...</div>';
+    document.getElementById('chat-reply-input').value = '';
+
+    // Mark as seen (only if 'new')
+    if (s.status === 'new') {
+      fetch(`${API()}/admin/chat/sessions/${id}/read`, { method:'PATCH', headers:HDRS() })
+        .then(() => {
+          s.status = 'seen';
+          renderQueue();
+          hdrStatus.textContent = statusLabel('seen');
+          hdrStatus.style.cssText = `padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;${statusBadgeStyle('seen')}`;
+          updateHeaderBadge();
+        }).catch(() => {});
+    }
+
+    // Load messages + start polling
+    await fetchMessages(id);
+    if (!_activeClosed) _startMsgPoll(id);
+  }
+
+  /* ── MESSAGES ───────────────────────────────────────────────── */
+  async function fetchMessages(id) {
+    try {
+      const r = await fetch(`${API()}/admin/chat/sessions/${id}/messages`, { headers: HDRS() });
+      if (!r.ok) return;
+      const msgs = await r.json();
+      if (msgs.length !== _lastMsgCount) {
+        _lastMsgCount = msgs.length;
+        renderMessages(msgs);
+      }
+    } catch {}
+  }
+
+  function renderMessages(msgs) {
+    const box = document.getElementById('chat-messages');
+    if (!msgs.length) {
+      box.innerHTML = '<div style="text-align:center;color:#505070;font-size:13px;padding:20px">Nema poruka.</div>';
+      return;
+    }
+    box.innerHTML = msgs.map(m => `
+      <div style="display:flex;flex-direction:column">
+        <div class="bubble ${m.sender === 'admin' ? 'admin' : 'user'}">${escH(m.message)}</div>
+        <span style="font-size:10px;color:#505070;margin-top:3px;${m.sender==='admin'?'align-self:flex-end':'align-self:flex-start'}">${m.sender==='admin'?'Agent':'Korisnik'} · ${fmtFull(m.created_at)}</span>
+      </div>`).join('');
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function _startMsgPoll(id) {
+    _msgPoll = setInterval(() => fetchMessages(id), 3000);
+  }
+  function _stopMsgPoll() {
+    if (_msgPoll) { clearInterval(_msgPoll); _msgPoll = null; }
+  }
+
+  /* ── SEND REPLY ─────────────────────────────────────────────── */
+  async function sendInboxReply() {
+    const text = document.getElementById('chat-reply-input').value.trim();
+    const btn  = document.getElementById('chat-reply-btn');
+    if (!text || !_activeId) return;
+
+    btn.disabled = true; btn.textContent = 'Slanje...';
+    try {
+      const r = await fetch(`${API()}/admin/chat/reply`, {
+        method: 'POST', headers: HDRS(),
+        body: JSON.stringify({ session_id: _activeId, message: text }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error);
+      document.getElementById('chat-reply-input').value = '';
+      _lastMsgCount = 0;
+      await fetchMessages(_activeId);
+      // Update local session status
+      const s = _sessions.find(x => x.id === _activeId);
+      if (s) {
+        s.status = 'answered';
+        s.last_message_preview = `Agent: ${text.substring(0,80)}`;
+        s.last_message_at = data.created_at;
+        renderQueue();
+        const hdrStatus = document.getElementById('chat-hdr-status');
+        hdrStatus.textContent = statusLabel('answered');
+        hdrStatus.style.cssText = `padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;${statusBadgeStyle('answered')}`;
+      }
+    } catch (err) {
+      alert(err.message || 'Greška pri slanju');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Pošalji';
+    }
+  }
+
+  document.getElementById('chat-reply-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendInboxReply(); }
+  });
+
+  /* ── CLOSE SESSION ──────────────────────────────────────────── */
+  async function closeActiveSession() {
+    if (!_activeId || !confirm('Zatvori ovu chat sesiju?')) return;
+    try {
+      const r = await fetch(`${API()}/admin/chat/sessions/${_activeId}/close`, {
+        method: 'PUT', headers: HDRS(),
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+      _stopMsgPoll();
+      _activeClosed = true;
+      const s = _sessions.find(x => x.id === _activeId);
+      if (s) { s.status = 'closed'; renderQueue(); }
+      document.getElementById('chat-close-btn').style.display     = 'none';
+      document.getElementById('chat-reply-area').style.display    = 'none';
+      document.getElementById('chat-closed-notice').style.display = 'block';
+      const hdrStatus = document.getElementById('chat-hdr-status');
+      hdrStatus.textContent = statusLabel('closed');
+      hdrStatus.style.cssText = `padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;${statusBadgeStyle('closed')}`;
+    } catch (err) {
+      alert(err.message || 'Greška');
+    }
+  }
+
+  /* ── INIT ───────────────────────────────────────────────────── */
+  loadQueue();
+  _queuePoll = setInterval(loadQueue, 5000);
+</script>
+</body>
+</html>

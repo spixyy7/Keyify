@@ -85,8 +85,8 @@
     injectToolbar();
     watchGrid();
     initContentEditor();        // existing: [data-ck] key/value text fields
-    initGlobalTextEditing();    // NEW: h1/h2/h3/p contenteditable on click
-    initSectionHoverControls(); // NEW: floating toolbar on section/header/article hover
+    initSmartEngine();          // Universal click delegator (replaces initGlobalTextEditing)
+    initSectionHoverControls(); // Floating toolbar on section/header/article hover
     injectAddSectionBtn();      // NEW: + Dodaj novu sekciju button
   }
 
@@ -526,6 +526,60 @@
         pointer-events: none; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         transition: opacity .3s ease;
       }
+
+      /* ── Universal Smart Engine ────────────────── */
+      #kve-smart-toolbar {
+        position: fixed; z-index: 999997;
+        display: none; gap: 4px; align-items: center;
+        background: #13132a; border: 1px solid rgba(255,255,255,0.13);
+        border-radius: 10px; padding: 5px 7px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+        font-family: 'Inter', sans-serif;
+        pointer-events: auto;
+      }
+      #kve-smart-toolbar.kve-st-visible {
+        display: flex;
+        animation: kveFadeIn .12s ease;
+      }
+      #kve-smart-toolbar button {
+        display: inline-flex; align-items: center; gap: 3px;
+        padding: 5px 9px; border: none; border-radius: 7px;
+        font-size: 11px; font-weight: 700; cursor: pointer;
+        font-family: inherit; white-space: nowrap;
+        background: rgba(255,255,255,0.08); color: #c0c0d8;
+        transition: background .12s, color .12s;
+      }
+      #kve-smart-toolbar button:hover { background: rgba(29,106,255,0.3); color: #fff; }
+      #kve-smart-toolbar .kve-st-label {
+        font-size: 10px; font-weight: 700; color: #5050a0;
+        text-transform: uppercase; letter-spacing: .07em;
+        padding: 0 4px 0 2px; white-space: nowrap; user-select: none;
+      }
+      #kve-smart-toolbar .kve-st-sep {
+        width: 1px; height: 16px; background: rgba(255,255,255,0.1);
+        margin: 0 2px; flex-shrink: 0;
+      }
+      /* Smart element hover ring */
+      body.kve-active [data-kve-smart] {
+        outline: 1px dashed transparent;
+        transition: outline-color .15s;
+      }
+      body.kve-active [data-kve-smart]:hover {
+        outline: 1.5px dashed rgba(29,106,255,0.5) !important;
+        border-radius: 3px; cursor: pointer;
+      }
+      body.kve-active [data-kve-smart].kve-smart-editing,
+      body.kve-active [data-kve-smart][contenteditable="true"] {
+        outline: 2px solid #1D6AFF !important;
+        background: rgba(29,106,255,0.05) !important;
+        border-radius: 3px;
+      }
+      /* Prevent native focus on form fields in edit mode */
+      body.kve-active input[data-kve-smart],
+      body.kve-active textarea[data-kve-smart],
+      body.kve-active select[data-kve-smart] {
+        cursor: pointer !important;
+      }
     `;
     document.head.appendChild(s);
   }
@@ -539,7 +593,7 @@
     bar.setAttribute('data-kve-editor', '1');
     bar.innerHTML = `
       <span class="kve-pill">✏️ PAGE BUILDER</span>
-      <span class="kve-hint">Hover sekciju → toolbar. Klikni tekst → uredi. Drag karte → redosljed.</span>
+      <span class="kve-hint">Klikni bilo koji element → kontekstualni alati. Hover sekciju → strukturni toolbar. Drag karte → redosljed.</span>
       <button id="kve-exit-btn">✕ Izađi</button>
       <button id="kve-save-page-btn" class="kve-page-btn">🌐 Sačuvaj stranicu</button>
       <button class="kve-save-btn" id="kve-save-btn">💾 Sačuvaj raspored</button>
@@ -1077,7 +1131,9 @@
     clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
     clone.querySelectorAll('[data-original-text]').forEach(el => el.removeAttribute('data-original-text'));
     clone.querySelectorAll('[data-kve-bg-class]').forEach(el => el.removeAttribute('data-kve-bg-class'));
+    clone.querySelectorAll('[data-kve-smart]').forEach(el => el.removeAttribute('data-kve-smart'));
     clone.querySelectorAll('.kve-text-editable').forEach(el => el.classList.remove('kve-text-editable'));
+    clone.querySelectorAll('.kve-smart-editing').forEach(el => el.classList.remove('kve-smart-editing'));
 
     const html = clone.innerHTML;
     const slug = getPageSlug();
@@ -1163,61 +1219,467 @@
   }
 
   /* ─────────────────────────────────────────────────────────────────
-     17. GLOBAL TEXT EDITING  (NEW)
-     Every h1/h2/h3/p on static pages becomes click-to-edit.
-     Skips: nav, footer, product cards, editor UI elements.
+     17. UNIVERSAL SMART ENGINE
+     Single capture-phase listener handles ALL element types.
+     No per-element wiring — pure event delegation.
   ──────────────────────────────────────────────────────────────────── */
-  function initGlobalTextEditing() {
-    const selector =
-      'h1:not([data-kve-field]):not([data-ck]),' +
-      'h2:not([data-kve-field]):not([data-ck]),' +
-      'h3:not([data-kve-field]):not([data-ck]),' +
-      'p:not([data-kve-field]):not([data-ck])';
 
-    document.querySelectorAll(selector).forEach(el => {
-      // Skip elements inside editor UI, navbars, footers, product cards
-      if (el.closest('[data-kve-editor], nav, footer, .product-card, .kve-draft-wrap')) return;
-      // Skip empty or trivially short elements
-      if (el.textContent.trim().length < 2) return;
+  let _smartEl   = null;   // currently active element
+  let _smartType = null;   // its type string
+  let _stToolbar = null;   // #kve-smart-toolbar DOM ref
 
-      _wireTextEditable(el);
+  /** Containers/ancestors that the engine must never intercept */
+  const _SKIP_PARENTS = [
+    '[data-kve-editor]', '[data-kve-field]', '[data-ck]',
+    'nav', 'footer', '.kve-draft-wrap', '.product-card', '.kve-overlay',
+  ];
+
+  function initSmartEngine() {
+    _stToolbar = document.createElement('div');
+    _stToolbar.id = 'kve-smart-toolbar';
+    _stToolbar.setAttribute('data-kve-editor', '1');
+    document.body.appendChild(_stToolbar);
+
+    /* Mark eligible elements in the initial DOM */
+    _scanAndMarkElements(document.body);
+
+    /* Capture-phase: fires before native browser focus/navigation */
+    document.addEventListener('click', _onSmartClick, true);
+
+    /* Dismiss when clicking outside any smart-marked element or the toolbar */
+    document.addEventListener('click', e => {
+      if (e.target.closest('#kve-smart-toolbar')) return;
+      if (!e.target.closest('[data-kve-smart]')) _deactivateSmart();
+    }, false);
+
+    /* Escape: cancel editing / close toolbar */
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape' || !_smartEl) return;
+      if (_smartEl.contentEditable === 'true') {
+        if (_smartEl.dataset.originalText !== undefined) {
+          _smartEl.innerHTML = _smartEl.dataset.originalText;
+        }
+        _smartEl.contentEditable = 'false';
+        _smartEl.classList.remove('kve-smart-editing');
+      }
+      _deactivateSmart();
     });
   }
 
-  /** Make a single element click-to-edit (reused for injected blocks) */
-  function _wireTextEditable(el) {
-    el.classList.add('kve-text-editable');
-    el.setAttribute('data-original-text', el.innerHTML);
-    el.title = 'Klikni za uređivanje';
+  /** Add data-kve-smart="type" to all eligible descendants of root */
+  function _scanAndMarkElements(root) {
+    root.querySelectorAll(
+      'h1,h2,h3,h4,h5,h6,p,span,a,button,input,textarea,select,img'
+    ).forEach(el => {
+      if (_shouldSkipEl(el)) return;
+      const type = _detectSmartType(el);
+      if (type) el.setAttribute('data-kve-smart', type);
+    });
+  }
 
-    el.addEventListener('click', () => {
-      if (el.contentEditable === 'true') return;
+  function _shouldSkipEl(el) {
+    return _SKIP_PARENTS.some(sel => {
+      try { return el.matches(sel) || !!el.closest(sel); } catch { return false; }
+    });
+  }
+
+  function _detectSmartType(el) {
+    const tag = el.tagName;
+    if (['H1','H2','H3','H4','H5','H6'].includes(tag)) return 'heading';
+    if (tag === 'P') return 'text';
+    if (tag === 'SPAN' && el.textContent.trim().length > 0) return 'text';
+    if (tag === 'BUTTON') return 'button';
+    if (tag === 'A') return 'link';
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return 'input';
+    if (tag === 'SELECT') return 'select';
+    if (tag === 'IMG') return 'image';
+    return null;
+  }
+
+  function _onSmartClick(e) {
+    const el = e.target;
+
+    /* Never intercept editor-owned UI */
+    if (el.closest('[data-kve-editor]')) return;
+    if (el.closest('.kve-overlay, #kve-block-library')) return;
+    if (el.closest('nav') || el.closest('footer')) return;
+    if (el.closest('[data-kve-field], [data-ck]')) return;
+
+    const type = el.dataset.kveSmart || _detectSmartType(el);
+    if (!type) return;
+
+    /* Suppress native behavior for interactive elements */
+    if (['link','button','input','select','image'].includes(type)) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    /* Deactivate previous selection if switching elements */
+    if (_smartEl && _smartEl !== el) {
+      if (_smartEl.contentEditable === 'true') {
+        _smartEl.contentEditable = 'false';
+        _smartEl.classList.remove('kve-smart-editing');
+        toastMsg('✏️ Izmjena unijeta — klikni "Sačuvaj stranicu" da sačuvaš.');
+      }
+    }
+
+    _smartEl   = el;
+    _smartType = type;
+
+    /* Inline editing for text/heading */
+    if ((type === 'text' || type === 'heading') && el.contentEditable !== 'true') {
+      if (!el.dataset.originalText) el.dataset.originalText = el.innerHTML;
       el.contentEditable = 'true';
+      el.classList.add('kve-smart-editing');
       el.focus();
-      // Move cursor to end
       const range = document.createRange();
       range.selectNodeContents(el);
       range.collapse(false);
       const sel = window.getSelection();
       sel.removeAllRanges();
       sel.addRange(range);
+    }
+
+    _showSmartToolbar(el, type);
+  }
+
+  function _showSmartToolbar(el, type) {
+    const tb = document.getElementById('kve-smart-toolbar');
+    if (!tb) return;
+
+    const labels = {
+      heading: 'Naslov', text: 'Tekst', button: 'Dugme',
+      link: 'Link', input: 'Input', select: 'Dropdown', image: 'Slika',
+    };
+
+    let btns = `<span class="kve-st-label">✦ ${labels[type] || type}</span><div class="kve-st-sep"></div>`;
+
+    if (type === 'heading' || type === 'text') {
+      btns += `
+        <button data-kve-action="text-reset">↩ Reset</button>
+        <button data-kve-action="text-done">✓ Gotovo</button>
+      `;
+    }
+    if (type === 'button') {
+      btns += `
+        <button data-kve-action="btn-text">✏️ Tekst</button>
+        <button data-kve-action="btn-href">🔗 Link</button>
+        <button data-kve-action="btn-color">🎨 Boja</button>
+      `;
+    }
+    if (type === 'link') {
+      btns += `
+        <button data-kve-action="link-text">✏️ Tekst</button>
+        <button data-kve-action="link-href">🔗 href</button>
+      `;
+    }
+    if (type === 'input') {
+      btns += `
+        <button data-kve-action="input-placeholder">📝 Placeholder</button>
+        <button data-kve-action="input-label">🏷 Label</button>
+      `;
+    }
+    if (type === 'select') {
+      btns += `<button data-kve-action="select-options">📋 Opcije</button>`;
+    }
+    if (type === 'image') {
+      btns += `
+        <button data-kve-action="img-src">🖼 Src</button>
+        <button data-kve-action="img-alt">📝 Alt</button>
+      `;
+    }
+
+    btns += `<div class="kve-st-sep"></div><button data-kve-action="deselect">✕</button>`;
+    tb.innerHTML = btns;
+
+    tb.querySelectorAll('[data-kve-action]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        _handleSmartAction(btn.dataset.kveAction, _smartEl);
+      });
     });
 
-    el.addEventListener('keydown', e => {
-      if (e.key === 'Escape') {
-        el.innerHTML = el.dataset.originalText;
-        el.contentEditable = 'false';
-        el.blur();
+    _positionSmartToolbar(el);
+    tb.classList.add('kve-st-visible');
+  }
+
+  function _positionSmartToolbar(el) {
+    const tb = document.getElementById('kve-smart-toolbar');
+    if (!tb) return;
+    const rect = el.getBoundingClientRect();
+    const tbH  = 42;
+    let top  = rect.top - tbH - 6;
+    let left = rect.left;
+    if (top < 56) top = rect.bottom + 6;   // 56px = main editor toolbar
+    if (left + 320 > window.innerWidth - 8) left = window.innerWidth - 328;
+    if (left < 8) left = 8;
+    tb.style.top  = top + 'px';
+    tb.style.left = left + 'px';
+  }
+
+  function _hideSmartToolbar() {
+    document.getElementById('kve-smart-toolbar')?.classList.remove('kve-st-visible');
+  }
+
+  function _deactivateSmart() {
+    if (_smartEl) {
+      if (_smartEl.contentEditable === 'true') {
+        _smartEl.contentEditable = 'false';
+        _smartEl.classList.remove('kve-smart-editing');
+        _smartEl.setAttribute('data-original-text', _smartEl.innerHTML);
       }
-      // Enter commits headings, allows newline in <p>
-      if (e.key === 'Enter' && el.tagName !== 'P') { e.preventDefault(); el.blur(); }
+      _smartEl   = null;
+      _smartType = null;
+    }
+    _hideSmartToolbar();
+  }
+
+  function _handleSmartAction(action, el) {
+    if (!el) return;
+
+    switch (action) {
+      case 'text-done':
+        el.contentEditable = 'false';
+        el.classList.remove('kve-smart-editing');
+        el.setAttribute('data-original-text', el.innerHTML);
+        _hideSmartToolbar();
+        toastMsg('✏️ Izmjena unijeta — klikni "Sačuvaj stranicu" da sačuvaš.');
+        break;
+
+      case 'text-reset':
+        el.innerHTML = el.dataset.originalText || '';
+        el.contentEditable = 'false';
+        el.classList.remove('kve-smart-editing');
+        _hideSmartToolbar();
+        toastMsg('↩ Tekst vraćen na original.');
+        break;
+
+      case 'btn-text':
+      case 'link-text': {
+        const m = createModal('✏️ Uredi tekst', `
+          <label>Tekst</label>
+          <input type="text" id="kve-st-text-inp" value="${esc(el.textContent.trim())}"/>
+        `);
+        m.ok.addEventListener('click', () => {
+          const v = m.overlay.querySelector('#kve-st-text-inp').value.trim();
+          closeModal(m.overlay);
+          if (v) { el.textContent = v; toastMsg('✏️ Tekst izmijenjen.'); }
+        });
+        setTimeout(() => m.overlay.querySelector('#kve-st-text-inp').select(), 60);
+        break;
+      }
+
+      case 'btn-href':
+      case 'link-href':
+        _openHrefModal(el);
+        break;
+
+      case 'btn-color': {
+        const m = createModal('🎨 Boja dugmeta', `
+          <label>Inline boja pozadine</label>
+          <input type="color" id="kve-st-btn-clr" value="${esc(el.style.backgroundColor || '#1D6AFF')}"/>
+          <label style="margin-top:14px">Tailwind klase (opciono)</label>
+          <input type="text" id="kve-st-btn-cls" placeholder="npr. bg-blue-600 text-white"
+                 value="${esc(Array.from(el.classList).filter(c=>!c.startsWith('kve-')).join(' '))}"/>
+        `);
+        m.ok.addEventListener('click', () => {
+          const clr = m.overlay.querySelector('#kve-st-btn-clr').value;
+          closeModal(m.overlay);
+          el.style.backgroundColor = clr;
+          toastMsg('🎨 Boja izmijenjena.');
+        });
+        break;
+      }
+
+      case 'input-placeholder':
+        _openPlaceholderModal(el);
+        break;
+
+      case 'input-label':
+        _openLabelModal(el);
+        break;
+
+      case 'select-options':
+        _openDropdownManager(el);
+        break;
+
+      case 'img-src':
+        _openSrcModal(el);
+        break;
+
+      case 'img-alt': {
+        const m = createModal('📝 Alt tekst slike', `
+          <label>Alt tekst</label>
+          <input type="text" id="kve-st-alt-inp" value="${esc(el.alt || '')}"/>
+        `);
+        m.ok.addEventListener('click', () => {
+          el.alt = m.overlay.querySelector('#kve-st-alt-inp').value;
+          closeModal(m.overlay);
+          toastMsg('📝 Alt tekst izmijenjen.');
+        });
+        setTimeout(() => m.overlay.querySelector('#kve-st-alt-inp').focus(), 60);
+        break;
+      }
+
+      case 'deselect':
+        _deactivateSmart();
+        break;
+    }
+  }
+
+  /* ── Smart Engine Modals ── */
+
+  function _openHrefModal(el) {
+    const curHref   = el.getAttribute('href') || '';
+    const curTarget = el.getAttribute('target') || '_self';
+    const m = createModal('🔗 Uredi link', `
+      <label>URL (href)</label>
+      <input type="url" id="kve-href-inp" placeholder="https://…" value="${esc(curHref)}"/>
+      <label style="margin-top:14px">Otvori u</label>
+      <select id="kve-href-target">
+        <option value="_self"  ${curTarget === '_self'  ? 'selected' : ''}>Isti tab</option>
+        <option value="_blank" ${curTarget === '_blank' ? 'selected' : ''}>Novi tab</option>
+      </select>
+    `);
+    m.ok.addEventListener('click', () => {
+      const href   = m.overlay.querySelector('#kve-href-inp').value.trim();
+      const target = m.overlay.querySelector('#kve-href-target').value;
+      closeModal(m.overlay);
+      if (href) el.setAttribute('href', href);
+      el.setAttribute('target', target);
+      toastMsg('🔗 Link izmijenjen.');
+    });
+    setTimeout(() => m.overlay.querySelector('#kve-href-inp').select(), 60);
+  }
+
+  function _openPlaceholderModal(el) {
+    let labelEl = null;
+    if (el.id) {
+      try { labelEl = document.querySelector(`label[for="${CSS.escape(el.id)}"]`); } catch { /* noop */ }
+    }
+    if (!labelEl) labelEl = el.closest('label') || el.parentElement?.querySelector('label');
+
+    const m = createModal('📝 Uredi input', `
+      <label>Placeholder tekst</label>
+      <input type="text" id="kve-ph-inp" value="${esc(el.placeholder || '')}" placeholder="npr. Vaše ime"/>
+      ${labelEl ? `
+        <label style="margin-top:14px">Label tekst</label>
+        <input type="text" id="kve-lbl-inp" value="${esc(labelEl.textContent.trim())}"/>
+      ` : ''}
+    `);
+    m.ok.addEventListener('click', () => {
+      const ph = m.overlay.querySelector('#kve-ph-inp').value;
+      const lblInp = m.overlay.querySelector('#kve-lbl-inp');
+      closeModal(m.overlay);
+      el.placeholder = ph;
+      el.setAttribute('placeholder', ph);
+      if (lblInp && labelEl) labelEl.textContent = lblInp.value;
+      toastMsg('📝 Input izmijenjen.');
+    });
+    setTimeout(() => m.overlay.querySelector('#kve-ph-inp').select(), 60);
+  }
+
+  function _openLabelModal(el) {
+    let labelEl = null;
+    if (el.id) {
+      try { labelEl = document.querySelector(`label[for="${CSS.escape(el.id)}"]`); } catch { /* noop */ }
+    }
+    if (!labelEl) labelEl = el.closest('label') || el.parentElement?.querySelector('label');
+    if (!labelEl) { toastMsg('Label nije pronađen.', true); return; }
+
+    const m = createModal('🏷 Uredi label', `
+      <label>Label tekst</label>
+      <input type="text" id="kve-lbl2-inp" value="${esc(labelEl.textContent.trim())}"/>
+    `);
+    m.ok.addEventListener('click', () => {
+      const v = m.overlay.querySelector('#kve-lbl2-inp').value;
+      closeModal(m.overlay);
+      labelEl.textContent = v;
+      toastMsg('🏷 Label izmijenjen.');
+    });
+    setTimeout(() => m.overlay.querySelector('#kve-lbl2-inp').select(), 60);
+  }
+
+  function _openDropdownManager(el) {
+    const options = Array.from(el.options).map(o => ({ text: o.text, value: o.value, selected: o.selected }));
+
+    const renderList = () => options.map((o, i) => `
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:7px">
+        <input type="text" class="kve-dm-opt" data-idx="${i}" value="${esc(o.text)}"
+               style="flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+                      border-radius:7px;padding:7px 10px;font-size:12px;color:#e2e2f0;
+                      font-family:Inter,sans-serif"/>
+        <button class="kve-dm-del" data-idx="${i}"
+                style="width:28px;height:28px;background:#ef4444;border:none;border-radius:7px;
+                       color:#fff;cursor:pointer;font-size:13px;flex-shrink:0">✕</button>
+      </div>
+    `).join('');
+
+    const m = createModal('📋 Dropdown opcije', `
+      <div id="kve-dm-list">${renderList()}</div>
+      <button id="kve-dm-add"
+              style="width:100%;margin-top:8px;padding:8px;
+                     background:rgba(29,106,255,.15);border:1px dashed rgba(29,106,255,.5);
+                     border-radius:7px;color:#1D6AFF;font-size:12px;font-weight:700;
+                     cursor:pointer;font-family:Inter,sans-serif">
+        + Dodaj opciju
+      </button>
+    `);
+
+    const wireDelBtns = () => {
+      m.overlay.querySelectorAll('.kve-dm-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+          options.splice(parseInt(btn.dataset.idx), 1);
+          m.overlay.querySelector('#kve-dm-list').innerHTML = renderList();
+          wireDelBtns();
+        });
+      });
+    };
+    wireDelBtns();
+
+    m.overlay.querySelector('#kve-dm-add').addEventListener('click', () => {
+      /* Read current text values before re-rendering */
+      m.overlay.querySelectorAll('.kve-dm-opt').forEach((inp, i) => {
+        if (options[i]) options[i].text = inp.value;
+      });
+      options.push({ text: 'Nova opcija', value: 'nova' });
+      m.overlay.querySelector('#kve-dm-list').innerHTML = renderList();
+      wireDelBtns();
     });
 
-    el.addEventListener('blur', () => {
-      el.contentEditable = 'false';
-      el.setAttribute('data-original-text', el.innerHTML);
-      toastMsg('✏️ Izmjena unijeta — klikni "Sačuvaj stranicu" da sačuvaš.');
+    m.ok.addEventListener('click', () => {
+      m.overlay.querySelectorAll('.kve-dm-opt').forEach((inp, i) => {
+        if (options[i]) options[i].text = inp.value;
+      });
+      el.innerHTML = '';
+      options.forEach(o => {
+        const opt = document.createElement('option');
+        opt.text  = o.text;
+        opt.value = o.value || o.text.toLowerCase().replace(/\s+/g, '-');
+        if (o.selected) opt.selected = true;
+        el.appendChild(opt);
+      });
+      closeModal(m.overlay);
+      toastMsg('📋 Dropdown ažuriran.');
     });
+  }
+
+  function _openSrcModal(el) {
+    const m = createModal('🖼 Uredi sliku', `
+      <label>URL slike</label>
+      <input type="url" id="kve-src-inp" placeholder="https://…" value="${esc(el.getAttribute('src') || '')}"/>
+      <label style="margin-top:14px">Alt tekst</label>
+      <input type="text" id="kve-src-alt" value="${esc(el.alt || '')}"/>
+    `);
+    m.ok.addEventListener('click', () => {
+      const src = m.overlay.querySelector('#kve-src-inp').value.trim();
+      const alt = m.overlay.querySelector('#kve-src-alt').value;
+      closeModal(m.overlay);
+      if (src) { el.src = src; el.setAttribute('src', src); }
+      el.alt = alt;
+      toastMsg('🖼 Slika izmijenjena.');
+    });
+    setTimeout(() => m.overlay.querySelector('#kve-src-inp').select(), 60);
   }
 
   /* ─────────────────────────────────────────────────────────────────
@@ -1601,12 +2063,8 @@
     // Wire section toolbar
     _wireSectionToolbar(newSection);
 
-    // Wire text editing for all headings and paragraphs in the new block
-    newSection.querySelectorAll('h1, h2, h3, p').forEach(el => {
-      if (el.closest('[data-kve-editor]')) return;
-      if (el.textContent.trim().length < 2) return;
-      _wireTextEditable(el);
-    });
+    // Mark all eligible elements for the smart engine
+    _scanAndMarkElements(newSection);
 
     setTimeout(() => newSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
     toastMsg(`📦 Blok "${block.name}" dodan!`);

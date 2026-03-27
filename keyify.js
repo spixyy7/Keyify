@@ -555,7 +555,7 @@ const KEYIFY = (() => {
      ACCOUNT NAVBAR (dynamic after login)
   ───────────────────────────────────────────────────────── */
   function _logout() {
-    ['keyify_token','keyify_name','keyify_role','keyify_email','keyify_id'].forEach(k => localStorage.removeItem(k));
+    ['keyify_token','keyify_name','keyify_role','keyify_email','keyify_id','keyify_permissions'].forEach(k => localStorage.removeItem(k));
     window.location.href = 'index.html';
   }
 
@@ -593,8 +593,14 @@ const KEYIFY = (() => {
     const btn = document.createElement('button');
     btn.id = 'kf-dd-trigger';
     btn.style.cssText = 'display:inline-flex;align-items:center;gap:7px;padding:4px 10px 4px 4px;border:1px solid rgba(29,106,255,0.2);border-radius:12px;background:rgba(29,106,255,0.05);cursor:pointer;font-family:inherit;transition:all .15s;';
+    const avatarBadge = isSupportAgent
+      ? `<span id="kf-nav-dot" style="display:none;position:absolute;top:-3px;right:-3px;width:14px;height:14px;border-radius:50%;background:#ef4444;color:#fff;font-size:8px;font-weight:700;align-items:center;justify-content:center;border:2px solid #fff;z-index:1"></span>`
+      : '';
     btn.innerHTML = `
-      <span style="width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;background:linear-gradient(135deg,#1D6AFF,#A259FF);flex-shrink:0">${initials}</span>
+      <span style="position:relative;display:inline-flex;flex-shrink:0">
+        <span style="width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;background:linear-gradient(135deg,#1D6AFF,#A259FF)">${initials}</span>
+        ${avatarBadge}
+      </span>
       <span style="font-size:13px;font-weight:600;color:#1D6AFF;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${firstName}</span>
       <svg id="kf-dd-chevron" style="width:11px;height:11px;color:#1D6AFF;transition:transform .2s;flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
@@ -605,10 +611,21 @@ const KEYIFY = (() => {
     panel.id = 'kf-dd-panel';
     panel.style.cssText = 'display:none;position:absolute;top:calc(100% + 8px);right:0;width:224px;background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,0.12);z-index:9999;overflow:hidden;animation:kf-dd-in .13s ease;';
 
+    const perms = JSON.parse(localStorage.getItem('keyify_permissions') || '{}');
+    const isSuperAdmin = role === 'admin' && Object.keys(perms).length === 0;
+    const isSupportAgent = role === 'admin' && (isSuperAdmin || perms.can_manage_support === true);
+
     const adminItem = role === 'admin' ? `
       <a href="admin.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:9px 12px;font-size:13px;font-weight:600;color:#A259FF;text-decoration:none;transition:background .1s">
         <svg style="width:15px;height:15px;flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         Admin panel
+      </a>` : '';
+
+    const inboxItem = isSupportAgent ? `
+      <a href="support-inbox.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:9px 12px;font-size:13px;font-weight:600;color:#1D6AFF;text-decoration:none;transition:background .1s">
+        <svg style="width:15px;height:15px;flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.862 9.862 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        Support Inbox
+        <span id="kf-inbox-count" style="display:none;margin-left:auto;min-width:18px;height:18px;border-radius:9px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 4px"></span>
       </a>` : '';
 
     panel.innerHTML = `
@@ -626,6 +643,7 @@ const KEYIFY = (() => {
           Moj profil
         </a>
         ${adminItem}
+        ${inboxItem}
       </div>
       <div style="border-top:1px solid rgba(0,0,0,0.06);padding:4px">
         <button class="kf-item kf-item-danger" id="kf-logout-btn" style="display:flex;align-items:center;gap:10px;padding:9px 12px;font-size:13px;font-weight:500;color:#ef4444;background:transparent;border:none;width:100%;cursor:pointer;border-radius:8px;text-align:left;transition:background .1s">
@@ -654,6 +672,25 @@ const KEYIFY = (() => {
     wrapper.appendChild(btn);
     wrapper.appendChild(panel);
     accountLink.replaceWith(wrapper);
+
+    // Async: fetch new-chat count for support agents and update badges
+    if (isSupportAgent) {
+      (async () => {
+        try {
+          const r = await fetch(`${API_BASE}/admin/chat/sessions/new-count`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          if (!r.ok) return;
+          const { count } = await r.json();
+          if (count > 0) {
+            const dot = document.getElementById('kf-nav-dot');
+            const cnt = document.getElementById('kf-inbox-count');
+            if (dot) { dot.textContent = count > 9 ? '9+' : count; dot.style.display = 'inline-flex'; }
+            if (cnt) { cnt.textContent = count; cnt.style.display = 'inline-flex'; }
+          }
+        } catch {}
+      })();
+    }
   }
 
   /* ── Purchases modal (lazy-created) ── */

@@ -917,10 +917,11 @@
 
     /* ── SHARED: save session data to localStorage ── */
     function saveSession(data) {
-        localStorage.setItem('keyify_token', data.token);
-        localStorage.setItem('keyify_role',  data.role);
-        localStorage.setItem('keyify_name',  data.name);
-        localStorage.setItem('keyify_email', data.email);
+        localStorage.setItem('keyify_token',       data.token);
+        localStorage.setItem('keyify_role',        data.role);
+        localStorage.setItem('keyify_name',        data.name);
+        localStorage.setItem('keyify_email',       data.email);
+        localStorage.setItem('keyify_permissions', JSON.stringify(data.permissions || {}));
     }
 
     /* ── SHOW OTP STEP ── */

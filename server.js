@@ -399,11 +399,12 @@ app.post('/api/login', authLimiter, async (req, res) => {
     });
 
     return res.json({
-      token:   jwtToken,
-      role:    user.role,
-      name:    user.name,
-      email:   user.email,
-      trusted: true,
+      token:       jwtToken,
+      role:        user.role,
+      name:        user.name,
+      email:       user.email,
+      permissions: user.permissions || {},
+      trusted:     true,
     });
   }
   // ───────────────────────────────────────────────────────────────
@@ -516,9 +517,10 @@ app.post('/api/verify', authLimiter, async (req, res) => {
 
   return res.json({
     token,
-    role:  user.role,
-    name:  user.name,
-    email: user.email,
+    role:        user.role,
+    name:        user.name,
+    email:       user.email,
+    permissions: user.permissions || {},
   });
 });
 
@@ -1085,7 +1087,7 @@ app.post('/api/chat/start', async (req, res) => {
 
   const { data, error } = await supabase
     .from('chat_sessions')
-    .insert({ user_id: userId, guest_email: email, status: 'open' })
+    .insert({ user_id: userId, guest_email: email, status: 'new' })
     .select('id')
     .single();
 
@@ -1113,7 +1115,7 @@ app.get('/api/chat/messages/:sessionId', async (req, res) => {
   return res.json({ messages: data || [], session_status: session.status });
 });
 
-/** POST /api/chat/message – user sends a message */
+/** POST /api/chat/message – user sends a message (resets session status to 'new') */
 app.post('/api/chat/message', async (req, res) => {
   const { session_id, message } = req.body;
   if (!session_id || !message?.trim())
@@ -1136,15 +1138,39 @@ app.post('/api/chat/message', async (req, res) => {
     .single();
 
   if (error) return res.status(500).json({ error: 'Greška pri slanju poruke' });
+
+  // Reset session status to 'new' so agents see the unread indicator
+  await supabase.from('chat_sessions').update({
+    status:               'new',
+    last_message_at:      data.created_at,
+    last_message_preview: message.trim().substring(0, 120),
+  }).eq('id', session_id).neq('status', 'closed');
+
   return res.status(201).json(data);
 });
 
-/** GET /api/admin/chat/sessions – list all chat sessions (admin) */
-app.get('/api/admin/chat/sessions', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
-  const { data, error } = await supabase
+/** GET /api/admin/chat/sessions/new-count – count of sessions with status 'new' */
+app.get('/api/admin/chat/sessions/new-count', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  const { count, error } = await supabase
     .from('chat_sessions')
-    .select('id, user_id, guest_email, status, created_at, users(name, email)')
-    .order('created_at', { ascending: false });
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'new');
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json({ count: count || 0 });
+});
+
+/** GET /api/admin/chat/sessions – list chat sessions sorted by latest activity */
+app.get('/api/admin/chat/sessions', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  const showClosed = req.query.closed === '1';
+  let query = supabase
+    .from('chat_sessions')
+    .select('id, user_id, guest_email, status, created_at, last_message_at, last_message_preview, users(name, email)');
+
+  if (!showClosed) query = query.neq('status', 'closed');
+
+  const { data, error } = await query
+    .order('last_message_at', { ascending: false, nullsFirst: false })
+    .order('created_at',      { ascending: false });
 
   if (error) return res.status(500).json({ error: 'Greška' });
   return res.json(data || []);
@@ -1162,7 +1188,17 @@ app.get('/api/admin/chat/sessions/:id/messages', authenticateToken, checkPermiss
   return res.json(data || []);
 });
 
-/** POST /api/admin/chat/reply – admin sends a message in a session */
+/** PATCH /api/admin/chat/sessions/:id/read – mark session as 'seen' (only if currently 'new') */
+app.patch('/api/admin/chat/sessions/:id/read', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  await supabase
+    .from('chat_sessions')
+    .update({ status: 'seen' })
+    .eq('id', req.params.id)
+    .eq('status', 'new');
+  return res.json({ ok: true });
+});
+
+/** POST /api/admin/chat/reply – admin sends a message, sets session to 'answered' */
 app.post('/api/admin/chat/reply', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
   const { session_id, message } = req.body;
   if (!session_id || !message?.trim())
@@ -1175,6 +1211,7 @@ app.post('/api/admin/chat/reply', authenticateToken, checkPermission('can_manage
     .maybeSingle();
 
   if (!session) return res.status(404).json({ error: 'Sesija nije pronađena' });
+  if (session.status === 'closed') return res.status(400).json({ error: 'Sesija je zatvorena' });
 
   const { data, error } = await supabase
     .from('chat_messages')
@@ -1183,6 +1220,14 @@ app.post('/api/admin/chat/reply', authenticateToken, checkPermission('can_manage
     .single();
 
   if (error) return res.status(500).json({ error: 'Greška pri slanju odgovora' });
+
+  // Mark session as answered + update preview
+  await supabase.from('chat_sessions').update({
+    status:               'answered',
+    last_message_at:      data.created_at,
+    last_message_preview: `Agent: ${message.trim().substring(0, 100)}`,
+  }).eq('id', session_id);
+
   return res.json(data);
 });
 
