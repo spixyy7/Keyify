@@ -167,6 +167,53 @@ function sanitizeUser(user) {
 }
 
 /* ─────────────────────────────────────────
+   Password history helpers
+   Prevents reuse of the last 5 passwords.
+───────────────────────────────────────── */
+const PASSWORD_HISTORY_COUNT = 5;
+
+/**
+ * Returns an error string if newPassword matches the current password or
+ * any of the last PASSWORD_HISTORY_COUNT archived passwords, else null.
+ */
+async function checkPasswordNotReused(userId, newPassword) {
+  const [{ data: user }, { data: history }] = await Promise.all([
+    supabase.from('users').select('password_hash').eq('id', userId).maybeSingle(),
+    supabase.from('password_history')
+      .select('password_hash')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(PASSWORD_HISTORY_COUNT),
+  ]);
+
+  const hashes = [
+    user?.password_hash,
+    ...(history || []).map(h => h.password_hash),
+  ].filter(Boolean);
+
+  for (const hash of hashes) {
+    if (await bcrypt.compare(newPassword, hash)) {
+      return `Ne možete koristiti jednu od zadnjih ${PASSWORD_HISTORY_COUNT} lozinki. Odaberite novu lozinku.`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Archives the user's current password_hash before it gets replaced.
+ */
+async function archiveCurrentPassword(userId) {
+  const { data: user } = await supabase
+    .from('users').select('password_hash').eq('id', userId).maybeSingle();
+  if (user?.password_hash) {
+    await supabase.from('password_history').insert({
+      user_id:       userId,
+      password_hash: user.password_hash,
+    });
+  }
+}
+
+/* ─────────────────────────────────────────
    JWT Middleware
 ───────────────────────────────────────── */
 async function authenticateToken(req, res, next) {
@@ -315,6 +362,52 @@ app.post('/api/login', authLimiter, async (req, res) => {
   if (!user || !valid)
     return res.status(401).json({ error: 'Pogrešan email ili lozinka' });
 
+  const ip = getClientIP(req);
+  const ua = hashUA(req.headers['user-agent']);
+
+  // ── Trusted device check (skip OTP if recognised) ──────────────
+  // Clean up expired records first (best-effort, don't block login)
+  supabase.from('trusted_devices').delete().lt('expires_at', new Date().toISOString()).then(() => {});
+
+  const { data: trusted } = await supabase
+    .from('trusted_devices')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('ip', ip)
+    .eq('ua_hash', ua)
+    .gt('expires_at', new Date().toISOString())
+    .maybeSingle();
+
+  if (trusted) {
+    // Roll the 30-day window forward on each trusted login
+    await supabase
+      .from('trusted_devices')
+      .update({ expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() })
+      .eq('id', trusted.id);
+
+    const jwtToken = jwt.sign(
+      { id: user.id, email: user.email, role: user.role, name: user.name, ip, ua },
+      process.env.JWT_SECRET,
+      { expiresIn: '2h' }
+    );
+
+    await supabase.from('audit_logs').insert({
+      user_id:    user.id,
+      action:     'login_trusted_device',
+      ip,
+      created_at: new Date().toISOString(),
+    });
+
+    return res.json({
+      token:   jwtToken,
+      role:    user.role,
+      name:    user.name,
+      email:   user.email,
+      trusted: true,
+    });
+  }
+  // ───────────────────────────────────────────────────────────────
+
   // Generate 6-digit OTP valid for 10 minutes
   const otp      = generateOTP();
   const otp_exp  = new Date(Date.now() + 10 * 60 * 1000).toISOString();
@@ -371,7 +464,7 @@ app.post('/api/login', authLimiter, async (req, res) => {
  * Returns: { token, role, name, email }
  */
 app.post('/api/verify', authLimiter, async (req, res) => {
-  const { user_id, otp } = req.body;
+  const { user_id, otp, remember_device } = req.body;
   if (!user_id || !otp)
     return res.status(400).json({ error: 'Nedostaju podaci' });
 
@@ -402,6 +495,18 @@ app.post('/api/verify', authLimiter, async (req, res) => {
     process.env.JWT_SECRET,
     { expiresIn: '2h' }
   );
+
+  // ── Save trusted device if requested ───────────────────────────
+  if (remember_device) {
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    await supabase
+      .from('trusted_devices')
+      .upsert(
+        { user_id: user.id, ip, ua_hash: ua, expires_at: expiresAt },
+        { onConflict: 'user_id,ip,ua_hash' }
+      );
+  }
+  // ───────────────────────────────────────────────────────────────
 
   await supabase.from('audit_logs').insert({
     user_id:    user.id,
@@ -660,6 +765,9 @@ app.put('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res
   if (password) {
     if (password.length < 8)
       return res.status(400).json({ error: 'Lozinka mora biti min. 8 karaktera' });
+    const reuseError = await checkPasswordNotReused(id, password);
+    if (reuseError) return res.status(400).json({ error: reuseError });
+    await archiveCurrentPassword(id);
     updates.password_hash = await bcrypt.hash(password, 12);
   }
 
@@ -726,6 +834,9 @@ app.put('/api/user/settings', authenticateToken, async (req, res) => {
   if (resolvedPassword) {
     if (resolvedPassword.length < 8)
       return res.status(400).json({ error: 'Nova lozinka mora biti min. 8 karaktera' });
+    const reuseError = await checkPasswordNotReused(req.user.id, resolvedPassword);
+    if (reuseError) return res.status(400).json({ error: reuseError });
+    await archiveCurrentPassword(req.user.id);
     updates.password_hash = await bcrypt.hash(resolvedPassword, 12);
   }
 
@@ -1389,6 +1500,10 @@ app.post('/api/reset-password', async (req, res) => {
 
   if (decoded.purpose !== 'reset') return res.status(400).json({ error: 'Nevažeći token' });
 
+  const reuseError = await checkPasswordNotReused(decoded.id, password);
+  if (reuseError) return res.status(400).json({ error: reuseError });
+
+  await archiveCurrentPassword(decoded.id);
   const hash = await bcrypt.hash(password, 12);
   const { error } = await supabase.from('users').update({ password_hash: hash }).eq('id', decoded.id);
   if (error) return res.status(500).json({ error: 'Greška pri čuvanju lozinke' });

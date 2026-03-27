@@ -453,6 +453,13 @@
                         </div>
                     </div>
 
+                    <!-- Remember device -->
+                    <label class="flex items-center gap-2.5 cursor-pointer select-none mt-1" for="remember-device">
+                        <input type="checkbox" id="remember-device"
+                               class="w-4 h-4 rounded border-gray-300 accent-blue-600 cursor-pointer flex-shrink-0"/>
+                        <span class="text-sm text-gray-600">Zapamti ovaj uređaj <span class="text-gray-400 text-xs">(30 dana, preskoci verifikaciju)</span></span>
+                    </label>
+
                     <button type="submit" id="login-btn"
                             class="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold py-3.5 rounded-xl transition-all duration-200 shadow-sm hover:shadow-blue-200 hover:shadow-lg text-sm mt-2">
                         Prijavi se
@@ -694,9 +701,10 @@
     function getApiBase() { return window.KEYIFY_CONFIG?.API_BASE || 'http://localhost:3001/api'; }
 
     /* ── STATE ── */
-    let pendingUserId = null;
-    let currentLang   = localStorage.getItem('keyify_lang') || 'sr';
-    let resendCooldown = false;
+    let pendingUserId       = null;
+    let pendingRemember     = false;
+    let currentLang         = localStorage.getItem('keyify_lang') || 'sr';
+    let resendCooldown      = false;
 
     /* ── INIT ── */
     document.addEventListener('DOMContentLoaded', () => {
@@ -869,6 +877,7 @@
         e.preventDefault();
         const email    = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
+        const remember = document.getElementById('remember-device').checked;
 
         document.getElementById('login-error').classList.add('hidden');
         setLoading('login-btn', true, 'Prijavi se');
@@ -882,14 +891,36 @@
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Greška pri prijavi');
 
-            // Step 2: OTP
-            pendingUserId = data.user_id;
+            // Trusted device → skip OTP entirely
+            if (data.trusted && data.token) {
+                saveSession(data);
+                const errEl = document.getElementById('login-error');
+                errEl.textContent = '✓ Prepoznat uređaj — prijavljujete se bez verifikacije…';
+                errEl.className   = 'text-green-600 text-xs font-medium mb-3 text-center';
+                errEl.classList.remove('hidden');
+                setTimeout(() => {
+                    window.location.href = data.role === 'admin' ? 'admin.html' : 'index.html';
+                }, 900);
+                return;
+            }
+
+            // Normal OTP flow
+            pendingUserId  = data.user_id;
+            pendingRemember = remember;
             showOTPStep(email);
         } catch (err) {
             showError('login-error', err.message);
         } finally {
             setLoading('login-btn', false, 'Prijavi se');
         }
+    }
+
+    /* ── SHARED: save session data to localStorage ── */
+    function saveSession(data) {
+        localStorage.setItem('keyify_token', data.token);
+        localStorage.setItem('keyify_role',  data.role);
+        localStorage.setItem('keyify_name',  data.name);
+        localStorage.setItem('keyify_email', data.email);
     }
 
     /* ── SHOW OTP STEP ── */
@@ -1079,16 +1110,12 @@
             const res  = await fetch(`${getApiBase()}/verify`, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ user_id: pendingUserId, otp }),
+                body:    JSON.stringify({ user_id: pendingUserId, otp, remember_device: pendingRemember }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Pogrešan kod');
 
-            // Save to localStorage
-            localStorage.setItem('keyify_token', data.token);
-            localStorage.setItem('keyify_role',  data.role);
-            localStorage.setItem('keyify_name',  data.name);
-            localStorage.setItem('keyify_email', data.email);
+            saveSession(data);
 
             // Redirect based on role
             window.location.href = data.role === 'admin' ? 'admin.html' : 'index.html';
