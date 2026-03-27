@@ -84,23 +84,48 @@ app.use('/api', apiLimiter);
    Env: EMAIL_USER + EMAIL_PASS (16-char App Password from Google Account)
    Preferred when EMAIL_PASS is set; falls back to Gmail REST API.
 ───────────────────────────────────────── */
-let _smtpTransport = null;
+const nodemailer = require('nodemailer');
+const { google } = require('googleapis');
 
-function _getSmtpTransport() {
-  if (!_smtpTransport) {
+// 1. Inicijalizacija Google API Klijenta
+const oAuth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    'https://developers.google.com/oauthplayground' // Zvanični Google redirect
+);
+
+// Postavljamo Refresh Token koji ne ističe
+oAuth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
+
+// 2. Funkcija koja striktno koristi Google API
+let _smtpTransport = null;
+async function _getSmtpTransport() {
+  try {
+    // Svaki put kada šalješ mejl, Google API generiše nov, svež token
+    const accessToken = await oAuth2Client.getAccessToken();
+
     _smtpTransport = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      requireTLS: true,
+      service: 'gmail',
       auth: {
+        type: 'OAuth2',
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        refreshToken: process.env.GOOGLE_REFRESH_TOKEN,
+        accessToken: accessToken.token
       }
     });
+
+    return _smtpTransport;
+  } catch (error) {
+    console.error("Greška pri povezivanju sa Google API:", error);
+    throw error;
   }
-  return _smtpTransport;
 }
+
+// 3. Primer kako sada pozivaš slanje (ako već nemaš svoju sendMail funkciju):
+// const transport = await _getSmtpTransport();
+// await transport.sendMail({ from: ..., to: ..., subject: ... });
 
 /* ─────────────────────────────────────────
    Gmail REST API (HTTPS – no SMTP ports needed)
