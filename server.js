@@ -85,14 +85,18 @@ app.use('/api', apiLimiter);
    Preferred when EMAIL_PASS is set; falls back to Gmail REST API.
 ───────────────────────────────────────── */
 let _smtpTransport = null;
+
 function _getSmtpTransport() {
   if (!_smtpTransport) {
     _smtpTransport = nodemailer.createTransport({
-      host:   'smtp.gmail.com',
-      port:   587,
+      host: 'smtp.gmail.com',
+      port: 587,
       secure: false,
       requireTLS: true,
-      auth:   { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
     });
   }
   return _smtpTransport;
