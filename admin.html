@@ -662,6 +662,8 @@
 
     <!-- ═══════════════════════ SUPPORT HUB ═══════════════════════ -->
     <div id="section-support" class="section space-y-5">
+
+      <!-- Support tickets -->
       <div class="glass rounded-2xl overflow-hidden">
         <div class="p-5 border-b flex items-center justify-between" style="border-color:rgba(255,255,255,0.06)">
           <div>
@@ -687,6 +689,33 @@
           </table>
         </div>
       </div>
+
+      <!-- Live Chat sessions -->
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="p-5 border-b flex items-center justify-between" style="border-color:rgba(255,255,255,0.06)">
+          <div>
+            <h3 class="font-display font-semibold text-white">Live Chat</h3>
+            <p class="text-xs text-dark-300 mt-0.5">Aktivne chat sesije u realnom vremenu</p>
+          </div>
+          <button onclick="loadChatSessions()" class="text-dark-300 hover:text-white text-xs font-medium transition-colors">↻ Osvježi</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Korisnik / Email</th>
+                <th>Status</th>
+                <th>Datum</th>
+                <th>Akcije</th>
+              </tr>
+            </thead>
+            <tbody id="chat-sessions-body">
+              <tr><td colspan="4" class="text-center py-10 text-dark-300">Učitavanje...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
 
     <!-- ═══════════════════════ PROMO CODES ═══════════════════════ -->
@@ -863,6 +892,45 @@
       <button onclick="document.getElementById('ticket-reply-overlay').style.display='none'" class="flex-1 py-2.5 rounded-xl text-dark-200 text-sm font-semibold border border-dark-600 hover:border-dark-400 transition-colors">Otkaži</button>
       <button id="ticket-send-btn" onclick="sendTicketReply()" class="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all" style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">📧 Pošalji odgovor</button>
     </div>
+  </div>
+</div>
+
+<!-- ── LIVE CHAT PANEL ───────────────────────────────────────── -->
+<div id="chat-panel-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center" class="flex">
+  <div class="glass rounded-2xl w-full max-w-lg p-0 overflow-hidden" style="border:1px solid rgba(255,255,255,0.1);max-height:90vh;display:flex;flex-direction:column;">
+
+    <!-- Panel header -->
+    <div class="p-5 border-b flex items-center justify-between flex-shrink-0" style="border-color:rgba(255,255,255,0.08)">
+      <div>
+        <h3 class="font-display font-bold text-white text-base">💬 Live Chat</h3>
+        <div class="text-xs text-dark-300 mt-0.5" id="chat-panel-meta"></div>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="chat-close-session-btn" onclick="closeChatSession()" class="px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-90 transition-all" style="background:rgba(220,38,38,0.2);color:#f87171">Zatvori sesiju</button>
+        <button onclick="document.getElementById('chat-panel-overlay').style.display='none';_chatPanelPollStop()" class="text-dark-300 hover:text-white transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Message history -->
+    <div id="chat-panel-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;min-height:200px;max-height:420px;background:rgba(255,255,255,0.02)">
+      <div class="text-center text-dark-300 text-sm py-8">Učitavanje poruka...</div>
+    </div>
+
+    <!-- Reply input -->
+    <div class="p-4 border-t flex-shrink-0" style="border-color:rgba(255,255,255,0.08)">
+      <div id="chat-panel-closed-notice" style="display:none;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:500;background:rgba(255,160,50,0.15);color:#ffa032;margin-bottom:10px">
+        Sesija je zatvorena – ne možete slati nove poruke.
+      </div>
+      <div class="flex gap-2" id="chat-panel-input-row">
+        <textarea id="chat-panel-input" rows="2" placeholder="Napišite odgovor..." class="admin-input resize-none flex-1" style="max-height:80px"></textarea>
+        <button onclick="sendChatReply()" id="chat-panel-send-btn"
+                class="px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all flex-shrink-0 self-end"
+                style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">Pošalji</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1234,7 +1302,7 @@
     if (sectionLabels[name]) {
       document.getElementById('section-title').textContent    = sectionLabels[name][0];
       document.getElementById('section-subtitle').textContent = sectionLabels[name][1];
-      if (name === 'support')  loadTickets();
+      if (name === 'support')  { loadTickets(); loadChatSessions(); }
       if (name === 'promos')   loadPromos();
       if (name === 'sql')      loadSqlLogs();
       if (name === 'security') loadResetRequests();
@@ -2269,6 +2337,151 @@
     } catch { /* ignore */ }
   })();
 
+  /* ══════════════════════════════════════════════════════
+     LIVE CHAT
+  ══════════════════════════════════════════════════════ */
+
+  let _chatPanelSessionId   = null;
+  let _chatPanelPollTimer   = null;
+  let _chatPanelLastCount   = 0;
+  let _chatSessionClosed    = false;
+
+  async function loadChatSessions() {
+    const tbody = document.getElementById('chat-sessions-body');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-10 text-dark-300">Učitavanje...</td></tr>';
+    try {
+      const res  = await fetch(`${API_BASE}/admin/chat/sessions`, { headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-10 text-dark-300">Nema chat sesija.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map(s => {
+        const displayName = s.users?.name || s.guest_email || 'Gost';
+        const displayEmail = s.users?.email || s.guest_email || '–';
+        const statusStyle = s.status === 'open'
+          ? 'background:rgba(16,185,129,0.2);color:#10b981'
+          : 'background:rgba(255,255,255,0.06);color:#9090b8';
+        const statusLabel = s.status === 'open' ? 'Aktivan' : 'Zatvoren';
+        return `<tr>
+          <td>
+            <div class="font-medium text-white text-sm">${escHtml(displayName)}</div>
+            <div class="text-xs text-dark-300">${escHtml(displayEmail)}</div>
+          </td>
+          <td><span class="badge" style="${statusStyle}">${statusLabel}</span></td>
+          <td class="text-xs">${fmtDate(s.created_at)}</td>
+          <td>
+            <button onclick="openChatPanel('${escHtml(s.id)}','${escHtml(displayName)}','${escHtml(displayEmail)}','${s.status}')"
+                    class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white hover:opacity-90 transition-all"
+                    style="background:rgba(29,106,255,0.7)">Otvori chat</button>
+          </td>
+        </tr>`;
+      }).join('');
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-red-400">${escHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  function openChatPanel(id, name, email, status) {
+    _chatPanelSessionId = id;
+    _chatPanelLastCount = 0;
+    _chatSessionClosed  = status === 'closed';
+
+    document.getElementById('chat-panel-meta').textContent = `${name} · ${email}`;
+    document.getElementById('chat-panel-closed-notice').style.display = _chatSessionClosed ? 'block' : 'none';
+    document.getElementById('chat-panel-input-row').style.display     = _chatSessionClosed ? 'none'  : 'flex';
+    document.getElementById('chat-close-session-btn').style.display   = _chatSessionClosed ? 'none'  : '';
+    document.getElementById('chat-panel-messages').innerHTML = '<div class="text-center text-dark-300 text-sm py-8">Učitavanje poruka...</div>';
+    document.getElementById('chat-panel-input').value = '';
+
+    document.getElementById('chat-panel-overlay').style.display = 'flex';
+    _fetchChatMessages(id);
+    if (!_chatSessionClosed) _chatPanelPollStart(id);
+  }
+
+  function _chatPanelPollStart(id) {
+    _chatPanelPollStop();
+    _chatPanelPollTimer = setInterval(() => _fetchChatMessages(id), 3000);
+  }
+
+  function _chatPanelPollStop() {
+    if (_chatPanelPollTimer) { clearInterval(_chatPanelPollTimer); _chatPanelPollTimer = null; }
+  }
+
+  async function _fetchChatMessages(id) {
+    try {
+      const res  = await fetch(`${API_BASE}/admin/chat/sessions/${id}/messages`, { headers: authHeaders() });
+      const msgs = await res.json();
+      if (!res.ok) return;
+
+      if (msgs.length !== _chatPanelLastCount) {
+        _chatPanelLastCount = msgs.length;
+        _renderChatMessages(msgs);
+      }
+    } catch {}
+  }
+
+  function _renderChatMessages(msgs) {
+    const box = document.getElementById('chat-panel-messages');
+    if (!msgs.length) {
+      box.innerHTML = '<div class="text-center text-dark-300 text-sm py-8">Nema poruka.</div>';
+      return;
+    }
+    box.innerHTML = msgs.map(m => {
+      const isAdmin = m.sender === 'admin';
+      const bubbleStyle = isAdmin
+        ? 'background:rgba(29,106,255,0.18);color:#93c5fd;align-self:flex-end;border-bottom-right-radius:4px'
+        : 'background:rgba(255,255,255,0.07);color:#e2e8f0;align-self:flex-start;border-bottom-left-radius:4px';
+      return `<div style="max-width:80%;padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.45;word-break:break-word;${bubbleStyle}">
+        ${escHtml(m.message)}
+        <div style="font-size:10px;opacity:.5;margin-top:4px">${isAdmin ? 'Admin' : 'Korisnik'} · ${fmtDate(m.created_at)}</div>
+      </div>`;
+    }).join('');
+    box.scrollTop = box.scrollHeight;
+  }
+
+  async function sendChatReply() {
+    const text = document.getElementById('chat-panel-input').value.trim();
+    const btn  = document.getElementById('chat-panel-send-btn');
+    if (!text || !_chatPanelSessionId) return;
+
+    btn.disabled = true; btn.textContent = 'Slanje...';
+    try {
+      const res = await fetch(`${API_BASE}/admin/chat/reply`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ session_id: _chatPanelSessionId, message: text }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      document.getElementById('chat-panel-input').value = '';
+      _chatPanelLastCount = 0; // force re-render on next poll
+      await _fetchChatMessages(_chatPanelSessionId);
+    } catch (err) {
+      showToast(err.message || 'Greška pri slanju', 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Pošalji';
+    }
+  }
+
+  async function closeChatSession() {
+    if (!_chatPanelSessionId || !confirm('Zatvori ovu chat sesiju?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/chat/sessions/${_chatPanelSessionId}/close`, {
+        method: 'PUT', headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      _chatPanelPollStop();
+      document.getElementById('chat-panel-overlay').style.display = 'none';
+      showToast('Sesija zatvorena');
+      loadChatSessions();
+    } catch (err) {
+      showToast(err.message || 'Greška', 'error');
+    }
+  }
+
   /* ── CSS spin animation ── */
   const style = document.createElement('style');
   style.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
@@ -2283,6 +2496,12 @@
   });
   document.getElementById('create-user-overlay').addEventListener('click', (e) => {
     if (e.target === document.getElementById('create-user-overlay')) closeCreateUserModal();
+  });
+  document.getElementById('chat-panel-overlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('chat-panel-overlay')) {
+      document.getElementById('chat-panel-overlay').style.display = 'none';
+      _chatPanelPollStop();
+    }
   });
 </script>
 <script src="translations.js"></script>

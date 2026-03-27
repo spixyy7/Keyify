@@ -952,6 +952,142 @@ app.put('/api/admin/tickets/:id/status', authenticateToken, checkPermission('can
 });
 
 /* ─────────────────────────────────────────
+   LIVE CHAT
+───────────────────────────────────────── */
+
+/** POST /api/chat/start – start a new chat session (public, guest or logged-in) */
+app.post('/api/chat/start', async (req, res) => {
+  const { guest_email } = req.body;
+
+  let userId = null;
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (token) {
+    try { const d = jwt.verify(token, process.env.JWT_SECRET); userId = d.id; } catch {}
+  }
+
+  if (!userId && !guest_email?.trim())
+    return res.status(400).json({ error: 'Email adresa je obavezna' });
+
+  const email = guest_email?.trim().toLowerCase() || null;
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return res.status(400).json({ error: 'Unesite ispravnu email adresu' });
+
+  const { data, error } = await supabase
+    .from('chat_sessions')
+    .insert({ user_id: userId, guest_email: email, status: 'open' })
+    .select('id')
+    .single();
+
+  if (error) return res.status(500).json({ error: 'Greška pri pokretanju chata' });
+  return res.status(201).json({ session_id: data.id });
+});
+
+/** GET /api/chat/messages/:sessionId – fetch messages for a session (public – UUID is unguessable) */
+app.get('/api/chat/messages/:sessionId', async (req, res) => {
+  const { data: session } = await supabase
+    .from('chat_sessions')
+    .select('id, status')
+    .eq('id', req.params.sessionId)
+    .maybeSingle();
+
+  if (!session) return res.status(404).json({ error: 'Sesija nije pronađena' });
+
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .select('id, sender, message, created_at')
+    .eq('session_id', req.params.sessionId)
+    .order('created_at', { ascending: true });
+
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json({ messages: data || [], session_status: session.status });
+});
+
+/** POST /api/chat/message – user sends a message */
+app.post('/api/chat/message', async (req, res) => {
+  const { session_id, message } = req.body;
+  if (!session_id || !message?.trim())
+    return res.status(400).json({ error: 'session_id i message su obavezni' });
+
+  const { data: session } = await supabase
+    .from('chat_sessions')
+    .select('id, status')
+    .eq('id', session_id)
+    .maybeSingle();
+
+  if (!session) return res.status(404).json({ error: 'Sesija nije pronađena' });
+  if (session.status === 'closed')
+    return res.status(400).json({ error: 'Ova chat sesija je zatvorena' });
+
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .insert({ session_id, sender: 'user', message: message.trim() })
+    .select('id, sender, message, created_at')
+    .single();
+
+  if (error) return res.status(500).json({ error: 'Greška pri slanju poruke' });
+  return res.status(201).json(data);
+});
+
+/** GET /api/admin/chat/sessions – list all chat sessions (admin) */
+app.get('/api/admin/chat/sessions', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  const { data, error } = await supabase
+    .from('chat_sessions')
+    .select('id, user_id, guest_email, status, created_at, users(name, email)')
+    .order('created_at', { ascending: false });
+
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json(data || []);
+});
+
+/** GET /api/admin/chat/sessions/:id/messages – messages in a session (admin) */
+app.get('/api/admin/chat/sessions/:id/messages', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .select('id, sender, message, created_at')
+    .eq('session_id', req.params.id)
+    .order('created_at', { ascending: true });
+
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json(data || []);
+});
+
+/** POST /api/admin/chat/reply – admin sends a message in a session */
+app.post('/api/admin/chat/reply', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  const { session_id, message } = req.body;
+  if (!session_id || !message?.trim())
+    return res.status(400).json({ error: 'session_id i message su obavezni' });
+
+  const { data: session } = await supabase
+    .from('chat_sessions')
+    .select('id, status')
+    .eq('id', session_id)
+    .maybeSingle();
+
+  if (!session) return res.status(404).json({ error: 'Sesija nije pronađena' });
+
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .insert({ session_id, sender: 'admin', message: message.trim() })
+    .select('id, sender, message, created_at')
+    .single();
+
+  if (error) return res.status(500).json({ error: 'Greška pri slanju odgovora' });
+  return res.json(data);
+});
+
+/** PUT /api/admin/chat/sessions/:id/close – close a session */
+app.put('/api/admin/chat/sessions/:id/close', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  const { error } = await supabase
+    .from('chat_sessions')
+    .update({ status: 'closed' })
+    .eq('id', req.params.id);
+
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json({ message: 'Sesija zatvorena' });
+});
+
+/* ─────────────────────────────────────────
    PROMO CODES
 ───────────────────────────────────────── */
 
@@ -1571,6 +1707,75 @@ app.delete('/api/content/:key', authenticateToken, requireAdmin, async (req, res
    Health check
 ───────────────────────────────────────── */
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+
+/* ─────────────────────────────────────────
+   Page Builder Routes
+   POST /api/pages/:slug  – save serialised HTML for a static page (admin)
+   GET  /api/pages/:slug  – retrieve saved HTML for a static page (public)
+
+   Supabase table (run once):
+   ┌─────────────────────────────────────────────────────────────────┐
+   │ CREATE TABLE IF NOT EXISTS page_templates (                     │
+   │   slug        TEXT PRIMARY KEY,                                 │
+   │   html        TEXT NOT NULL,                                    │
+   │   updated_by  UUID REFERENCES users(id),                       │
+   │   updated_at  TIMESTAMPTZ DEFAULT now()                         │
+   │ );                                                              │
+   └─────────────────────────────────────────────────────────────────┘
+───────────────────────────────────────── */
+
+/** POST /api/pages/:slug  – admin only, upsert page HTML */
+app.post('/api/pages/:slug', authenticateToken, requireAdmin, async (req, res) => {
+  const { slug } = req.params;
+  const { html  } = req.body;
+
+  if (!slug || typeof html !== 'string') {
+    return res.status(400).json({ error: 'slug i html su obavezni' });
+  }
+
+  // Basic sanity: slug must be safe filename characters only
+  if (!/^[a-zA-Z0-9_-]{1,80}$/.test(slug)) {
+    return res.status(400).json({ error: 'Nevalidan slug' });
+  }
+
+  const { error } = await supabase
+    .from('page_templates')
+    .upsert(
+      { slug, html, updated_by: req.user.id, updated_at: new Date().toISOString() },
+      { onConflict: 'slug' }
+    );
+
+  if (error) {
+    console.error('[pages] upsert error:', error);
+    return res.status(500).json({ error: 'Greška pri čuvanju stranice' });
+  }
+
+  return res.json({ message: 'Stranica sačuvana', slug });
+});
+
+/** GET /api/pages/:slug  – public, returns saved HTML or 404 */
+app.get('/api/pages/:slug', async (req, res) => {
+  const { slug } = req.params;
+
+  if (!/^[a-zA-Z0-9_-]{1,80}$/.test(slug)) {
+    return res.status(400).json({ error: 'Nevalidan slug' });
+  }
+
+  const { data, error } = await supabase
+    .from('page_templates')
+    .select('html, updated_at')
+    .eq('slug', slug)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[pages] select error:', error);
+    return res.status(500).json({ error: 'Greška' });
+  }
+
+  if (!data) return res.status(404).json({ error: 'Stranica nije pronađena' });
+
+  return res.json({ slug, html: data.html, updated_at: data.updated_at });
+});
 
 /* ─────────────────────────────────────────
    Start server
