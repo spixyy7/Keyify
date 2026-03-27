@@ -2238,18 +2238,21 @@
     // Ensure relative positioning so the absolute toolbar stays inside
     if (window.getComputedStyle(sec).position === 'static') sec.style.position = 'relative';
 
+    const isHeader = sec.tagName === 'HEADER';
+
     const bar = document.createElement('div');
     bar.className = 'kve-section-bar';
     bar.setAttribute('data-kve-editor', '1');
     bar.innerHTML = `
+      ${isHeader ? `<button class="kve-sec-header-edit" title="Uredi header (visina, pozadina, blur)">📐 Header</button>` : ''}
       <button class="kve-sec-move-up"   title="Pomjeri sekciju gore">▲ Gore</button>
       <button class="kve-sec-move-down" title="Pomjeri sekciju dolje">▼ Dolje</button>
       <button class="kve-sec-style"     title="Uredi pozadinu / stil">⚙️ Stil</button>
-      <button class="kve-sec-delete"    title="Obriši sekciju">🗑️ Obriši</button>
+      ${!isHeader ? `<button class="kve-sec-delete" title="Obriši sekciju">🗑️ Obriši</button>` : ''}
     `;
     sec.appendChild(bar);
 
-    bar.querySelector('.kve-sec-delete').addEventListener('click', e => {
+    bar.querySelector('.kve-sec-delete')?.addEventListener('click', e => {
       e.stopPropagation();
       if (!confirm('Obrisati ovu sekciju? Ova radnja se ne može poništiti bez ponovnog učitavanja.')) return;
       sec.style.transition = 'opacity .3s, transform .3s';
@@ -2262,6 +2265,11 @@
     bar.querySelector('.kve-sec-style').addEventListener('click', e => {
       e.stopPropagation();
       openSectionStyleModal(sec);
+    });
+
+    bar.querySelector('.kve-sec-header-edit')?.addEventListener('click', e => {
+      e.stopPropagation();
+      openHeaderEditModal(sec);
     });
 
     bar.querySelector('.kve-sec-move-up').addEventListener('click', e => {
@@ -2280,6 +2288,133 @@
         sec.parentNode.insertBefore(next, sec);
         toastMsg('▼ Sekcija pomjerena dolje');
       }
+    });
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     HEADER EDIT MODAL
+     Professional controls for the site <header>:
+     height presets, background style, blur toggle, sticky toggle.
+  ──────────────────────────────────────────────────────────────────── */
+  function openHeaderEditModal(headerEl) {
+    /* Find the inner flex row that controls height */
+    const innerRow = headerEl.querySelector('.flex.items-center.justify-between');
+
+    /* Detect current height class */
+    const HEIGHTS = ['h-14','h-16','h-18','h-20','h-24'];
+    const curH = HEIGHTS.find(h => innerRow?.classList.contains(h)) || 'h-20';
+
+    /* Detect current background style */
+    const hasDarkBg  = headerEl.style.background?.includes('rgba(6') ||
+                       headerEl.style.background?.includes('rgba(8') ||
+                       headerEl.classList.contains('bg-gray-900');
+    const hasGlass   = headerEl.style.background?.includes('0.6') ||
+                       headerEl.style.background?.includes('0.5');
+    const isTrans    = headerEl.style.background === 'transparent' ||
+                       headerEl.classList.contains('bg-transparent');
+    const curBg      = hasDarkBg ? 'dark' : hasGlass ? 'glass' : isTrans ? 'transparent' : 'white';
+    const hasBlur    = headerEl.classList.contains('navbar-blur');
+    const isSticky   = headerEl.classList.contains('sticky');
+
+    const hTabsHtml = [
+      { h: 'h-14', label: 'Kompaktno', px: '56px' },
+      { h: 'h-16', label: 'Normalno',  px: '64px' },
+      { h: 'h-20', label: 'Prostrano', px: '80px' },
+      { h: 'h-24', label: 'Veliko',    px: '96px' },
+    ].map(o => `
+      <button class="kve-hm-tab ${curH === o.h ? 'active' : ''}" data-hh="${o.h}">
+        ${o.label}<br/><span style="font-size:9px;opacity:.65;font-weight:400">${o.px}</span>
+      </button>`).join('');
+
+    const bgTabsHtml = [
+      { id: 'white',       label: '⬜ Bijela'    },
+      { id: 'glass',       label: '🔲 Glass'     },
+      { id: 'dark',        label: '⬛ Tamna'     },
+      { id: 'transparent', label: '◻ Providna'  },
+    ].map(o => `
+      <button class="kve-hm-tab ${curBg === o.id ? 'active' : ''}" data-hbg="${o.id}">
+        ${o.label}
+      </button>`).join('');
+
+    const m = createModal('📐 Header Editor', `
+      <label>Visina navigacije</label>
+      <div class="kve-hm-tabs" style="margin-bottom:18px">${hTabsHtml}</div>
+
+      <label>Pozadina</label>
+      <div class="kve-hm-tabs" style="margin-bottom:18px">${bgTabsHtml}</div>
+
+      <label>Opcije</label>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-top:6px">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; color:#c0c0e0; font-weight:400">
+          <input type="checkbox" id="kve-hdr-blur"   ${hasBlur  ? 'checked' : ''}/>
+          Blur efekt pozadine (glassmorphism)
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; color:#c0c0e0; font-weight:400">
+          <input type="checkbox" id="kve-hdr-sticky" ${isSticky ? 'checked' : ''}/>
+          Sticky (ostaje na vrhu pri skrolovanju)
+        </label>
+      </div>
+    `);
+
+    /* Tab interactions */
+    let selH  = curH;
+    let selBg = curBg;
+
+    m.overlay.querySelectorAll('[data-hh]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        m.overlay.querySelectorAll('[data-hh]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selH = btn.dataset.hh;
+      });
+    });
+
+    m.overlay.querySelectorAll('[data-hbg]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        m.overlay.querySelectorAll('[data-hbg]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selBg = btn.dataset.hbg;
+      });
+    });
+
+    m.ok.addEventListener('click', () => {
+      const doBlur   = m.overlay.querySelector('#kve-hdr-blur')?.checked;
+      const doSticky = m.overlay.querySelector('#kve-hdr-sticky')?.checked;
+      closeModal(m.overlay);
+
+      /* ── Apply height ── */
+      if (innerRow) {
+        HEIGHTS.forEach(h => innerRow.classList.remove(h));
+        innerRow.classList.add(selH);
+      }
+
+      /* ── Apply background ── */
+      ['bg-white/90','bg-white','bg-transparent','bg-gray-900','navbar-glass-dark'].forEach(c =>
+        headerEl.classList.remove(c)
+      );
+      headerEl.style.background = '';
+      if (selBg === 'white') {
+        headerEl.classList.add('bg-white/90');
+      } else if (selBg === 'glass') {
+        headerEl.style.background = 'rgba(255,255,255,0.55)';
+      } else if (selBg === 'dark') {
+        headerEl.style.background = 'rgba(6,8,22,0.96)';
+      } else if (selBg === 'transparent') {
+        headerEl.style.background = 'transparent';
+      }
+
+      /* ── Blur toggle ── */
+      headerEl.classList.toggle('navbar-blur', !!doBlur);
+
+      /* ── Sticky toggle ── */
+      if (doSticky) {
+        headerEl.classList.add('sticky');
+        headerEl.classList.remove('relative');
+      } else {
+        headerEl.classList.remove('sticky');
+        headerEl.classList.add('relative');
+      }
+
+      toastMsg('📐 Header izmijenjen — klikni "Sačuvaj stranicu".');
     });
   }
 

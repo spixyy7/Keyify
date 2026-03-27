@@ -72,12 +72,15 @@ const KEYIFY = (() => {
       });
 
       /* 4. Dropdown button labels (Shop Software / Shop Streaming) */
-      document.querySelectorAll('header nav button').forEach(btn => {
+      document.querySelectorAll('header nav button[data-dd-label], header nav button').forEach(btn => {
+        if (btn.classList.contains('kf-lang-btn') || btn.id === 'kf-theme-toggle') return;
+        const textNode = Array.from(btn.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
+        if (!textNode) return;
         const txt = btn.textContent.trim();
-        if (txt.startsWith('Shop Software') || txt.startsWith('Shop Software'))
-          btn.firstChild.textContent = t('nav.shopSoftware', _lang) + ' ';
-        if (txt.startsWith('Shop Streaming'))
-          btn.firstChild.textContent = t('nav.shopStreaming', _lang) + ' ';
+        if (txt.includes('Software'))
+          textNode.textContent = '\n                        ' + t('nav.shopSoftware', _lang) + '\n                        ';
+        else if (txt.includes('Streaming'))
+          textNode.textContent = '\n                        ' + t('nav.shopStreaming', _lang) + '\n                        ';
       });
 
       /* 5. "Dodaj u korpu" / "Add to Cart" buttons */
@@ -323,22 +326,27 @@ const KEYIFY = (() => {
       const ls = document.createElement('div');
       ls.id = 'kf-lang-switch';
       ls.className = 'hidden sm:flex items-center gap-0.5';
-      ls.style.cssText = 'border:1px solid #e5e7eb; border-radius:10px; padding:3px; background:#fff;';
-      ls.innerHTML = `
-        <button class="kf-lang-btn" data-lang="sr"
-                onclick="KEYIFY.LANG.set('sr')"
-                style="padding:4px 10px; border-radius:7px; font-size:11px; cursor:pointer; border:none; transition:all 0.2s; background:#1D6AFF; color:#fff; font-weight:700">
-          SR
-        </button>
-        <button class="kf-lang-btn" data-lang="en"
-                onclick="KEYIFY.LANG.set('en')"
-                style="padding:4px 10px; border-radius:7px; font-size:11px; cursor:pointer; border:none; transition:all 0.2s; background:transparent; color:#6b7280; font-weight:500">
-          EN
-        </button>`;
-      /* insert before the existing cart button */
-      const cartBtn = cartBtnContainer.querySelector('button:has(.kf-cart-label), button span');
+      ls.style.cssText = 'border:1px solid #e5e7eb; border-radius:10px; padding:3px; background:#fff; transition: background .3s, border-color .3s;';
+
+      ['sr', 'en'].forEach(lang => {
+        const btn = document.createElement('button');
+        btn.className    = 'kf-lang-btn';
+        btn.dataset.lang = lang;
+        btn.textContent  = lang.toUpperCase();
+        const isActive   = lang === _lang;
+        btn.style.cssText = `padding:4px 10px; border-radius:7px; font-size:11px; cursor:pointer; border:none;
+          transition:all 0.2s; font-family:inherit;
+          background:${isActive ? '#1D6AFF' : 'transparent'};
+          color:${isActive ? '#fff' : '#6b7280'};
+          font-weight:${isActive ? '700' : '500'};`;
+        btn.addEventListener('click', () => LANG.set(lang));
+        ls.appendChild(btn);
+      });
+
+      /* Insert before the cart button */
+      const cartBtn = cartBtnContainer.querySelector('button > span, button');
       if (cartBtn) {
-        cartBtnContainer.insertBefore(ls, cartBtn.closest('button') || cartBtn);
+        cartBtnContainer.insertBefore(ls, cartBtn.closest('button') ?? cartBtn);
       } else {
         cartBtnContainer.prepend(ls);
       }
@@ -899,6 +907,55 @@ const KEYIFY = (() => {
       /* Smooth page background transitions */
       body, header, nav { transition: background-color .3s ease, border-color .3s ease, color .3s ease; }
       #kf-dd-panel      { transition: background .25s ease, border-color .25s ease, box-shadow .25s ease; }
+
+      /* ── DARK MODE: Site Header & Navigation ────────────────────────── */
+      [data-theme="dark"] header {
+        background: rgba(6,8,22,0.96) !important;
+        border-bottom-color: rgba(255,255,255,0.07) !important;
+        box-shadow: 0 1px 28px rgba(0,0,0,0.5) !important;
+      }
+      [data-theme="dark"] header .text-gray-900 { color: #f0f0ff !important; }
+      [data-theme="dark"] header .tracking-tight.font-bold,
+      [data-theme="dark"] header .font-display   { color: #f0f0ff !important; }
+
+      [data-theme="dark"] header nav a,
+      [data-theme="dark"] header nav button       { color: rgba(200,200,240,0.8) !important; }
+      [data-theme="dark"] header nav a:hover,
+      [data-theme="dark"] header nav button:hover { color: #ffffff !important; }
+      [data-theme="dark"] header nav a.text-blue-600 { color: #60a5fa !important; }
+
+      [data-theme="dark"] header .dropdown-menu {
+        background: rgba(8,10,24,0.97) !important;
+        border-color: rgba(255,255,255,0.09) !important;
+        box-shadow: 0 16px 48px rgba(0,0,0,0.7) !important;
+      }
+      [data-theme="dark"] header .dropdown-menu a         { color: rgba(200,200,240,0.8) !important; }
+      [data-theme="dark"] header .dropdown-menu a:hover   { background: rgba(99,102,241,0.16) !important; color: #fff !important; }
+
+      [data-theme="dark"] header button.text-gray-500       { color: rgba(160,160,220,0.65) !important; }
+      [data-theme="dark"] header button.text-gray-500:hover { background: rgba(255,255,255,0.07) !important; color: #c0c0ee !important; }
+      [data-theme="dark"] header a.text-gray-700            { color: rgba(200,200,240,0.8) !important; }
+      [data-theme="dark"] header a.text-gray-700:hover      { color: #fff !important; }
+
+      [data-theme="dark"] #mobile-toggle                   { color: rgba(180,180,220,0.7) !important; }
+      [data-theme="dark"] #mobile-toggle:hover             { background: rgba(255,255,255,0.08) !important; }
+
+      [data-theme="dark"] #mobile-menu {
+        background: rgba(6,8,22,0.98) !important;
+        border-top-color: rgba(255,255,255,0.07) !important;
+      }
+      [data-theme="dark"] #mobile-menu a              { color: rgba(200,200,240,0.8) !important; }
+      [data-theme="dark"] #mobile-menu a:hover        { background: rgba(99,102,241,0.15) !important; color: #fff !important; }
+      [data-theme="dark"] #mobile-menu .text-gray-500 { color: rgba(150,150,200,0.55) !important; }
+      [data-theme="dark"] #mobile-menu .text-blue-600 { color: #60a5fa !important; }
+      [data-theme="dark"] #mobile-menu .bg-blue-50    { background: rgba(29,106,255,0.12) !important; }
+
+      [data-theme="dark"] #kf-lang-switch {
+        background: rgba(255,255,255,0.05) !important;
+        border-color: rgba(255,255,255,0.12) !important;
+      }
+      [data-theme="dark"] header .bg-blue-600         { background-color: #1a4fc7 !important; }
+      [data-theme="dark"] header .shadow-blue-200      { box-shadow: 0 4px 14px rgba(29,106,255,0.4) !important; }
     `;
     document.head.insertBefore(s, document.head.firstChild);
   }

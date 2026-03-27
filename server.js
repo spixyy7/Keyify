@@ -1229,7 +1229,13 @@ app.post('/api/chat/start', async (req, res) => {
     .select('id')
     .single();
 
-  if (error) return res.status(500).json({ error: 'Greška pri pokretanju chata' });
+  if (error) {
+    console.error('[chat/start] Supabase insert error:', JSON.stringify(error));
+    return res.status(500).json({
+      error: 'Greška pri pokretanju chata',
+      detail: process.env.NODE_ENV !== 'production' ? error.message : undefined,
+    });
+  }
   return res.status(201).json({ session_id: data.id });
 });
 
