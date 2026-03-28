@@ -26,6 +26,7 @@ const crypto      = require('crypto');
 const rateLimit   = require('express-rate-limit');
 const multer      = require('multer');
 const nodemailer  = require('nodemailer');
+const { google }  = require('googleapis');
 const { createClient } = require('@supabase/supabase-js');
 
 /* ─────────────────────────────────────────
@@ -84,9 +85,6 @@ app.use('/api', apiLimiter);
    Env: EMAIL_USER + EMAIL_PASS (16-char App Password from Google Account)
    Preferred when EMAIL_PASS is set; falls back to Gmail REST API.
 ───────────────────────────────────────── */
-const nodemailer = require('nodemailer');
-const { google } = require('googleapis');
-
 // 1. Inicijalizacija Google API Klijenta
 const oAuth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
@@ -188,7 +186,7 @@ async function _sendViaGmailApi({ from, to, subject, html }) {
  */
 async function sendMailSafe({ from, to, subject, html }) {
   if (process.env.EMAIL_PASS) {
-    await _getSmtpTransport().sendMail({ from, to, subject, html });
+    await (await _getSmtpTransport()).sendMail({ from, to, subject, html });
   } else {
     await _sendViaGmailApi({ from, to, subject, html });
   }

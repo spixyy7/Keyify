@@ -317,71 +317,77 @@ const KEYIFY = (() => {
      NAVBAR INJECTION
   ───────────────────────────────────────────────────────── */
   function _injectNavbarExtras() {
-    /* Find the div that holds the cart button (right side of navbar) */
-    const cartBtnContainer = document.querySelector('header .flex.items-center.gap-2');
+    const headerEl        = document.querySelector('header');
+    const isMinimalHeader = headerEl?.hasAttribute('data-kf-minimal');
+
+    /* Find the right-side controls container (gap-1 on minimal, gap-2 on full) */
+    const cartBtnContainer = document.querySelector(
+      'header .flex.items-center.gap-1, header .flex.items-center.gap-2'
+    );
     if (!cartBtnContainer) return;
 
-    /* ── 1. LANGUAGE SWITCHER ── */
-    if (!document.getElementById('kf-lang-switch')) {
-      const ls = document.createElement('div');
-      ls.id = 'kf-lang-switch';
-      ls.className = 'hidden sm:flex items-center gap-0.5';
-      ls.style.cssText = 'border:1px solid #e5e7eb; border-radius:10px; padding:3px; background:#fff; transition: background .3s, border-color .3s;';
+    if (!isMinimalHeader) {
+      /* ── 1. LANGUAGE SWITCHER (full header only) ── */
+      if (!document.getElementById('kf-lang-switch')) {
+        const ls = document.createElement('div');
+        ls.id = 'kf-lang-switch';
+        ls.className = 'hidden sm:flex items-center gap-0.5';
+        ls.style.cssText = 'border:1px solid #e5e7eb; border-radius:10px; padding:3px; background:#fff; transition: background .3s, border-color .3s;';
 
-      ['sr', 'en'].forEach(lang => {
-        const btn = document.createElement('button');
-        btn.className    = 'kf-lang-btn';
-        btn.dataset.lang = lang;
-        btn.textContent  = lang.toUpperCase();
-        const isActive   = lang === _lang;
-        btn.style.cssText = `padding:4px 10px; border-radius:7px; font-size:11px; cursor:pointer; border:none;
-          transition:all 0.2s; font-family:inherit;
-          background:${isActive ? '#1D6AFF' : 'transparent'};
-          color:${isActive ? '#fff' : '#6b7280'};
-          font-weight:${isActive ? '700' : '500'};`;
-        btn.addEventListener('click', () => LANG.set(lang));
-        ls.appendChild(btn);
+        ['sr', 'en'].forEach(lang => {
+          const btn = document.createElement('button');
+          btn.className    = 'kf-lang-btn';
+          btn.dataset.lang = lang;
+          btn.textContent  = lang.toUpperCase();
+          const isActive   = lang === _lang;
+          btn.style.cssText = `padding:4px 10px; border-radius:7px; font-size:11px; cursor:pointer; border:none;
+            transition:all 0.2s; font-family:inherit;
+            background:${isActive ? '#1D6AFF' : 'transparent'};
+            color:${isActive ? '#fff' : '#6b7280'};
+            font-weight:${isActive ? '700' : '500'};`;
+          btn.addEventListener('click', () => LANG.set(lang));
+          ls.appendChild(btn);
+        });
+
+        const cartBtn = cartBtnContainer.querySelector('button > span, button');
+        if (cartBtn) {
+          cartBtnContainer.insertBefore(ls, cartBtn.closest('button') ?? cartBtn);
+        } else {
+          cartBtnContainer.prepend(ls);
+        }
+      }
+
+      /* ── 2. THEME TOGGLE (full header only) ── */
+      _injectThemeToggle(cartBtnContainer);
+
+      /* ── 3. WRAP CART BUTTON SPAN ── */
+      cartBtnContainer.querySelectorAll('button').forEach(btn => {
+        const span = btn.querySelector('span');
+        if (span && span.textContent.includes('Korpa') && !span.classList.contains('kf-cart-label')) {
+          span.classList.add('kf-cart-label');
+          btn.addEventListener('click', () => CART.open());
+          btn.style.cursor = 'pointer';
+        }
       });
 
-      /* Insert before the cart button */
-      const cartBtn = cartBtnContainer.querySelector('button > span, button');
-      if (cartBtn) {
-        cartBtnContainer.insertBefore(ls, cartBtn.closest('button') ?? cartBtn);
-      } else {
-        cartBtnContainer.prepend(ls);
-      }
+      /* ── 4. BADGE OVERLAY on cart button ── */
+      cartBtnContainer.querySelectorAll('button').forEach(btn => {
+        if (btn.querySelector('.kf-cart-label') && !btn.querySelector('.kf-cart-badge')) {
+          btn.style.position = 'relative';
+          const badge = document.createElement('span');
+          badge.className = 'kf-cart-badge';
+          badge.style.cssText = `
+            position:absolute; top:-6px; right:-6px;
+            background:#ef4444; color:#fff;
+            font-size:10px; font-weight:700; min-width:18px; height:18px;
+            border-radius:999px; display:none;
+            align-items:center; justify-content:center; padding:0 4px;
+            border:2px solid #fff; pointer-events:none;`;
+          btn.appendChild(badge);
+        }
+      });
     }
-
-    /* ── 2. THEME TOGGLE ── */
-    _injectThemeToggle(cartBtnContainer);
-
-    /* ── 3. WRAP CART BUTTON SPAN so we can update it ── */
-    cartBtnContainer.querySelectorAll('button').forEach(btn => {
-      const span = btn.querySelector('span');
-      if (span && span.textContent.includes('Korpa') && !span.classList.contains('kf-cart-label')) {
-        span.classList.add('kf-cart-label');
-        /* also add open-drawer listener */
-        btn.addEventListener('click', () => CART.open());
-        btn.style.cursor = 'pointer';
-      }
-    });
-
-    /* ── 4. BADGE OVERLAY on cart button ── */
-    cartBtnContainer.querySelectorAll('button').forEach(btn => {
-      if (btn.querySelector('.kf-cart-label') && !btn.querySelector('.kf-cart-badge')) {
-        btn.style.position = 'relative';
-        const badge = document.createElement('span');
-        badge.className = 'kf-cart-badge';
-        badge.style.cssText = `
-          position:absolute; top:-6px; right:-6px;
-          background:#ef4444; color:#fff;
-          font-size:10px; font-weight:700; min-width:18px; height:18px;
-          border-radius:999px; display:none;
-          align-items:center; justify-content:center; padding:0 4px;
-          border:2px solid #fff; pointer-events:none;`;
-        btn.appendChild(badge);
-      }
-    });
+    /* Minimal header: no lang switcher, no theme toggle, no cart label wiring */
   }
 
 
@@ -956,6 +962,181 @@ const KEYIFY = (() => {
       }
       [data-theme="dark"] header .bg-blue-600         { background-color: #1a4fc7 !important; }
       [data-theme="dark"] header .shadow-blue-200      { box-shadow: 0 4px 14px rgba(29,106,255,0.4) !important; }
+
+      /* ── DARK MODE: Page body & global backgrounds ──────────────────── */
+      [data-theme="dark"] body {
+        background: #0a0f1e !important;
+        color: #cbd5e1 !important;
+      }
+      [data-theme="dark"] section,
+      [data-theme="dark"] main   { background: transparent !important; }
+
+      /* ── DARK MODE: Tailwind background utilities ────────────────────── */
+      [data-theme="dark"] .bg-white,
+      [data-theme="dark"] .bg-white\/90,
+      [data-theme="dark"] .bg-white\/70  { background-color: #111827 !important; }
+
+      [data-theme="dark"] .bg-gray-50    { background-color: #0f172a !important; }
+      [data-theme="dark"] .bg-gray-100   { background-color: #1e293b !important; }
+      [data-theme="dark"] .bg-gray-200   { background-color: #1e293b !important; }
+      [data-theme="dark"] .bg-gray-800   { background-color: #0f172a !important; }
+      [data-theme="dark"] .bg-gray-900   { background-color: #020617 !important; }
+
+      [data-theme="dark"] .bg-blue-50    { background-color: rgba(29,106,255,0.10) !important; }
+      [data-theme="dark"] .bg-blue-100   { background-color: rgba(29,106,255,0.15) !important; }
+      [data-theme="dark"] .bg-blue-600   { background-color: #1a4fc7 !important; }
+      [data-theme="dark"] .bg-blue-700   { background-color: #1e40af !important; }
+
+      [data-theme="dark"] .bg-indigo-50  { background-color: rgba(79,70,229,0.10) !important; }
+      [data-theme="dark"] .bg-purple-50  { background-color: rgba(124,58,237,0.10) !important; }
+      [data-theme="dark"] .bg-green-50   { background-color: rgba(16,185,129,0.10) !important; }
+      [data-theme="dark"] .bg-yellow-50  { background-color: rgba(245,158,11,0.10) !important; }
+      [data-theme="dark"] .bg-red-50     { background-color: rgba(239,68,68,0.10) !important; }
+      [data-theme="dark"] .bg-orange-50  { background-color: rgba(249,115,22,0.10) !important; }
+
+      /* ── DARK MODE: Tailwind text utilities ─────────────────────────── */
+      [data-theme="dark"] .text-gray-900 { color: #f1f5f9 !important; }
+      [data-theme="dark"] .text-gray-800 { color: #e2e8f0 !important; }
+      [data-theme="dark"] .text-gray-700 { color: #cbd5e1 !important; }
+      [data-theme="dark"] .text-gray-600 { color: #94a3b8 !important; }
+      [data-theme="dark"] .text-gray-500 { color: #64748b !important; }
+      [data-theme="dark"] .text-gray-400 { color: #475569 !important; }
+
+      [data-theme="dark"] .text-blue-600  { color: #60a5fa !important; }
+      [data-theme="dark"] .text-blue-700  { color: #93c5fd !important; }
+      [data-theme="dark"] .text-blue-800  { color: #bfdbfe !important; }
+      [data-theme="dark"] .text-indigo-600{ color: #818cf8 !important; }
+      [data-theme="dark"] .text-purple-600{ color: #c084fc !important; }
+      [data-theme="dark"] .text-green-600 { color: #34d399 !important; }
+      [data-theme="dark"] .text-green-700 { color: #6ee7b7 !important; }
+      [data-theme="dark"] .text-red-600   { color: #f87171 !important; }
+      [data-theme="dark"] .text-yellow-600{ color: #fbbf24 !important; }
+      [data-theme="dark"] .text-orange-600{ color: #fb923c !important; }
+
+      /* ── DARK MODE: Tailwind border utilities ────────────────────────── */
+      [data-theme="dark"] .border-gray-100 { border-color: rgba(255,255,255,0.07) !important; }
+      [data-theme="dark"] .border-gray-200 { border-color: rgba(255,255,255,0.10) !important; }
+      [data-theme="dark"] .border-gray-300 { border-color: rgba(255,255,255,0.14) !important; }
+      [data-theme="dark"] .border-gray-400 { border-color: rgba(255,255,255,0.20) !important; }
+      [data-theme="dark"] .border-blue-100 { border-color: rgba(29,106,255,0.20) !important; }
+      [data-theme="dark"] .border-blue-200 { border-color: rgba(29,106,255,0.30) !important; }
+      [data-theme="dark"] .divide-gray-100 > * + * { border-color: rgba(255,255,255,0.07) !important; }
+      [data-theme="dark"] .divide-gray-200 > * + * { border-color: rgba(255,255,255,0.10) !important; }
+
+      /* ── DARK MODE: Cards & rounded panels ──────────────────────────── */
+      [data-theme="dark"] .rounded-xl,
+      [data-theme="dark"] .rounded-2xl,
+      [data-theme="dark"] .rounded-3xl {
+        /* only apply where no explicit bg utility: let bg-* rules do their job */
+      }
+      /* Cards that have no explicit bg class */
+      [data-theme="dark"] .shadow-sm:not([class*="bg-"]),
+      [data-theme="dark"] .shadow:not([class*="bg-"]),
+      [data-theme="dark"] .shadow-md:not([class*="bg-"]),
+      [data-theme="dark"] .shadow-lg:not([class*="bg-"]) {
+        background-color: #111827 !important;
+      }
+
+      /* ── DARK MODE: Inputs & forms ───────────────────────────────────── */
+      [data-theme="dark"] input[type="text"],
+      [data-theme="dark"] input[type="email"],
+      [data-theme="dark"] input[type="password"],
+      [data-theme="dark"] input[type="search"],
+      [data-theme="dark"] input[type="number"],
+      [data-theme="dark"] input[type="tel"],
+      [data-theme="dark"] textarea,
+      [data-theme="dark"] select {
+        background-color: rgba(255,255,255,0.05) !important;
+        border-color: rgba(255,255,255,0.12) !important;
+        color: #e2e8f0 !important;
+      }
+      [data-theme="dark"] input::placeholder,
+      [data-theme="dark"] textarea::placeholder { color: rgba(255,255,255,0.28) !important; }
+      [data-theme="dark"] input:focus,
+      [data-theme="dark"] textarea:focus,
+      [data-theme="dark"] select:focus {
+        background-color: rgba(29,106,255,0.06) !important;
+        border-color: rgba(29,106,255,0.5) !important;
+        outline: none;
+      }
+      [data-theme="dark"] label { color: #94a3b8 !important; }
+      [data-theme="dark"] .text-sm.font-medium { color: #cbd5e1 !important; }
+
+      /* ── DARK MODE: Tailwind ring utilities ──────────────────────────── */
+      [data-theme="dark"] .ring-gray-100 { --tw-ring-color: rgba(255,255,255,0.07) !important; }
+      [data-theme="dark"] .ring-gray-200 { --tw-ring-color: rgba(255,255,255,0.10) !important; }
+
+      /* ── DARK MODE: Common Tailwind shadows ──────────────────────────── */
+      [data-theme="dark"] .shadow-sm  { box-shadow: 0 1px 3px rgba(0,0,0,0.5) !important; }
+      [data-theme="dark"] .shadow     { box-shadow: 0 2px 6px rgba(0,0,0,0.5) !important; }
+      [data-theme="dark"] .shadow-md  { box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important; }
+      [data-theme="dark"] .shadow-lg  { box-shadow: 0 8px 28px rgba(0,0,0,0.55) !important; }
+      [data-theme="dark"] .shadow-xl  { box-shadow: 0 16px 48px rgba(0,0,0,0.65) !important; }
+
+      /* ── DARK MODE: Prose/typography sections ────────────────────────── */
+      [data-theme="dark"] h1, [data-theme="dark"] h2,
+      [data-theme="dark"] h3, [data-theme="dark"] h4,
+      [data-theme="dark"] h5, [data-theme="dark"] h6 { color: #f1f5f9 !important; }
+      [data-theme="dark"] p   { color: #94a3b8 !important; }
+      [data-theme="dark"] a:not(.btn):not([class*="bg-"]):not([class*="text-blue"]):not([class*="text-white"]) {
+        color: #93c5fd !important;
+      }
+      [data-theme="dark"] strong { color: #e2e8f0 !important; }
+      [data-theme="dark"] code   {
+        background: rgba(255,255,255,0.07) !important;
+        color: #a5b4fc !important;
+      }
+
+      /* ── DARK MODE: Hero sections ────────────────────────────────────── */
+      [data-theme="dark"] .hero-section,
+      [data-theme="dark"] [class*="hero"] { background: #0a0f1e !important; }
+
+      /* ── DARK MODE: Footer ───────────────────────────────────────────── */
+      [data-theme="dark"] footer {
+        background: #020617 !important;
+        border-top-color: rgba(255,255,255,0.07) !important;
+      }
+      [data-theme="dark"] footer .text-gray-400 { color: #475569 !important; }
+      [data-theme="dark"] footer .text-gray-500 { color: #64748b !important; }
+      [data-theme="dark"] footer .text-gray-600 { color: #94a3b8 !important; }
+      [data-theme="dark"] footer .text-gray-700 { color: #cbd5e1 !important; }
+      [data-theme="dark"] footer a:hover { color: #93c5fd !important; }
+
+      /* ── DARK MODE: Badges & tags ────────────────────────────────────── */
+      [data-theme="dark"] .bg-blue-100.text-blue-800   { background: rgba(29,106,255,0.15) !important; color: #93c5fd !important; }
+      [data-theme="dark"] .bg-green-100.text-green-800 { background: rgba(16,185,129,0.15) !important; color: #6ee7b7 !important; }
+      [data-theme="dark"] .bg-red-100.text-red-800     { background: rgba(239,68,68,0.15) !important; color: #fca5a5 !important; }
+      [data-theme="dark"] .bg-yellow-100.text-yellow-800 { background: rgba(245,158,11,0.15) !important; color: #fde68a !important; }
+      [data-theme="dark"] .bg-purple-100.text-purple-800 { background: rgba(124,58,237,0.15) !important; color: #d8b4fe !important; }
+      [data-theme="dark"] .bg-orange-100.text-orange-800 { background: rgba(249,115,22,0.15) !important; color: #fdba74 !important; }
+      [data-theme="dark"] .bg-indigo-100.text-indigo-800 { background: rgba(79,70,229,0.15) !important; color: #a5b4fc !important; }
+
+      /* ── DARK MODE: Gradient backgrounds ────────────────────────────── */
+      [data-theme="dark"] .bg-gradient-to-br.from-blue-50  { background: linear-gradient(135deg,rgba(29,106,255,0.06),rgba(99,102,241,0.06)) !important; }
+      [data-theme="dark"] .bg-gradient-to-r.from-blue-600  { /* keep blue gradients mostly as-is, just darken */ }
+
+      /* ── DARK MODE: Price / product cards ────────────────────────────── */
+      [data-theme="dark"] .price-card,
+      [data-theme="dark"] .product-card,
+      [data-theme="dark"] [class*="product-card"],
+      [data-theme="dark"] [class*="price-card"] {
+        background: #111827 !important;
+        border-color: rgba(255,255,255,0.08) !important;
+      }
+
+      /* ── DARK MODE: Tables ───────────────────────────────────────────── */
+      [data-theme="dark"] table { color: #cbd5e1 !important; }
+      [data-theme="dark"] thead { background: #0f172a !important; }
+      [data-theme="dark"] thead th { color: #94a3b8 !important; border-color: rgba(255,255,255,0.08) !important; }
+      [data-theme="dark"] tbody tr { border-color: rgba(255,255,255,0.06) !important; }
+      [data-theme="dark"] tbody tr:nth-child(even) { background: rgba(255,255,255,0.02) !important; }
+      [data-theme="dark"] tbody td { color: #cbd5e1 !important; }
+
+      /* ── DARK MODE: Misc interactive states ──────────────────────────── */
+      [data-theme="dark"] .hover\:bg-gray-50:hover  { background-color: rgba(255,255,255,0.04) !important; }
+      [data-theme="dark"] .hover\:bg-gray-100:hover { background-color: rgba(255,255,255,0.07) !important; }
+      [data-theme="dark"] .hover\:bg-blue-50:hover  { background-color: rgba(29,106,255,0.12) !important; }
+      [data-theme="dark"] .focus\:ring-blue-200:focus { --tw-ring-color: rgba(29,106,255,0.30) !important; }
     `;
     document.head.insertBefore(s, document.head.firstChild);
   }
