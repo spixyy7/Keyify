@@ -86,8 +86,8 @@
       transition: transform 0.25s ease, box-shadow 0.25s ease;
     }
     .product-admin-card:hover { transform: translateY(-4px); box-shadow: 0 20px 48px rgba(0,0,0,0.5); }
-    .product-admin-card .actions { opacity: 0; transition: opacity 0.2s ease; }
-    .product-admin-card:hover .actions { opacity: 1; }
+    .product-admin-card .actions { opacity: 0; transition: opacity 0.2s ease; pointer-events: none; }
+    .product-admin-card:hover .actions { opacity: 1; pointer-events: auto; }
 
     /* Table */
     .data-table { width: 100%; border-collapse: collapse; }
@@ -128,13 +128,17 @@
     /* Modal */
     #modal-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
-      z-index: 1000; display: none; align-items: center; justify-content: center;
+      z-index: 9999; display: none; align-items: center; justify-content: center;
     }
     #modal-overlay.open { display: flex; }
     #modal-box {
       background: #13132a; border: 1px solid rgba(255,255,255,0.1);
       border-radius: 20px; padding: 32px; width: 100%; max-width: 540px;
-      max-height: 90vh; overflow-y: auto;
+      max-height: 90vh; overflow-y: auto; position: relative; z-index: 10000;
+    }
+    #modal-box { user-select: none; -webkit-user-select: none; }
+    #modal-box input, #modal-box textarea, #modal-box select {
+      user-select: text !important; -webkit-user-select: text !important;
     }
 
     /* User detail modal tabs */
@@ -1992,16 +1996,27 @@
     }
   }
 
+  let _deleting = false;
   async function deleteProduct(id, name) {
+    if (_deleting) return;
     if (!confirm(`Obrisati "${name}"? Ova akcija je nepovratna.`)) return;
+    _deleting = true;
     try {
       const res = await fetch(`${API_BASE}/products/${id}`, { method: 'DELETE', headers: authHeaders() });
       const d   = await res.json();
       if (!res.ok) throw new Error(d.error);
+      // Immediately remove from local array and re-render
+      allProducts = allProducts.filter(p => String(p.id) !== String(id));
+      renderProducts(
+        document.getElementById('product-filter').value
+          ? allProducts.filter(p => p.category === document.getElementById('product-filter').value)
+          : allProducts
+      );
       showToast('Proizvod obrisan.');
-      loadProducts();
     } catch (err) {
       showToast(err.message || 'Greška pri brisanju', 'error');
+    } finally {
+      _deleting = false;
     }
   }
 

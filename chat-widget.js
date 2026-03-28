@@ -49,7 +49,7 @@
     ),
     getAnonId: () => sessionStorage.getItem('kfy_chat_anon'),
     setAnonId: (id) => sessionStorage.setItem('kfy_chat_anon', id),
-    getToken:  () => localStorage.getItem('kfy_token') || sessionStorage.getItem('kfy_token'),
+    getToken:  () => localStorage.getItem('keyify_token') || sessionStorage.getItem('keyify_token'),
   };
 
   let _pollInterval = null;
@@ -376,9 +376,32 @@
 
     /* ── Misc ── */
     .kfy-closed-notice {
-      padding:10px 14px;background:var(--kfy-closed-bg,#fef3c7);font-size:12px;color:var(--kfy-closed-color,#92400e);
+      padding:16px 14px;background:var(--kfy-closed-bg,#fef3c7);font-size:12px;color:var(--kfy-closed-color,#92400e);
       text-align:center;border-top:1px solid var(--kfy-closed-bdr,#fde68a);flex-shrink:0;
     }
+    .kfy-closed-notice .kfy-new-session-btn {
+      display:inline-block;margin-top:8px;padding:8px 20px;border:none;border-radius:8px;
+      background:#1D6AFF;color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .15s;
+    }
+    .kfy-closed-notice .kfy-new-session-btn:hover { opacity:.85; }
+    .kfy-closed-notice .kfy-new-choice { display:flex;gap:8px;justify-content:center;margin-top:10px; }
+    .kfy-closed-notice .kfy-choice-btn {
+      padding:7px 14px;border:1px solid var(--kfy-closed-bdr,#fde68a);border-radius:8px;
+      background:transparent;color:var(--kfy-closed-color,#92400e);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;
+    }
+    .kfy-closed-notice .kfy-choice-btn:hover { background:rgba(29,106,255,0.1);border-color:#1D6AFF;color:#1D6AFF; }
+    .kfy-closed-notice .kfy-guest-email-row {
+      display:flex;gap:6px;margin-top:10px;justify-content:center;
+    }
+    .kfy-closed-notice .kfy-guest-email-row input {
+      padding:6px 10px;border:1px solid var(--kfy-closed-bdr,#fde68a);border-radius:6px;
+      font-size:11px;width:180px;outline:none;background:var(--kfy-inp-bg,#fff);color:var(--kfy-inp-color,#111);
+    }
+    .kfy-closed-notice .kfy-guest-email-row input:focus { border-color:#1D6AFF; }
+    .kfy-closed-notice .kfy-guest-email-row button {
+      padding:6px 12px;border:none;border-radius:6px;background:#1D6AFF;color:#fff;font-size:11px;font-weight:600;cursor:pointer;
+    }
+    .kfy-closed-err { color:#ef4444;font-size:11px;margin-top:6px; }
     .kfy-articles-tab { padding:24px;font-size:13px;color:var(--kfy-articles-color,#9ca3af);text-align:center;background:var(--kfy-articles-bg,#f9fafb); }
 
     @media (max-width:420px) {
@@ -502,9 +525,7 @@
         </div>
 
         <!-- Closed session notice -->
-        <div class="kfy-closed-notice" id="kfy-closed-notice" style="display:none;">
-          Ova chat sesija je zatvorena. Osvježite stranicu za novu sesiju.
-        </div>
+        <div class="kfy-closed-notice" id="kfy-closed-notice" style="display:none;"></div>
       </div>
 
       <!-- ── ARTICLES PANEL (placeholder) ── -->
@@ -860,6 +881,64 @@
     closedNotice.style.display = 'block';
     STORAGE.clearSession();
     _stopPoll();
+
+    const isLoggedIn = !!STORAGE.getToken();
+
+    if (isLoggedIn) {
+      // Logged-in user: just show "open new session" button
+      closedNotice.innerHTML = `
+        <div>Ova chat sesija je zatvorena.</div>
+        <button class="kfy-new-session-btn" id="kfy-new-session-btn">Otvori novu sesiju</button>`;
+      closedNotice.querySelector('#kfy-new-session-btn').addEventListener('click', () => {
+        closedNotice.style.display = 'none';
+        _startSession(null);
+      });
+    } else {
+      // Guest: show choice — email or guest
+      closedNotice.innerHTML = `
+        <div>Ova chat sesija je zatvorena.</div>
+        <div style="font-weight:600;margin-top:8px">Otvori novu sesiju:</div>
+        <div class="kfy-new-choice">
+          <button class="kfy-choice-btn" id="kfy-closed-email-btn">Unesi email</button>
+          <button class="kfy-choice-btn" id="kfy-closed-guest-btn">Nastavi kao gost</button>
+        </div>
+        <div id="kfy-closed-email-form" style="display:none">
+          <div class="kfy-guest-email-row">
+            <input type="email" id="kfy-closed-email-inp" placeholder="vas@email.com">
+            <button id="kfy-closed-email-send">Pošalji</button>
+          </div>
+          <div class="kfy-closed-err" id="kfy-closed-err"></div>
+        </div>`;
+
+      closedNotice.querySelector('#kfy-closed-guest-btn').addEventListener('click', () => {
+        closedNotice.style.display = 'none';
+        _startSession(null);
+      });
+
+      closedNotice.querySelector('#kfy-closed-email-btn').addEventListener('click', () => {
+        closedNotice.querySelector('#kfy-closed-email-form').style.display = 'block';
+        closedNotice.querySelector('#kfy-closed-email-inp').focus();
+      });
+
+      const sendEmail = () => {
+        const inp = closedNotice.querySelector('#kfy-closed-email-inp');
+        const err = closedNotice.querySelector('#kfy-closed-err');
+        const val = inp.value.trim();
+        if (!val || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+          err.textContent = 'Unesite ispravnu email adresu.';
+          return;
+        }
+        err.textContent = '';
+        STORAGE.setEmail(val);
+        closedNotice.style.display = 'none';
+        _startSession(val);
+      };
+
+      closedNotice.querySelector('#kfy-closed-email-send').addEventListener('click', sendEmail);
+      closedNotice.querySelector('#kfy-closed-email-inp').addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); sendEmail(); }
+      });
+    }
   }
 
 })();

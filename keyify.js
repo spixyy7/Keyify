@@ -1176,6 +1176,70 @@ const KEYIFY = (() => {
   }
 
   /* ─────────────────────────────────────────────────────────
+     QUICK VIEW MODAL
+  ───────────────────────────────────────────────────────── */
+  function _initQuickView() {
+    document.addEventListener('click', e => {
+      const overlay = e.target.closest('.quick-view-overlay');
+      if (!overlay) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const card = overlay.closest('.product-card');
+      if (!card) return;
+      const btn = card.querySelector('[data-product]');
+      if (!btn) return;
+      let p;
+      try { p = JSON.parse(btn.getAttribute('data-product')); } catch { return; }
+      _showQuickViewModal(p);
+    });
+  }
+
+  function _showQuickViewModal(p) {
+    document.getElementById('kfy-qv-modal')?.remove();
+    const lang = _lang;
+    const name = (lang === 'en' && p.name_en) ? p.name_en : (p.name_sr || p.name || '');
+    const desc = (lang === 'en' && p.description_en) ? p.description_en : (p.description_sr || '');
+    const price = parseFloat(p.price).toFixed(2);
+    const origPrice = p.original_price ? parseFloat(p.original_price).toFixed(2) : null;
+    const disc = origPrice ? Math.round((1 - p.price / p.original_price) * 100) : 0;
+    const imgHtml = p.image_url
+      ? `<img src="${escHtml(p.image_url)}" alt="${escAttr(name)}" style="max-height:200px;max-width:85%;object-fit:contain;filter:drop-shadow(0 8px 24px rgba(0,0,0,0.4))">`
+      : `<div style="width:80px;height:80px;border-radius:20px;background:linear-gradient(135deg,#1D6AFF,#A259FF);display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;font-weight:700">${name.charAt(0)}</div>`;
+    const stars = parseInt(p.stars) || 5;
+    const starSvg = '<svg width="16" height="16" fill="#facc15" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
+
+    const modal = document.createElement('div');
+    modal.id = 'kfy-qv-modal';
+    modal.innerHTML = `
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.parentElement.remove()">
+        <div style="background:#13132a;border:1px solid rgba(255,255,255,0.1);border-radius:20px;max-width:420px;width:100%;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,0.5)">
+          <div style="position:relative;background:linear-gradient(145deg,#0f0f1a,#1a1a2e);height:220px;display:flex;align-items:center;justify-content:center">
+            <div style="position:absolute;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(29,106,255,0.4),transparent);filter:blur(30px)"></div>
+            ${imgHtml}
+            <button onclick="this.closest('#kfy-qv-modal').remove()" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)">&times;</button>
+            ${p.badge ? `<span style="position:absolute;top:12px;left:12px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px">${escHtml(p.badge)}</span>` : ''}
+          </div>
+          <div style="padding:24px;text-align:center">
+            <div style="display:flex;justify-content:center;gap:2px;margin-bottom:8px">${starSvg.repeat(stars)}</div>
+            <h3 style="color:#fff;font-size:18px;font-weight:700;margin:0 0 6px">${escHtml(name)}</h3>
+            ${desc ? `<p style="color:#9090b8;font-size:13px;margin:0 0 16px;line-height:1.5">${escHtml(desc)}</p>` : ''}
+            <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:20px">
+              <span style="color:#fff;font-size:22px;font-weight:800">&euro;${price}</span>
+              ${origPrice ? `<span style="color:#6060a0;font-size:14px;text-decoration:line-through">&euro;${origPrice}</span>` : ''}
+              ${disc > 0 ? `<span style="background:rgba(16,185,129,0.15);color:#10b981;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px">-${disc}%</span>` : ''}
+            </div>
+            <button onclick="try{KEYIFY.CART.add(JSON.parse(this.dataset.p))}catch{}; this.innerHTML='&#10003; Dodano!';this.style.background='#10b981';setTimeout(()=>{this.closest('#kfy-qv-modal').remove()},800)"
+                    data-p='${escAttr(JSON.stringify(p))}'
+                    style="width:100%;padding:12px;border:none;border-radius:12px;background:linear-gradient(135deg,#1D6AFF,#A259FF);color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s">
+              Dodaj u korpu
+            </button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+  }
+
+  /* ─────────────────────────────────────────────────────────
      INIT
   ───────────────────────────────────────────────────────── */
   function init() {
@@ -1184,6 +1248,7 @@ const KEYIFY = (() => {
     _injectNavbarExtras();
     _wireProductButtons();
     _updateAccountNavbar();
+    _initQuickView();
     LANG.apply();
     CART.updateNavbarText();
     CART._renderDrawerItems();

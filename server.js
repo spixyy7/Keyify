@@ -838,15 +838,36 @@ async function uploadProductImage(file) {
 app.get('/api/products', async (req, res) => {
   const { category } = req.query;
   let query = supabase.from('products').select('*');
-  if (category) {
-    query = query.eq('category', category).order('grid_order', { ascending: true });
-  } else {
-    query = query.order('category').order('grid_order', { ascending: true });
+  if (category) query = query.eq('category', category);
+
+  // Try ordering by grid_order; fall back to created_at if column doesn't exist
+  let { data, error } = await query.order('grid_order', { ascending: true });
+  if (error) {
+    console.error('[products] grid_order query failed:', error.message);
+    query = supabase.from('products').select('*');
+    if (category) query = query.eq('category', category);
+    const res2 = await query.order('created_at', { ascending: false });
+    data  = res2.data;
+    error = res2.error;
   }
 
-  const { data, error } = await query;
-  if (error) return res.status(500).json({ error: 'Greška pri dohvaćanju proizvoda' });
+  if (error) {
+    console.error('[products] Supabase error:', error.message);
+    return res.status(500).json({ error: 'Greška pri dohvaćanju proizvoda' });
+  }
   return res.json(data || []);
+});
+
+/** GET /api/products/:id – single product by ID */
+app.get('/api/products/:id', async (req, res) => {
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('id', req.params.id)
+    .maybeSingle();
+  if (error) return res.status(500).json({ error: 'Greška' });
+  if (!data) return res.status(404).json({ error: 'Proizvod nije pronađen' });
+  return res.json(data);
 });
 
 /** POST /api/products – admin only */

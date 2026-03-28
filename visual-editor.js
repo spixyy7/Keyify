@@ -132,12 +132,13 @@
       body.kve-active { padding-top: 48px !important; }
 
       /* ── Product card wrapper ──────────────────── */
-      .kve-wrap { position: relative; }
-      .kve-wrap:hover > .product-card {
+      .kve-wrap { position: relative; padding-top: 50px; margin-top: -50px; }
+      .kve-wrap._kve-hover > .product-card {
         box-shadow: 0 0 0 2px #1D6AFF, 0 8px 32px rgba(29,106,255,0.2) !important;
       }
       .kve-wrap[draggable="true"] { cursor: grab; }
       .kve-wrap[draggable="true"]:active { cursor: grabbing; }
+      .kve-wrap .kve-card-bar { cursor: default !important; }
       .kve-wrap.kve-dragging { opacity: .35; transform: scale(.96); transition: .2s; }
       .kve-wrap.kve-drag-over::after {
         content: ''; position: absolute; inset: -4px; border-radius: 20px;
@@ -149,21 +150,22 @@
       /* ── Per-card toolbar ──────────────────────── */
       .kve-card-bar {
         position: absolute; top: 16px; right: 16px; z-index: 20;
-        display: flex; gap: 4px; opacity: 0; pointer-events: none;
-        transition: opacity .18s;
+        display: flex; gap: 4px; opacity: 0;
+        transition: opacity .18s; pointer-events: none;
       }
-      .kve-wrap:hover .kve-card-bar { opacity: 1; pointer-events: auto; }
+      .kve-wrap._kve-hover .kve-card-bar { opacity: 1; pointer-events: auto; }
       .kve-card-bar button {
         width: 30px; height: 30px; border-radius: 9px; border: none;
-        font-size: 14px; cursor: pointer; display: flex; align-items: center;
-        justify-content: center; transition: transform .15s, box-shadow .15s;
+        font-size: 14px; cursor: pointer !important; display: flex; align-items: center;
+        justify-content: center; transition: filter .15s, box-shadow .15s;
         box-shadow: 0 2px 8px rgba(0,0,0,0.25);
       }
-      .kve-card-bar button:hover { transform: scale(1.15); }
+      .kve-card-bar button:hover { brightness: 1.3; box-shadow: 0 4px 14px rgba(0,0,0,0.4); }
       .kve-btn-img   { background: #1D6AFF; }
       .kve-btn-price { background: #059669; }
       .kve-btn-size  { background: #7C3AED; }
       .kve-btn-cat   { background: #D97706; }
+      .kve-btn-del   { background: #dc2626; }
 
       /* ── Contenteditable: product fields ──────── */
       [data-kve-field][contenteditable="true"] {
@@ -942,6 +944,7 @@
       <button class="kve-btn-price" title="Uredi cijenu">€</button>
       <button class="kve-btn-size"  title="Promijeni veličinu">⬜</button>
       <button class="kve-btn-cat"   title="Premjesti kategoriju">↗</button>
+      <button class="kve-btn-del"   title="Obriši proizvod" style="color:#f87171">🗑️</button>
     `;
     wrap.appendChild(bar);
 
@@ -949,6 +952,7 @@
     bar.querySelector('.kve-btn-price').addEventListener('click', e => { e.stopPropagation(); openPriceModal(p, id, wrap); });
     bar.querySelector('.kve-btn-size').addEventListener('click',  e => { e.stopPropagation(); toggleSize(wrap, id); });
     bar.querySelector('.kve-btn-cat').addEventListener('click',   e => { e.stopPropagation(); showCategoryMenu(e, id); });
+    bar.querySelector('.kve-btn-del').addEventListener('click',   e => { e.stopPropagation(); deleteProductCard(id, p.name_sr || p.name_en || 'Proizvod', wrap); });
 
     const nameEl = card.querySelector('.px-4 h3');
     if (nameEl) {
@@ -984,6 +988,16 @@
         saveField(id, 'stars', newRating, wrap);
       });
     }
+
+    // Stable hover: only remove hover when mouse truly leaves the wrap
+    wrap.addEventListener('mouseenter', () => {
+      wrap.classList.add('_kve-hover');
+    });
+    wrap.addEventListener('mouseleave', (e) => {
+      // If mouse moved to a child inside this wrap, keep hover active
+      if (e.relatedTarget && wrap.contains(e.relatedTarget)) return;
+      wrap.classList.remove('_kve-hover');
+    });
 
     wrap.setAttribute('draggable', 'true');
     wrap.addEventListener('dragstart', onDragStart);
@@ -1027,6 +1041,58 @@
     el.classList.add('show');
     clearTimeout(el._t);
     el._t = setTimeout(() => el.classList.remove('show'), 2200);
+  }
+
+  let _deletingProduct = false;
+  async function deleteProductCard(id, name, wrap) {
+    if (_deletingProduct) return;
+    if (!confirm(`Obrisati "${name}"? Ova akcija je nepovratna.`)) return;
+    _deletingProduct = true;
+    flashSaved(wrap, '⏳ Brisanje...');
+    try {
+      const res = await fetch(`${API}/products/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Greška'); }
+
+      // Capture positions of all sibling cards BEFORE removal
+      const grid = wrap.parentElement;
+      const siblings = [...grid.querySelectorAll('.kve-wrap, .kve-add-card-wrap')];
+      const beforeRects = new Map();
+      siblings.forEach(s => { if (s !== wrap) beforeRects.set(s, s.getBoundingClientRect()); });
+
+      // Fade out the deleted card
+      wrap.style.transition = 'opacity .25s, transform .25s';
+      wrap.style.opacity = '0';
+      wrap.style.transform = 'scale(.85)';
+
+      setTimeout(() => {
+        wrap.remove();
+
+        // FLIP animation: measure new positions and animate siblings
+        beforeRects.forEach((oldRect, sibling) => {
+          const newRect = sibling.getBoundingClientRect();
+          const dx = oldRect.left - newRect.left;
+          const dy = oldRect.top  - newRect.top;
+          if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+          sibling.style.transition = 'none';
+          sibling.style.transform  = `translate(${dx}px, ${dy}px)`;
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              sibling.style.transition = 'transform .35s cubic-bezier(.4,.0,.2,1)';
+              sibling.style.transform  = '';
+            });
+          });
+        });
+      }, 260);
+
+      toastMsg('🗑️ Proizvod obrisan.');
+    } catch (err) {
+      flashSaved(wrap, '✗ ' + (err.message || 'Greška'), true);
+    } finally {
+      _deletingProduct = false;
+    }
   }
 
   /* ─────────────────────────────────────────────────────────────────
@@ -1495,6 +1561,7 @@
     if (el.closest('[data-kve-field], [data-ck]')) return;
     if (el.closest('.kve-draft-wrap')) return;
     if (el.closest('#modal-overlay, #user-detail-overlay, #create-user-overlay, #guest-info-overlay')) return;
+    if (el.closest('.kve-card-bar, .kve-wrap, .kve-add-card-wrap, .kve-empty-placeholder')) return;
 
     const type = el.dataset.kveSmart || _detectSmartType(el);
     if (!type) return;
@@ -2876,6 +2943,8 @@
       if (el.hasAttribute('data-kve-editor')) return true;
       if (el.closest('[data-kve-editor]')) return true;
       if (el.classList.contains('kve-elem-wrap')) return true;
+      // Product cards, add-card box, and empty placeholder have their own controls
+      if (el.closest('.kve-wrap, .kve-card-bar, .kve-add-card-wrap, .kve-empty-placeholder')) return true;
       return false;
     }
 
