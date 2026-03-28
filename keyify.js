@@ -1190,7 +1190,11 @@ const KEYIFY = (() => {
       if (!btn) return;
       let p;
       try { p = JSON.parse(btn.getAttribute('data-product')); } catch { return; }
-      _showQuickViewModal(p);
+      if (p.id) {
+        window.location.href = 'product.html?id=' + p.id;
+      } else {
+        _showQuickViewModal(p);
+      }
     });
   }
 

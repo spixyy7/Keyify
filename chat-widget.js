@@ -621,7 +621,10 @@
     gateBtn.disabled      = true;
     gateBtn.textContent   = 'Pokretanje...';
     STORAGE.setEmail(val);
-    await _startSession(val);
+    _hideGate();
+    try {
+      await _startSession(val);
+    } catch { /* _startSession handles its own errors */ }
     gateBtn.disabled    = false;
     gateBtn.textContent = 'Počni razgovor →';
   };
@@ -640,13 +643,13 @@
      INIT STATE (called when window opens)
   ───────────────────────────────────────────────────────────── */
   function _initState() {
+    if (_starting) return;       // session creation already in progress
     const sid   = STORAGE.getSessionId();
     const email = STORAGE.getEmail();
     const token = STORAGE.getToken();
 
     if (sid) {
       // Resume existing session
-      _hideGate();
       _activateChat();
       _loadMessages(sid);
       _startPoll(sid);
@@ -694,7 +697,10 @@
   /* ─────────────────────────────────────────────────────────────
      START SESSION
   ───────────────────────────────────────────────────────────── */
+  let _starting = false;
   async function _startSession(guestEmail) {
+    if (_starting) return;
+    _starting = true;
     try {
       const token   = STORAGE.getToken();
       const headers = { 'Content-Type': 'application/json' };
@@ -720,6 +726,8 @@
         gateErr.style.display = 'block';
       }
       _showEmailErr(msg);
+    } finally {
+      _starting = false;
     }
   }
 
@@ -727,8 +735,10 @@
      ACTIVATE CHAT UI (hide email card, show input row)
   ───────────────────────────────────────────────────────────── */
   function _activateChat() {
+    _hideGate();
     emailCard.style.display = 'none';
     inputRow.style.display  = 'flex';
+    closedNotice.style.display = 'none';
     setTimeout(() => msgInput && msgInput.focus(), 50);
   }
 
