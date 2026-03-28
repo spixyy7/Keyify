@@ -715,6 +715,12 @@
               </div>
               <div class="flex items-center gap-2">
                 <span id="inbox-chat-status-badge" class="badge text-xs"></span>
+                <button id="inbox-ask-email-btn" onclick="askForEmail()" style="display:none;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:600;background:rgba(59,130,246,0.2);color:#60a5fa;border:none;cursor:pointer" title="Pošalji zahtjev korisniku za email">
+                  📧 Pitaj za mail
+                </button>
+                <button id="inbox-guest-info-btn" onclick="showGuestInfo()" style="display:none;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:600;background:rgba(16,185,129,0.2);color:#34d399;border:none;cursor:pointer" title="Prikaži info o korisniku">
+                  👤 Info
+                </button>
                 <button onclick="closeActiveSession()"
                         style="padding:4px 10px;border-radius:8px;font-size:11px;font-weight:600;background:rgba(220,38,38,0.2);color:#f87171;border:none;cursor:pointer">
                   Zatvori sesiju
@@ -2814,9 +2820,9 @@
     const q      = document.getElementById('inbox-queue');
     const search = (document.getElementById('inbox-search')?.value || '').toLowerCase();
     const items  = _inboxSessions.filter(s => {
-      const name  = (s.users?.name || s.guest_email || '').toLowerCase();
+      const name  = (s.users?.name || s.guest_email || s.anon_id || '').toLowerCase();
       const email = (s.users?.email || s.guest_email || '').toLowerCase();
-      return !search || name.includes(search) || email.includes(search);
+      return !search || name.includes(search) || email.includes(search) || (s.anon_id || '').toLowerCase().includes(search);
     });
     if (!items.length) {
       q.innerHTML = `<div style="padding:24px 16px;text-align:center;font-size:12px;color:#9090b8">
@@ -2827,8 +2833,8 @@
     const dotColor = { new: '#ef4444', seen: '#f59e0b', answered: '#10b981', closed: '#6b7280' };
     const dotGlow  = { new: '0 0 6px #ef4444', seen: '0 0 6px #f59e0b', answered: '0 0 6px #10b981' };
     q.innerHTML = items.map(s => {
-      const name    = escHtml(s.users?.name || s.guest_email || 'Gost');
-      const email   = escHtml(s.users?.email || s.guest_email || '');
+      const name    = escHtml(s.users?.name || s.guest_email || s.anon_id || 'Gost');
+      const email   = escHtml(s.users?.email || s.guest_email || (s.anon_id ? 'Anonimni korisnik' : ''));
       const preview = escHtml(s.last_message_preview || '');
       const active  = s.id === _inboxActiveId;
       const dc = dotColor[s.status] || '#6b7280';
@@ -2853,9 +2859,10 @@
     renderQueue();
 
     const s     = _inboxSessions.find(x => x.id === id);
-    const name  = s?.users?.name  || s?.guest_email || 'Gost';
-    const email = s?.users?.email || s?.guest_email || '–';
+    const name  = s?.users?.name  || s?.guest_email || s?.anon_id || 'Gost';
+    const email = s?.users?.email || s?.guest_email || (s?.anon_id ? 'Anonimni korisnik' : '–');
     const closed = s?.status === 'closed';
+    const isAnon = !!(s?.anon_id && !s?.guest_email && !s?.users);
 
     document.getElementById('inbox-empty').style.display = 'none';
     const chatEl = document.getElementById('inbox-chat');
@@ -2863,6 +2870,12 @@
 
     document.getElementById('inbox-chat-name').textContent  = name;
     document.getElementById('inbox-chat-email').textContent = email;
+
+    // Show/hide "Pitaj za mail" and "Info" buttons
+    const askEmailBtn = document.getElementById('inbox-ask-email-btn');
+    const guestInfoBtn = document.getElementById('inbox-guest-info-btn');
+    if (askEmailBtn) askEmailBtn.style.display = (isAnon && !closed) ? '' : 'none';
+    if (guestInfoBtn) guestInfoBtn.style.display = (!isAnon && (s?.guest_email || s?.users)) ? '' : 'none';
     document.getElementById('inbox-reply-row').style.display     = closed ? 'none'  : 'flex';
     document.getElementById('inbox-closed-notice').style.display = closed ? 'block' : 'none';
     const closeBtn = chatEl.querySelector('button[onclick="closeActiveSession()"]');
@@ -2911,6 +2924,23 @@
       if (msgs.length !== _inboxLastMsgCount) {
         _inboxLastMsgCount = msgs.length;
         renderMessages(msgs);
+
+        // If email_received msg appeared, refresh session header
+        const hasEmailReceived = msgs.some(m => m.msg_type === 'email_received');
+        if (hasEmailReceived) {
+          const emailMsg = msgs.find(m => m.msg_type === 'email_received');
+          const s = _inboxSessions.find(x => x.id === id);
+          if (s && emailMsg) {
+            s.guest_email = emailMsg.message;
+            document.getElementById('inbox-chat-name').textContent  = s.users?.name || s.guest_email || s.anon_id || 'Gost';
+            document.getElementById('inbox-chat-email').textContent = s.users?.email || s.guest_email || '–';
+            const askBtn = document.getElementById('inbox-ask-email-btn');
+            const infoBtn = document.getElementById('inbox-guest-info-btn');
+            if (askBtn) askBtn.style.display = 'none';
+            if (infoBtn) infoBtn.style.display = '';
+            renderQueue();
+          }
+        }
       }
     } catch {}
   }
@@ -2922,6 +2952,22 @@
       return;
     }
     box.innerHTML = msgs.map(m => {
+      // System messages (ask_email, email_received)
+      if (m.msg_type === 'ask_email') {
+        return `<div data-kfy-msg="1" style="max-width:90%;padding:9px 13px;border-radius:12px;font-size:12px;line-height:1.45;
+                background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.25);color:#93c5fd;align-self:center;text-align:center">
+          📧 Zahtjev za email poslan korisniku
+          <div style="font-size:10px;opacity:.5;margin-top:4px">Sistem · ${fmtDate(m.created_at)}</div>
+        </div>`;
+      }
+      if (m.msg_type === 'email_received') {
+        return `<div data-kfy-msg="1" style="max-width:90%;padding:9px 13px;border-radius:12px;font-size:12px;line-height:1.45;
+                background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);color:#6ee7b7;align-self:center;text-align:center">
+          ✓ Korisnik je dostavio email: <strong>${escHtml(m.message)}</strong>
+          <div style="font-size:10px;opacity:.5;margin-top:4px">Sistem · ${fmtDate(m.created_at)}</div>
+        </div>`;
+      }
+
       const isAdmin = m.sender === 'admin';
       const bg     = isAdmin ? 'rgba(29,106,255,0.18)' : 'rgba(255,255,255,0.07)';
       const color  = isAdmin ? '#93c5fd' : '#e2e8f0';
@@ -2982,6 +3028,72 @@
     }
   }
 
+  // ── Ask for email (admin command) ──
+  async function askForEmail() {
+    if (!_inboxActiveId) return;
+    const btn = document.getElementById('inbox-ask-email-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Slanje...'; }
+    try {
+      const res = await fetch(`${API_BASE}/admin/chat/sessions/${_inboxActiveId}/request-email`, {
+        method: 'POST', headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      showToast('Zahtjev za email poslan korisniku');
+      _inboxLastMsgCount = 0;
+      await fetchMessages(_inboxActiveId);
+    } catch (err) {
+      showToast(err.message || 'Greška', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '📧 Pitaj za mail'; }
+    }
+  }
+
+  // ── Show guest info modal ──
+  async function showGuestInfo() {
+    if (!_inboxActiveId) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/chat/sessions/${_inboxActiveId}/guest-info`, { headers: authHeaders() });
+      if (!res.ok) throw new Error((await res.json()).error);
+      const info = await res.json();
+
+      const lines = [];
+      if (info.anon_id)      lines.push(`<div style="margin-bottom:8px"><span style="color:#64748b;font-size:11px">Anon ID:</span><br><span style="color:#e2e8f0;font-weight:600">${escHtml(info.anon_id)}</span></div>`);
+      if (info.guest_email)  lines.push(`<div style="margin-bottom:8px"><span style="color:#64748b;font-size:11px">Email:</span><br><span style="color:#e2e8f0;font-weight:600">${escHtml(info.guest_email)}</span></div>`);
+      if (info.registered_user) {
+        const u = info.registered_user;
+        lines.push(`<div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)">`);
+        lines.push(`<div style="color:#10b981;font-size:11px;font-weight:600;margin-bottom:6px">✓ Registrovani korisnik</div>`);
+        lines.push(`<div style="margin-bottom:4px"><span style="color:#64748b;font-size:11px">Ime:</span> <span style="color:#e2e8f0">${escHtml(u.name || '–')}</span></div>`);
+        lines.push(`<div style="margin-bottom:4px"><span style="color:#64748b;font-size:11px">Email:</span> <span style="color:#e2e8f0">${escHtml(u.email)}</span></div>`);
+        lines.push(`<div style="margin-bottom:4px"><span style="color:#64748b;font-size:11px">Uloga:</span> <span style="color:#e2e8f0">${escHtml(u.role || 'user')}</span></div>`);
+        lines.push(`<div><span style="color:#64748b;font-size:11px">Registrovan:</span> <span style="color:#e2e8f0">${fmtDate(u.created_at)}</span></div>`);
+        lines.push(`</div>`);
+      } else {
+        lines.push(`<div style="margin-top:8px;color:#f59e0b;font-size:11px">Korisnik nije registrovan</div>`);
+      }
+
+      // Show in a simple overlay
+      let overlay = document.getElementById('guest-info-overlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'guest-info-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px)';
+        overlay.addEventListener('click', e => { if (e.target === overlay) overlay.style.display = 'none'; });
+        document.body.appendChild(overlay);
+      }
+      overlay.innerHTML = `<div style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:24px 28px;max-width:360px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.6)">
+        <div style="font-size:14px;font-weight:700;color:#f1f5f9;margin-bottom:16px">👤 Informacije o korisniku</div>
+        ${lines.join('')}
+        <button onclick="document.getElementById('guest-info-overlay').style.display='none'" style="margin-top:16px;width:100%;padding:8px;border-radius:10px;font-size:12px;font-weight:600;background:rgba(255,255,255,0.07);color:#94a3b8;border:1px solid rgba(255,255,255,0.1);cursor:pointer">
+          Zatvori
+        </button>
+      </div>`;
+      overlay.style.display = 'flex';
+    } catch (err) {
+      showToast(err.message || 'Greška', 'error');
+    }
+  }
+
   // Ctrl+Enter to send reply
   document.getElementById('inbox-reply-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); sendInboxReply(); }
@@ -3015,7 +3127,7 @@
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-dark-300">Učitavanje...</td></tr>';
     try {
-      const res  = await fetch(`${API_BASE}/admin/coupons`, { headers: { Authorization: `Bearer ${token}` } });
+      const res  = await fetch(`${API_BASE}/admin/coupons`, { headers: authHeaders() });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Greška');
       if (!data.length) {
@@ -3069,7 +3181,7 @@
     try {
       const res  = await fetch(`${API_BASE}/admin/coupons`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: authHeaders(),
         body: JSON.stringify({ code, discount_percent: discount, expiry_date: expiry || null, usage_limit: limit || null }),
       });
       const data = await res.json();
@@ -3097,7 +3209,7 @@
   async function toggleCoupon(id, is_active) {
     await fetch(`${API_BASE}/admin/coupons/${id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: authHeaders(),
       body: JSON.stringify({ is_active }),
     });
     loadCoupons();
@@ -3105,7 +3217,7 @@
 
   async function deleteCoupon(id) {
     if (!confirm('Obrisati ovaj kupon?')) return;
-    await fetch(`${API_BASE}/admin/coupons/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    await fetch(`${API_BASE}/admin/coupons/${id}`, { method: 'DELETE', headers: authHeaders() });
     loadCoupons();
   }
 
@@ -3123,7 +3235,7 @@
 
     try {
       const res  = await fetch(`${API_BASE}/admin/transaction-logs?page=${page}&limit=${limit}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: authHeaders(),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Greška');
@@ -3196,7 +3308,7 @@
       if (method) params.set('method', method);
 
       const r = await fetch(`${API_BASE}/admin/transactions?${params}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: authHeaders()
       });
       if (r.status === 403) {
         tbody.innerHTML = `<tr><td colspan="8" class="text-center py-10" style="color:#f87171">Nemate dozvolu za pregled transakcija. Kontaktirajte super-admina.</td></tr>`;

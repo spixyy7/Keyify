@@ -47,7 +47,9 @@
       'kfy_chat_email',
       JSON.stringify({ email: e, ts: Date.now() })
     ),
-    getToken:     () => localStorage.getItem('kfy_token') || sessionStorage.getItem('kfy_token'),
+    getAnonId: () => sessionStorage.getItem('kfy_chat_anon'),
+    setAnonId: (id) => sessionStorage.setItem('kfy_chat_anon', id),
+    getToken:  () => localStorage.getItem('kfy_token') || sessionStorage.getItem('kfy_token'),
   };
 
   let _pollInterval = null;
@@ -297,6 +299,15 @@
       background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff;
       align-self:flex-end;border-bottom-right-radius:4px;
       box-shadow:0 4px 12px rgba(59,130,246,0.35);
+    }
+
+    /* ── System card (ask_email, confirmations) ── */
+    .kfy-system-card {
+      background:var(--kfy-email-card-bg,#fff);
+      border-radius:12px;padding:12px 14px;margin-top:4px;
+      border:1px solid rgba(59,130,246,0.25);
+      box-shadow:0 1px 6px rgba(59,130,246,.10);
+      transition:background .25s ease;
     }
 
     /* ── Email capture card ── */
@@ -563,12 +574,18 @@
   const gateBtn      = document.getElementById('kfy-gate-btn');
   const gateErr      = document.getElementById('kfy-gate-err');
 
+  function _clearGateErr() {
+    if (gateErr) { gateErr.textContent = ''; gateErr.style.display = 'none'; }
+  }
+
   function _showGate() {
+    _clearGateErr();
     guestGate.classList.remove('kfy-gate-hidden');
     setTimeout(() => gateInp && gateInp.focus(), 220);
   }
 
   function _hideGate() {
+    _clearGateErr();
     guestGate.classList.add('kfy-gate-hidden');
   }
 
@@ -579,7 +596,7 @@
       gateErr.style.display = 'block';
       return;
     }
-    gateErr.style.display = 'none';
+    _clearGateErr();
     gateBtn.disabled      = true;
     gateBtn.textContent   = 'Pokretanje...';
     STORAGE.setEmail(val);
@@ -589,8 +606,8 @@
   };
 
   window._kfyGateSkip = async function () {
+    _clearGateErr();
     _hideGate();
-    // Attempt anonymous session; if it fails, show email card in body
     await _startSession(null);
   };
 
@@ -670,21 +687,18 @@
       if (!res.ok) throw new Error(data.error);
 
       STORAGE.setSessionId(data.session_id);
+      if (data.anon_id) STORAGE.setAnonId(data.anon_id);
       _activateChat();
       _startPoll(data.session_id);
     } catch (err) {
-      // If auto-started (no email provided) and it failed, show gate so
-      // guest can enter their email — never show a raw error on first open
-      if (!guestEmail) {
-        _showGate();
-        return;
-      }
-      // Guest submitted email but server rejected — show error on gate
+      // Show gate with server error message
+      _showGate();
+      const msg = err.message || 'Greška servera. Pokušajte ponovo.';
       if (gateErr) {
-        gateErr.textContent   = err.message || 'Greška servera. Pokušajte ponovo.';
+        gateErr.textContent   = msg;
         gateErr.style.display = 'block';
       }
-      _showEmailErr(err.message || 'Greška servera. Pokušajte ponovo.');
+      _showEmailErr(msg);
     }
   }
 
@@ -763,6 +777,37 @@
   function _renderMessages(messages) {
     body.querySelectorAll('[data-kfy-msg]').forEach(el => el.remove());
     messages.forEach(m => {
+      // ── System: ask_email → inline email form ──
+      if (m.msg_type === 'ask_email') {
+        const alreadyProvided = STORAGE.getEmail();
+        const wrap = document.createElement('div');
+        wrap.dataset.kfyMsg = '1';
+        wrap.className = 'kfy-system-card';
+        wrap.innerHTML = alreadyProvided
+          ? '<div style="font-size:12px;color:#10b981;font-weight:600;">✓ Email već poslan</div>'
+          : `<div style="font-size:12px;font-weight:600;color:var(--kfy-email-h4,#111827);margin-bottom:6px;">
+               📧 Agent traži vašu email adresu
+             </div>
+             <div style="display:flex;gap:6px;">
+               <input type="email" id="kfy-inline-email" class="kfy-email-input"
+                      placeholder="vas@email.com" style="flex:1;font-size:12px;padding:7px 10px;"/>
+               <button onclick="window._kfyInlineEmailSubmit()" class="kfy-email-btn"
+                       style="width:auto;margin:0;padding:7px 14px;font-size:11px;">Pošalji</button>
+             </div>
+             <div id="kfy-inline-email-err" style="font-size:11px;color:#ef4444;margin-top:4px;display:none;"></div>`;
+        body.appendChild(wrap);
+        return;
+      }
+      // ── System: email_received → confirmation ──
+      if (m.msg_type === 'email_received') {
+        const wrap = document.createElement('div');
+        wrap.dataset.kfyMsg = '1';
+        wrap.className = 'kfy-system-card';
+        wrap.innerHTML = `<div style="font-size:12px;color:#10b981;font-weight:600;">✓ Email poslan: ${m.message}</div>`;
+        body.appendChild(wrap);
+        return;
+      }
+
       const div = document.createElement('div');
       div.className       = `kfy-bubble ${m.sender === 'admin' ? 'admin' : 'user'}`;
       div.textContent     = m.message;
@@ -771,6 +816,34 @@
     });
     body.scrollTop = body.scrollHeight;
   }
+
+  // Inline email submit (when admin requests email)
+  window._kfyInlineEmailSubmit = async function () {
+    const inp = document.getElementById('kfy-inline-email');
+    const errEl = document.getElementById('kfy-inline-email-err');
+    if (!inp) return;
+    const val = inp.value.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+      if (errEl) { errEl.textContent = 'Unesite ispravnu email adresu.'; errEl.style.display = 'block'; }
+      return;
+    }
+    const sid = STORAGE.getSessionId();
+    if (!sid) return;
+    try {
+      const res = await fetch(`${API()}/chat/sessions/${sid}/guest-email`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: val }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      STORAGE.setEmail(val);
+      // Force re-render to show confirmation
+      _lastMsgCount = 0;
+      await _loadMessages(sid);
+    } catch (err) {
+      if (errEl) { errEl.textContent = err.message || 'Greška.'; errEl.style.display = 'block'; }
+    }
+  };
 
   function _appendBubble(sender, text) {
     const div = document.createElement('div');

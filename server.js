@@ -557,14 +557,16 @@ app.post('/api/login', authLimiter, async (req, res) => {
   // Clean up expired records first (best-effort, don't block login)
   supabase.from('trusted_devices').delete().lt('expires_at', new Date().toISOString()).then(() => {});
 
-  const { data: trusted } = await supabase
+  const { data: trustedRows } = await supabase
     .from('trusted_devices')
     .select('id')
     .eq('user_id', user.id)
     .eq('ip', ip)
     .eq('ua_hash', ua)
     .gt('expires_at', new Date().toISOString())
-    .maybeSingle();
+    .limit(1);
+
+  const trusted = trustedRows?.[0];
 
   if (trusted) {
     // Roll the 30-day window forward on each trusted login
@@ -658,7 +660,7 @@ app.post('/api/verify', authLimiter, async (req, res) => {
 
   const { data: user } = await supabase
     .from('users')
-    .select('id, name, email, role, otp_code, otp_expires')
+    .select('id, name, email, role, permissions, otp_code, otp_expires')
     .eq('id', user_id)
     .maybeSingle();
 
@@ -687,12 +689,16 @@ app.post('/api/verify', authLimiter, async (req, res) => {
   // ── Save trusted device if requested ───────────────────────────
   if (remember_device) {
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    // Remove any existing records for this device, then insert fresh
     await supabase
       .from('trusted_devices')
-      .upsert(
-        { user_id: user.id, ip, ua_hash: ua, expires_at: expiresAt },
-        { onConflict: 'user_id,ip,ua_hash' }
-      );
+      .delete()
+      .eq('user_id', user.id)
+      .eq('ip', ip)
+      .eq('ua_hash', ua);
+    await supabase
+      .from('trusted_devices')
+      .insert({ user_id: user.id, ip, ua_hash: ua, expires_at: expiresAt });
   }
   // ───────────────────────────────────────────────────────────────
 
@@ -1345,17 +1351,20 @@ app.post('/api/chat/start', async (req, res) => {
     try { const d = jwt.verify(token, process.env.JWT_SECRET); userId = d.id; } catch {}
   }
 
-  if (!userId && !guest_email?.trim())
-    return res.status(400).json({ error: 'Email adresa je obavezna' });
-
   const email = guest_email?.trim().toLowerCase() || null;
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     return res.status(400).json({ error: 'Unesite ispravnu email adresu' });
 
+  // Generate anonymous ID for guests without email
+  let anonId = null;
+  if (!userId && !email) {
+    anonId = '#' + require('crypto').randomBytes(3).toString('hex').toUpperCase();
+  }
+
   const { data, error } = await supabase
     .from('chat_sessions')
-    .insert({ user_id: userId, guest_email: email, status: 'new' })
-    .select('id')
+    .insert({ user_id: userId, guest_email: email, anon_id: anonId, status: 'new' })
+    .select('id, anon_id')
     .single();
 
   if (error) {
@@ -1365,7 +1374,7 @@ app.post('/api/chat/start', async (req, res) => {
       detail: process.env.NODE_ENV !== 'production' ? error.message : undefined,
     });
   }
-  return res.status(201).json({ session_id: data.id });
+  return res.status(201).json({ session_id: data.id, anon_id: data.anon_id });
 });
 
 /** GET /api/chat/messages/:sessionId – fetch messages for a session (public – UUID is unguessable) */
@@ -1380,7 +1389,7 @@ app.get('/api/chat/messages/:sessionId', async (req, res) => {
 
   const { data, error } = await supabase
     .from('chat_messages')
-    .select('id, sender, message, created_at')
+    .select('id, sender, message, msg_type, created_at')
     .eq('session_id', req.params.sessionId)
     .order('created_at', { ascending: true });
 
@@ -1437,7 +1446,7 @@ app.get('/api/admin/chat/sessions', authenticateToken, checkPermission('can_mana
   const showClosed = req.query.closed === '1';
   let query = supabase
     .from('chat_sessions')
-    .select('id, user_id, guest_email, status, created_at, last_message_at, last_message_preview, users(name, email)');
+    .select('id, user_id, guest_email, anon_id, status, created_at, last_message_at, last_message_preview, users(name, email)');
 
   if (!showClosed) query = query.neq('status', 'closed');
 
@@ -1453,7 +1462,7 @@ app.get('/api/admin/chat/sessions', authenticateToken, checkPermission('can_mana
 app.get('/api/admin/chat/sessions/:id/messages', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
   const { data, error } = await supabase
     .from('chat_messages')
-    .select('id, sender, message, created_at')
+    .select('id, sender, message, msg_type, created_at')
     .eq('session_id', req.params.id)
     .order('created_at', { ascending: true });
 
@@ -1513,6 +1522,83 @@ app.put('/api/admin/chat/sessions/:id/close', authenticateToken, checkPermission
 
   if (error) return res.status(500).json({ error: 'Greška' });
   return res.json({ message: 'Sesija zatvorena' });
+});
+
+/** POST /api/admin/chat/sessions/:id/request-email – admin asks guest for email (system message) */
+app.post('/api/admin/chat/sessions/:id/request-email', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  const sid = req.params.id;
+  const { data: session } = await supabase
+    .from('chat_sessions').select('id, status').eq('id', sid).maybeSingle();
+  if (!session) return res.status(404).json({ error: 'Sesija nije pronađena' });
+  if (session.status === 'closed') return res.status(400).json({ error: 'Sesija je zatvorena' });
+
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .insert({ session_id: sid, sender: 'system', message: '__ask_email__', msg_type: 'ask_email' })
+    .select('id, sender, message, msg_type, created_at')
+    .single();
+
+  if (error) return res.status(500).json({ error: 'Greška' });
+
+  await supabase.from('chat_sessions').update({
+    last_message_at: data.created_at,
+    last_message_preview: 'Agent: Zatražen email od korisnika',
+  }).eq('id', sid);
+
+  return res.json(data);
+});
+
+/** PATCH /api/chat/sessions/:id/guest-email – guest submits email (from chat prompt) */
+app.patch('/api/chat/sessions/:id/guest-email', async (req, res) => {
+  const { email } = req.body;
+  if (!email?.trim()) return res.status(400).json({ error: 'Email je obavezan' });
+  const trimmed = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed))
+    return res.status(400).json({ error: 'Unesite ispravnu email adresu' });
+
+  const sid = req.params.id;
+  const { data: session } = await supabase
+    .from('chat_sessions').select('id').eq('id', sid).maybeSingle();
+  if (!session) return res.status(404).json({ error: 'Sesija nije pronađena' });
+
+  // Update guest_email on the session
+  await supabase.from('chat_sessions').update({ guest_email: trimmed }).eq('id', sid);
+
+  // Insert confirmation message visible to both sides
+  await supabase.from('chat_messages').insert({
+    session_id: sid, sender: 'system',
+    message: trimmed, msg_type: 'email_received',
+  });
+
+  // Check if this email matches a registered user
+  const { data: user } = await supabase
+    .from('users').select('id, name, email, role, created_at').eq('email', trimmed).maybeSingle();
+
+  return res.json({ ok: true, email: trimmed, user: user || null });
+});
+
+/** GET /api/admin/chat/sessions/:id/guest-info – lookup guest info by session */
+app.get('/api/admin/chat/sessions/:id/guest-info', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  const { data: session } = await supabase
+    .from('chat_sessions')
+    .select('id, guest_email, anon_id, user_id, users(id, name, email, role, created_at)')
+    .eq('id', req.params.id)
+    .maybeSingle();
+  if (!session) return res.status(404).json({ error: 'Sesija nije pronađena' });
+
+  let guestUser = null;
+  if (session.guest_email && !session.users) {
+    const { data } = await supabase
+      .from('users').select('id, name, email, role, created_at')
+      .eq('email', session.guest_email).maybeSingle();
+    guestUser = data;
+  }
+
+  return res.json({
+    anon_id: session.anon_id,
+    guest_email: session.guest_email,
+    registered_user: session.users || guestUser || null,
+  });
 });
 
 /* ─────────────────────────────────────────
@@ -2884,7 +2970,16 @@ app.get('/api/admin/invoices', authenticateToken, checkPermission('can_view_invo
    Start server
 ───────────────────────────────────────── */
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`\n🔑 Keyify API running on port ${PORT}`);
   console.log(`   Health: http://localhost:${PORT}/api/health\n`);
+
+  // Ensure spasojep3@gmail.com is super_admin
+  try {
+    await supabase
+      .from('users')
+      .update({ role: 'admin', rank: 'super_admin' })
+      .eq('email', 'spasojep3@gmail.com');
+    console.log('   ✓ spasojep3@gmail.com → super_admin');
+  } catch (e) { console.error('[bootstrap]', e.message); }
 });
