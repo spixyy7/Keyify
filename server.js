@@ -180,23 +180,11 @@ async function _sendViaGmailApi({ from, to, subject, html }) {
 }
 
 /**
- * Universal mail sender.
- * • If EMAIL_PASS is set → Gmail SMTP with App Password (simplest, no OAuth needed)
- * • Otherwise → Gmail REST API (OAuth2 – requires GOOGLE_* env vars)
+ * Mail sender via Gmail REST API (HTTPS port 443 – SMTP blocked on Railway).
+ * Requires: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, EMAIL_USER
  */
 async function sendMailSafe({ from, to, subject, html }) {
-  if (process.env.EMAIL_PASS) {
-    const transport = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-    await transport.sendMail({ from, to, subject, html });
-  } else {
-    await _sendViaGmailApi({ from, to, subject, html });
-  }
+  await _sendViaGmailApi({ from, to, subject, html });
 }
 
 /* ─────────────────────────────────────────
@@ -538,7 +526,7 @@ app.post('/api/login', authLimiter, async (req, res) => {
 
   try {
     await sendMailSafe({
-      from:    `"Keyify" <${process.env.EMAIL_USER}>`,
+      from:    process.env.EMAIL_FROM || `"Keyify" <${process.env.EMAIL_USER}>`,
       to:      user.email,
       subject: `Keyify – Vaš verifikacijski kod: ${otp}`,
       html:    otpHTML,
@@ -1206,7 +1194,7 @@ app.put('/api/admin/tickets/:id/reply', authenticateToken, checkPermission('can_
 
   try {
     await sendMailSafe({
-      from:    `"Keyify" <${process.env.EMAIL_USER}>`,
+      from:    process.env.EMAIL_FROM || `"Keyify" <${process.env.EMAIL_USER}>`,
       to:      ticket.email,
       subject: `Re: ${ticket.subject}`,
       html:    replyHTML,
@@ -1664,7 +1652,7 @@ app.post('/api/forgot-password', authLimiter, async (req, res) => {
 
   try {
     await sendMailSafe({
-      from:    `"Keyify" <${process.env.EMAIL_USER}>`,
+      from:    process.env.EMAIL_FROM || `"Keyify" <${process.env.EMAIL_USER}>`,
       to:      user.email,
       subject: `Keyify – Reset lozinke (kod: ${resetCode})`,
       html,
@@ -2248,7 +2236,7 @@ app.post('/api/checkout/confirm', async (req, res) => {
   let emailSent = false;
   try {
     await sendMailSafe({
-      from:    `"Keyify" <${process.env.EMAIL_USER}>`,
+      from:    process.env.EMAIL_FROM || `"Keyify" <${process.env.EMAIL_USER}>`,
       to:      email,
       subject: `🔑 Keyify – Vaš ključ za ${escServerHtml(product_name || 'narudžbu')} · ${licenseKey}`,
       html:    receiptHTML,
