@@ -181,12 +181,19 @@ async function _sendViaGmailApi({ from, to, subject, html }) {
 
 /**
  * Universal mail sender.
- * • If EMAIL_PASS is set → Gmail SMTP (App Password, port 465)
+ * • If EMAIL_PASS is set → Gmail SMTP with App Password (simplest, no OAuth needed)
  * • Otherwise → Gmail REST API (OAuth2 – requires GOOGLE_* env vars)
  */
 async function sendMailSafe({ from, to, subject, html }) {
   if (process.env.EMAIL_PASS) {
-    await (await _getSmtpTransport()).sendMail({ from, to, subject, html });
+    const transport = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+    await transport.sendMail({ from, to, subject, html });
   } else {
     await _sendViaGmailApi({ from, to, subject, html });
   }
@@ -537,8 +544,8 @@ app.post('/api/login', authLimiter, async (req, res) => {
       html:    otpHTML,
     });
   } catch (emailErr) {
-    console.error('Email send failed:', emailErr.message);
-    // Don't block login if email fails – log and continue
+    console.error('Email send failed:', emailErr.message, emailErr.stack);
+    return res.status(500).json({ error: 'Greška pri slanju verifikacijskog koda. Pokušajte ponovo.' });
   }
 
   await supabase.from('audit_logs').insert({
