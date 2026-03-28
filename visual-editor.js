@@ -1389,6 +1389,8 @@
   const _SKIP_PARENTS = [
     '[data-kve-editor]', '[data-kve-field]', '[data-ck]',
     'footer', '.kve-draft-wrap', '.product-card', '.kve-overlay',
+    '#modal-overlay', '#user-detail-overlay', '#create-user-overlay',
+    '#guest-info-overlay', '.toast',
     // NOTE: 'nav' intentionally omitted — nav links/lists are handled as navlink/navlist types
   ];
 
@@ -1486,12 +1488,13 @@
   function _onSmartClick(e) {
     const el = e.target;
 
-    /* Never intercept editor-owned UI */
+    /* Never intercept editor-owned UI or admin modals */
     if (el.closest('[data-kve-editor]')) return;
     if (el.closest('.kve-overlay, #kve-block-library')) return;
     if (el.closest('nav') || el.closest('footer')) return;
     if (el.closest('[data-kve-field], [data-ck]')) return;
     if (el.closest('.kve-draft-wrap')) return;
+    if (el.closest('#modal-overlay, #user-detail-overlay, #create-user-overlay, #guest-info-overlay')) return;
 
     const type = el.dataset.kveSmart || _detectSmartType(el);
     if (!type) return;

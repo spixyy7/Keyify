@@ -1355,16 +1355,13 @@ app.post('/api/chat/start', async (req, res) => {
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     return res.status(400).json({ error: 'Unesite ispravnu email adresu' });
 
-  // Generate anonymous ID for guests without email
-  let anonId = null;
-  if (!userId && !email) {
-    anonId = '#' + require('crypto').randomBytes(3).toString('hex').toUpperCase();
-  }
+  // Anonymous guests get a random #XXXXXX code stored as guest_email
+  const finalEmail = email || (!userId ? '#' + crypto.randomBytes(3).toString('hex').toUpperCase() : null);
 
   const { data, error } = await supabase
     .from('chat_sessions')
-    .insert({ user_id: userId, guest_email: email, anon_id: anonId, status: 'new' })
-    .select('id, anon_id')
+    .insert({ user_id: userId, guest_email: finalEmail, status: 'new' })
+    .select('id, guest_email')
     .single();
 
   if (error) {
@@ -1374,7 +1371,8 @@ app.post('/api/chat/start', async (req, res) => {
       detail: process.env.NODE_ENV !== 'production' ? error.message : undefined,
     });
   }
-  return res.status(201).json({ session_id: data.id, anon_id: data.anon_id });
+  const isAnon = data.guest_email?.startsWith('#');
+  return res.status(201).json({ session_id: data.id, anon_id: isAnon ? data.guest_email : null });
 });
 
 /** GET /api/chat/messages/:sessionId – fetch messages for a session (public – UUID is unguessable) */
@@ -1389,7 +1387,7 @@ app.get('/api/chat/messages/:sessionId', async (req, res) => {
 
   const { data, error } = await supabase
     .from('chat_messages')
-    .select('id, sender, message, msg_type, created_at')
+    .select('id, sender, message, created_at')
     .eq('session_id', req.params.sessionId)
     .order('created_at', { ascending: true });
 
@@ -1444,17 +1442,33 @@ app.get('/api/admin/chat/sessions/new-count', authenticateToken, checkPermission
 /** GET /api/admin/chat/sessions – list chat sessions sorted by latest activity */
 app.get('/api/admin/chat/sessions', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
   const showClosed = req.query.closed === '1';
-  let query = supabase
-    .from('chat_sessions')
-    .select('id, user_id, guest_email, anon_id, status, created_at, last_message_at, last_message_preview, users(name, email)');
 
+  // Try with user join first; fall back to plain query if FK doesn't exist
+  let selectCols = 'id, user_id, guest_email, status, created_at, last_message_at, last_message_preview, users(name, email)';
+  let query = supabase.from('chat_sessions').select(selectCols);
   if (!showClosed) query = query.neq('status', 'closed');
 
-  const { data, error } = await query
+  let { data, error } = await query
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .order('created_at',      { ascending: false });
 
-  if (error) return res.status(500).json({ error: 'Greška' });
+  // If the join fails (no FK relationship), retry without it
+  if (error) {
+    console.error('[chat/sessions] Join query failed, retrying without join:', error.message);
+    selectCols = 'id, user_id, guest_email, status, created_at, last_message_at, last_message_preview';
+    let q2 = supabase.from('chat_sessions').select(selectCols);
+    if (!showClosed) q2 = q2.neq('status', 'closed');
+    const res2 = await q2
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .order('created_at',      { ascending: false });
+    data  = res2.data;
+    error = res2.error;
+  }
+
+  if (error) {
+    console.error('[chat/sessions] Supabase error:', JSON.stringify(error));
+    return res.status(500).json({ error: 'Greška', detail: error.message });
+  }
   return res.json(data || []);
 });
 
@@ -1462,7 +1476,7 @@ app.get('/api/admin/chat/sessions', authenticateToken, checkPermission('can_mana
 app.get('/api/admin/chat/sessions/:id/messages', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
   const { data, error } = await supabase
     .from('chat_messages')
-    .select('id, sender, message, msg_type, created_at')
+    .select('id, sender, message, created_at')
     .eq('session_id', req.params.id)
     .order('created_at', { ascending: true });
 
@@ -1534,8 +1548,8 @@ app.post('/api/admin/chat/sessions/:id/request-email', authenticateToken, checkP
 
   const { data, error } = await supabase
     .from('chat_messages')
-    .insert({ session_id: sid, sender: 'system', message: '__ask_email__', msg_type: 'ask_email' })
-    .select('id, sender, message, msg_type, created_at')
+    .insert({ session_id: sid, sender: 'system', message: '__ask_email__' })
+    .select('id, sender, message, created_at')
     .single();
 
   if (error) return res.status(500).json({ error: 'Greška' });
@@ -1567,7 +1581,7 @@ app.patch('/api/chat/sessions/:id/guest-email', async (req, res) => {
   // Insert confirmation message visible to both sides
   await supabase.from('chat_messages').insert({
     session_id: sid, sender: 'system',
-    message: trimmed, msg_type: 'email_received',
+    message: '__email_received__' + trimmed,
   });
 
   // Check if this email matches a registered user
@@ -1579,24 +1593,37 @@ app.patch('/api/chat/sessions/:id/guest-email', async (req, res) => {
 
 /** GET /api/admin/chat/sessions/:id/guest-info – lookup guest info by session */
 app.get('/api/admin/chat/sessions/:id/guest-info', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
-  const { data: session } = await supabase
+  // Try with join first, fall back without
+  let session;
+  const { data: s1 } = await supabase
     .from('chat_sessions')
-    .select('id, guest_email, anon_id, user_id, users(id, name, email, role, created_at)')
+    .select('id, guest_email, user_id, users(id, name, email, role, created_at)')
     .eq('id', req.params.id)
     .maybeSingle();
+  if (s1) {
+    session = s1;
+  } else {
+    const { data: s2 } = await supabase
+      .from('chat_sessions')
+      .select('id, guest_email, user_id')
+      .eq('id', req.params.id)
+      .maybeSingle();
+    session = s2;
+  }
   if (!session) return res.status(404).json({ error: 'Sesija nije pronađena' });
 
   let guestUser = null;
-  if (session.guest_email && !session.users) {
+  const realEmail = session.guest_email && !session.guest_email.startsWith('#') ? session.guest_email : null;
+  if (realEmail && !session.users) {
     const { data } = await supabase
       .from('users').select('id, name, email, role, created_at')
-      .eq('email', session.guest_email).maybeSingle();
+      .eq('email', realEmail).maybeSingle();
     guestUser = data;
   }
 
   return res.json({
-    anon_id: session.anon_id,
-    guest_email: session.guest_email,
+    anon_id: session.guest_email?.startsWith('#') ? session.guest_email : null,
+    guest_email: realEmail,
     registered_user: session.users || guestUser || null,
   });
 });

@@ -778,7 +778,7 @@
     body.querySelectorAll('[data-kfy-msg]').forEach(el => el.remove());
     messages.forEach(m => {
       // ── System: ask_email → inline email form ──
-      if (m.msg_type === 'ask_email') {
+      if (m.sender === 'system' && m.message === '__ask_email__') {
         const alreadyProvided = STORAGE.getEmail();
         const wrap = document.createElement('div');
         wrap.dataset.kfyMsg = '1';
@@ -799,11 +799,12 @@
         return;
       }
       // ── System: email_received → confirmation ──
-      if (m.msg_type === 'email_received') {
+      if (m.sender === 'system' && m.message.startsWith('__email_received__')) {
+        const receivedEmail = m.message.replace('__email_received__', '');
         const wrap = document.createElement('div');
         wrap.dataset.kfyMsg = '1';
         wrap.className = 'kfy-system-card';
-        wrap.innerHTML = `<div style="font-size:12px;color:#10b981;font-weight:600;">✓ Email poslan: ${m.message}</div>`;
+        wrap.innerHTML = `<div style="font-size:12px;color:#10b981;font-weight:600;">✓ Email poslan: ${receivedEmail}</div>`;
         body.appendChild(wrap);
         return;
       }
