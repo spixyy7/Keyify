@@ -244,6 +244,12 @@
     }
     .kfy-tab.active { color:var(--kfy-tab-active,#1D6AFF); border-bottom-color:var(--kfy-tab-active,#1D6AFF); background:rgba(29,106,255,.06); }
     .kfy-tab:hover:not(.active) { color:var(--kfy-tab-hover,#374151); }
+    .kfy-exit-btn {
+      margin-left:auto;padding:4px 10px;font-size:11px;font-weight:600;
+      border:1px solid rgba(239,68,68,0.3);border-radius:6px;background:transparent;
+      color:#ef4444;cursor:pointer;transition:all .15s;display:none;
+    }
+    .kfy-exit-btn:hover { background:rgba(239,68,68,0.08);border-color:#ef4444; }
 
     /* ── Agent row ── */
     .kfy-agent-row {
@@ -469,6 +475,7 @@
         <div class="kfy-tabs">
           <button class="kfy-tab active" id="kfy-tab-chat"     type="button" onclick="window._kfyTab('chat')">Razgovor</button>
           <button class="kfy-tab"        id="kfy-tab-articles" type="button" onclick="window._kfyTab('articles')">Članci</button>
+          <button class="kfy-exit-btn" id="kfy-exit-btn" type="button" onclick="window._kfyExitSession()">Izadji</button>
         </div>
       </div>
 
@@ -622,6 +629,7 @@
     gateBtn.textContent   = 'Pokretanje...';
     STORAGE.setEmail(val);
     _hideGate();
+    emailCard.style.display = 'none';
     try {
       await _startSession(val);
     } catch { /* _startSession handles its own errors */ }
@@ -632,6 +640,7 @@
   window._kfyGateSkip = async function () {
     _clearGateErr();
     _hideGate();
+    emailCard.style.display = 'none';
     await _startSession(null);
   };
 
@@ -643,26 +652,21 @@
      INIT STATE (called when window opens)
   ───────────────────────────────────────────────────────────── */
   function _initState() {
-    if (_starting) return;       // session creation already in progress
+    if (_starting) return;
     const sid   = STORAGE.getSessionId();
-    const email = STORAGE.getEmail();
     const token = STORAGE.getToken();
 
     if (sid) {
-      // Resume existing session
       _activateChat();
       _loadMessages(sid);
       _startPoll(sid);
-    } else if (email) {
-      // Previously entered email – auto-start session with it
-      _hideGate();
-      _startSession(email);
     } else if (token) {
-      // Logged-in user (no email needed – backend reads JWT)
+      // Logged-in user — skip gate entirely
       _hideGate();
+      emailCard.style.display = 'none';
       _startSession(null);
     } else {
-      // Guest – show the full-screen gate first
+      // Guest — always show the gate (email or skip)
       _showGate();
     }
   }
@@ -718,14 +722,12 @@
       _activateChat();
       _startPoll(data.session_id);
     } catch (err) {
-      // Show gate with server error message
-      _showGate();
       const msg = err.message || 'Greška servera. Pokušajte ponovo.';
-      if (gateErr) {
-        gateErr.textContent   = msg;
-        gateErr.style.display = 'block';
+      // Only show gate if chat isn't already active
+      if (inputRow.style.display !== 'flex') {
+        _showGate();
+        if (gateErr) { gateErr.textContent = msg; gateErr.style.display = 'block'; }
       }
-      _showEmailErr(msg);
     } finally {
       _starting = false;
     }
@@ -734,11 +736,14 @@
   /* ─────────────────────────────────────────────────────────────
      ACTIVATE CHAT UI (hide email card, show input row)
   ───────────────────────────────────────────────────────────── */
+  const exitBtn = document.getElementById('kfy-exit-btn');
+
   function _activateChat() {
     _hideGate();
     emailCard.style.display = 'none';
     inputRow.style.display  = 'flex';
     closedNotice.style.display = 'none';
+    if (exitBtn) exitBtn.style.display = 'block';
     setTimeout(() => msgInput && msgInput.focus(), 50);
   }
 
@@ -886,9 +891,32 @@
     body.scrollTop = body.scrollHeight;
   }
 
+  window._kfyExitSession = async function () {
+    const sid = STORAGE.getSessionId();
+    // Notify server — admin keeps the session and messages
+    if (sid) {
+      try {
+        await fetch(`${API()}/chat/sessions/${sid}/leave`, { method: 'POST' });
+      } catch {}
+    }
+    STORAGE.clearSession();
+    localStorage.removeItem('kfy_chat_email');
+    sessionStorage.removeItem('kfy_chat_anon');
+    _stopPoll();
+    inputRow.style.display     = 'none';
+    closedNotice.style.display = 'none';
+    if (exitBtn) exitBtn.style.display = 'none';
+    // Clear messages from UI only (server keeps them)
+    const body = document.getElementById('kfy-body');
+    body.querySelectorAll('.kfy-bubble:not(:first-child), .kfy-system-card').forEach(el => el.remove());
+    emailCard.style.display = '';
+    _showGate();
+  };
+
   function _showClosed() {
     inputRow.style.display     = 'none';
     closedNotice.style.display = 'block';
+    if (exitBtn) exitBtn.style.display = 'none';
     STORAGE.clearSession();
     _stopPoll();
 

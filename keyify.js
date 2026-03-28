@@ -442,13 +442,13 @@ const KEYIFY = (() => {
             Cijena uključuje sve poreze i naknade.
           </p>
           <!-- Checkout button -->
-          <a href="checkout.html"
+          <a href="cart.html"
              class="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-white text-sm font-bold transition-all hover:opacity-90 active:scale-[0.98]"
              style="background:linear-gradient(135deg,#1D6AFF,#A259FF); text-decoration:none;">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
               <path stroke-linecap="round" d="M5 13l4 4L19 7"/>
             </svg>
-            <span data-i18n="cart.checkout">Naruči</span>
+            <span data-i18n="cart.checkout">Pregled korpe</span>
           </a>
           <!-- Continue shopping -->
           <button onclick="KEYIFY.CART.close()"
@@ -521,6 +521,20 @@ const KEYIFY = (() => {
      EXTRACT PRODUCT DATA FROM A CARD DOM NODE
   ───────────────────────────────────────────────────────── */
   function _extractProduct(btn) {
+    /* ── Try data-product JSON first (set by category page renderers) ── */
+    const dp = btn.getAttribute('data-product');
+    if (dp) {
+      try {
+        const obj = JSON.parse(dp.replace(/&#39;/g, "'"));
+        if (obj && obj.name && obj.price) {
+          return { id: obj.id || obj.name.toLowerCase().replace(/[^a-z0-9]+/g,'-'),
+                   name: obj.name, price: parseFloat(obj.price),
+                   desc: obj.desc || '', color: obj.color || '#1D6AFF',
+                   imageUrl: obj.imageUrl || null };
+        }
+      } catch {}
+    }
+
     /* Walk up to find the product card wrapper */
     const card = btn.closest('.product-card') || btn.closest('[class*="product"]') || btn.parentElement?.parentElement;
     if (!card) return null;

@@ -2987,6 +2987,13 @@
           <div style="font-size:10px;opacity:.5;margin-top:4px">Sistem · ${fmtDate(m.created_at)}</div>
         </div>`;
       }
+      if (m.sender === 'system' && m.message === '__user_left__') {
+        return `<div data-kfy-msg="1" style="max-width:90%;padding:9px 13px;border-radius:12px;font-size:12px;line-height:1.45;
+                background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;align-self:center;text-align:center">
+          Korisnik je napustio sesiju
+          <div style="font-size:10px;opacity:.5;margin-top:4px">Sistem · ${fmtDate(m.created_at)}</div>
+        </div>`;
+      }
       if (m.sender === 'system' && m.message.startsWith('__email_received__')) {
         const receivedEmail = m.message.replace('__email_received__', '');
         return `<div data-kfy-msg="1" style="max-width:90%;padding:9px 13px;border-radius:12px;font-size:12px;line-height:1.45;

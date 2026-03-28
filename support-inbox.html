@@ -336,11 +336,24 @@
       box.innerHTML = '<div style="text-align:center;color:#505070;font-size:13px;padding:20px">Nema poruka.</div>';
       return;
     }
-    box.innerHTML = msgs.map(m => `
-      <div style="display:flex;flex-direction:column">
+    box.innerHTML = msgs.map(m => {
+      if (m.sender === 'system' && m.message === '__ask_email__') {
+        return `<div style="text-align:center;padding:8px;font-size:11px;color:#93c5fd;background:rgba(59,130,246,0.1);border-radius:10px;margin:4px 0">
+          📧 Zahtjev za email poslan · ${fmtFull(m.created_at)}</div>`;
+      }
+      if (m.sender === 'system' && m.message.startsWith('__email_received__')) {
+        return `<div style="text-align:center;padding:8px;font-size:11px;color:#6ee7b7;background:rgba(16,185,129,0.1);border-radius:10px;margin:4px 0">
+          ✓ Email: <strong>${escH(m.message.replace('__email_received__',''))}</strong> · ${fmtFull(m.created_at)}</div>`;
+      }
+      if (m.sender === 'system' && m.message === '__user_left__') {
+        return `<div style="text-align:center;padding:8px;font-size:11px;color:#fca5a5;background:rgba(239,68,68,0.1);border-radius:10px;margin:4px 0">
+          Korisnik je napustio sesiju · ${fmtFull(m.created_at)}</div>`;
+      }
+      return `<div style="display:flex;flex-direction:column">
         <div class="bubble ${m.sender === 'admin' ? 'admin' : 'user'}">${escH(m.message)}</div>
         <span style="font-size:10px;color:#505070;margin-top:3px;${m.sender==='admin'?'align-self:flex-end':'align-self:flex-start'}">${m.sender==='admin'?'Agent':'Korisnik'} · ${fmtFull(m.created_at)}</span>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     box.scrollTop = box.scrollHeight;
   }
 

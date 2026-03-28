@@ -1546,6 +1546,20 @@ app.post('/api/admin/chat/reply', authenticateToken, checkPermission('can_manage
   return res.json(data);
 });
 
+/** POST /api/chat/sessions/:id/leave – user leaves session (admin still sees it) */
+app.post('/api/chat/sessions/:id/leave', async (req, res) => {
+  const sid = req.params.id;
+  // Insert system message so admin knows the user left
+  await supabase.from('chat_messages').insert({
+    session_id: sid, sender: 'system', message: '__user_left__',
+  });
+  // Mark session as closed
+  await supabase.from('chat_sessions')
+    .update({ status: 'closed' })
+    .eq('id', sid);
+  return res.json({ ok: true });
+});
+
 /** PUT /api/admin/chat/sessions/:id/close – close a session */
 app.put('/api/admin/chat/sessions/:id/close', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
   const { error } = await supabase
