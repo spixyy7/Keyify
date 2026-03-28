@@ -1443,26 +1443,24 @@ app.get('/api/admin/chat/sessions/new-count', authenticateToken, checkPermission
 app.get('/api/admin/chat/sessions', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
   const showClosed = req.query.closed === '1';
 
-  // Try with user join first; fall back to plain query if FK doesn't exist
-  let selectCols = 'id, user_id, guest_email, status, created_at, last_message_at, last_message_preview, users(name, email)';
-  let query = supabase.from('chat_sessions').select(selectCols);
-  if (!showClosed) query = query.neq('status', 'closed');
+  // Try full select with join; progressively strip missing columns on failure
+  const attempts = [
+    { cols: 'id, user_id, guest_email, status, created_at, last_message_at, last_message_preview, users(name, email)', orderCol: 'last_message_at' },
+    { cols: 'id, user_id, guest_email, status, created_at, last_message_at, last_message_preview', orderCol: 'last_message_at' },
+    { cols: 'id, user_id, guest_email, status, created_at', orderCol: 'created_at' },
+  ];
 
-  let { data, error } = await query
-    .order('last_message_at', { ascending: false, nullsFirst: false })
-    .order('created_at',      { ascending: false });
-
-  // If the join fails (no FK relationship), retry without it
-  if (error) {
-    console.error('[chat/sessions] Join query failed, retrying without join:', error.message);
-    selectCols = 'id, user_id, guest_email, status, created_at, last_message_at, last_message_preview';
-    let q2 = supabase.from('chat_sessions').select(selectCols);
-    if (!showClosed) q2 = q2.neq('status', 'closed');
-    const res2 = await q2
-      .order('last_message_at', { ascending: false, nullsFirst: false })
-      .order('created_at',      { ascending: false });
-    data  = res2.data;
+  let data = null, error = null;
+  for (const att of attempts) {
+    let q = supabase.from('chat_sessions').select(att.cols);
+    if (!showClosed) q = q.neq('status', 'closed');
+    const res2 = await q
+      .order(att.orderCol, { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false });
+    data = res2.data;
     error = res2.error;
+    if (!error) break;
+    console.error('[chat/sessions] Query attempt failed:', error.message);
   }
 
   if (error) {
