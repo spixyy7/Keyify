@@ -51,38 +51,94 @@
 
   // ── Modal ─────────────────────────────────────────────────
 
+  function injectStyles() {
+    if (document.getElementById('sg-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'sg-styles';
+    style.textContent = `
+      @keyframes sg-backdrop-in {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      @keyframes sg-card-in {
+        from { opacity: 0; transform: translateY(20px) scale(0.97); }
+        to   { opacity: 1; transform: translateY(0)    scale(1);    }
+      }
+      @keyframes sg-ring {
+        from { stroke-dashoffset: 188; }
+        to   { stroke-dashoffset: 0;   }
+      }
+      #sg-modal.is-visible {
+        animation: sg-backdrop-in 0.25s ease both;
+      }
+      #sg-modal.is-visible #sg-card {
+        animation: sg-card-in 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
+      }
+      #sg-ring-track {
+        stroke-dasharray: 188;
+        stroke-dashoffset: 188;
+        transform-origin: center;
+        transform: rotate(-90deg);
+      }
+      #sg-stay:hover  { background: #1254d4 !important; }
+      #sg-logout:hover { background: #fef2f2 !important; }
+    `;
+    document.head.appendChild(style);
+  }
+
   function injectModal() {
     if (document.getElementById('sg-modal')) return;
+    injectStyles();
 
     const overlay = document.createElement('div');
     overlay.id = 'sg-modal';
-    overlay.style.cssText = [
-      'position:fixed;inset:0;z-index:99999',
-      'display:none;align-items:center;justify-content:center',
-      'background:rgba(0,0,0,0.7);backdrop-filter:blur(6px)',
-    ].join(';');
+    overlay.style.cssText =
+      'position:fixed;inset:0;z-index:99999;display:none;align-items:center;' +
+      'justify-content:center;background:rgba(15,23,42,0.55);backdrop-filter:blur(8px);' +
+      '-webkit-backdrop-filter:blur(8px);';
 
     overlay.innerHTML = `
-      <div style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);border-radius:16px;
-                  padding:32px 40px;max-width:400px;width:90%;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,0.6);">
-        <div style="font-size:2.5rem;margin-bottom:12px;">⏱️</div>
-        <h2 style="color:#f1f5f9;font-size:1.25rem;font-weight:700;margin:0 0 8px;">
-          Sesija ističe
-        </h2>
-        <p style="color:#94a3b8;font-size:0.9rem;margin:0 0 20px;">
-          Bit ćete automatski odjavljeni za <strong id="sg-countdown" style="color:#ef4444;">60</strong>s
-          zbog neaktivnosti.
+      <div id="sg-card" style="
+        background:#fff;
+        border:1px solid #e5e7eb;
+        border-radius:20px;
+        padding:36px 40px 32px;
+        max-width:400px;
+        width:90%;
+        text-align:center;
+        box-shadow:0 8px 40px rgba(15,23,42,0.14),0 1px 4px rgba(15,23,42,0.06);
+        font-family:'Inter',system-ui,sans-serif;
+      ">
+        <!-- countdown ring -->
+        <div style="position:relative;width:72px;height:72px;margin:0 auto 20px;">
+          <svg width="72" height="72" viewBox="0 0 72 72" style="position:absolute;inset:0;">
+            <circle cx="36" cy="36" r="30" fill="none" stroke="#f1f5f9" stroke-width="5"/>
+            <circle id="sg-ring-track" cx="36" cy="36" r="30" fill="none"
+                    stroke="#1D6AFF" stroke-width="5" stroke-linecap="round"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+            <span id="sg-countdown" style="font-family:'Poppins',sans-serif;font-size:1.2rem;font-weight:700;color:#1D6AFF;line-height:1;">60</span>
+          </div>
+        </div>
+
+        <h2 style="font-family:'Poppins',sans-serif;font-size:1.2rem;font-weight:700;
+                   color:#0f172a;margin:0 0 8px;">Sesija ističe</h2>
+        <p style="color:#64748b;font-size:0.875rem;line-height:1.6;margin:0 0 24px;">
+          Bit ćete automatski odjavljeni zbog neaktivnosti.<br>
+          Kliknite <strong style="color:#0f172a;">Ostani prijavljen</strong> da nastavite.
         </p>
-        <div style="display:flex;gap:12px;justify-content:center;">
-          <button id="sg-stay" style="background:#1d6aff;color:#fff;border:none;border-radius:10px;
-                  padding:10px 24px;font-size:0.9rem;font-weight:600;cursor:pointer;">
-            Ostani prijavljen
-          </button>
-          <button id="sg-logout" style="background:rgba(239,68,68,0.15);color:#ef4444;
-                  border:1px solid rgba(239,68,68,0.3);border-radius:10px;
-                  padding:10px 24px;font-size:0.9rem;font-weight:600;cursor:pointer;">
-            Odjavi se
-          </button>
+
+        <div style="display:flex;gap:10px;justify-content:center;">
+          <button id="sg-stay" style="
+            background:#1D6AFF;color:#fff;border:none;border-radius:10px;
+            padding:11px 26px;font-size:0.875rem;font-weight:600;cursor:pointer;
+            transition:background 0.15s;font-family:'Inter',sans-serif;
+          ">Ostani prijavljen</button>
+          <button id="sg-logout" style="
+            background:#fff;color:#ef4444;border:1px solid #fecaca;border-radius:10px;
+            padding:11px 26px;font-size:0.875rem;font-weight:600;cursor:pointer;
+            transition:background 0.15s;font-family:'Inter',sans-serif;
+          ">Odjavi se</button>
         </div>
       </div>`;
 
@@ -100,13 +156,31 @@
 
   function showModal() {
     const el = document.getElementById('sg-modal');
-    if (el) el.style.display = 'flex';
+    if (!el) return;
+    el.style.display = 'flex';
+    el.classList.add('is-visible');
+    // Animate ring over WARN_BEFORE_MS duration
+    const ring = document.getElementById('sg-ring-track');
+    if (ring) {
+      ring.style.transition = `stroke-dashoffset ${WARN_BEFORE_MS / 1000}s linear`;
+      // Force reflow before transitioning
+      void ring.offsetWidth;
+      ring.style.strokeDashoffset = '0';
+    }
   }
 
   function hideModal() {
     const el = document.getElementById('sg-modal');
-    if (el) el.style.display = 'none';
+    if (!el) return;
+    el.style.display = 'none';
+    el.classList.remove('is-visible');
     clearInterval(countdownInterval);
+    // Reset ring
+    const ring = document.getElementById('sg-ring-track');
+    if (ring) {
+      ring.style.transition = 'none';
+      ring.style.strokeDashoffset = '188';
+    }
   }
 
   // ── Timers ────────────────────────────────────────────────

@@ -1140,6 +1140,9 @@
     /* ── RESEND RESET CODE ── */
     async function resendResetCode() {
         if (resetResendCooldown) return;
+        const btn = document.getElementById('reset-resend-btn');
+        btn.textContent = 'Slanje...';
+        btn.disabled = true;
         try {
             await fetch(`${getApiBase()}/forgot-password`, {
                 method:  'POST',
@@ -1147,7 +1150,8 @@
                 body:    JSON.stringify({ email: resetEmail }),
             });
         } catch (_) {}
-        startResetResendCooldown(30);
+        btn.textContent = 'Poslano ✓';
+        setTimeout(() => startResetResendCooldown(30), 600);
         document.querySelectorAll('#reset-code-form .otp-box').forEach(b => b.value = '');
         document.getElementById('reset-code-error').classList.add('hidden');
     }
@@ -1235,8 +1239,11 @@
     /* ── RESEND OTP ── */
     async function resendOTP() {
         if (resendCooldown) return;
+        const btn      = document.getElementById('resend-btn');
         const email    = document.getElementById('otp-email-display').textContent;
         const password = document.getElementById('login-password').value;
+        btn.textContent = 'Slanje...';
+        btn.disabled = true;
         try {
             const res  = await fetch(`${getApiBase()}/login`, {
                 method:  'POST',
@@ -1246,10 +1253,13 @@
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
             pendingUserId = data.user_id;
-            startResendCooldown(30);
+            btn.textContent = 'Poslano ✓';
+            setTimeout(() => startResendCooldown(30), 600);
             document.querySelectorAll('.otp-box').forEach(b => b.value = '');
             document.getElementById('otp-error').classList.add('hidden');
         } catch (err) {
+            btn.textContent = 'Pošalji ponovo';
+            btn.disabled = false;
             showError('otp-error', err.message);
         }
     }
