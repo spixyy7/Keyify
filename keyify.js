@@ -589,6 +589,12 @@ const KEYIFY = (() => {
     const firstName = escHtml(name.split(' ')[0]);
     const initials  = name.split(' ').map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
 
+    /* ── Permissions (must be defined before use) ── */
+    const perms          = JSON.parse(localStorage.getItem('keyify_permissions') || '{}');
+    const isSuperAdmin   = role === 'admin' && Object.keys(perms).length === 0;
+    const isSupportAgent = role === 'admin' && (isSuperAdmin || perms.can_manage_support === true);
+    const canSQL         = role === 'admin' && (isSuperAdmin || perms.can_execute_sql === true);
+
     /* ── Inject one-time styles ── */
     if (!document.getElementById('kf-dd-style')) {
       const st = document.createElement('style');
@@ -630,11 +636,6 @@ const KEYIFY = (() => {
     const panel = document.createElement('div');
     panel.id = 'kf-dd-panel';
     panel.style.cssText = 'display:none;position:absolute;top:calc(100% + 10px);right:0;width:248px;background:var(--kf-dd-bg);border:1px solid var(--kf-dd-border);border-radius:var(--kf-dd-radius);box-shadow:var(--kf-dd-shadow);z-index:9999;overflow:hidden;animation:kf-dd-in .2s cubic-bezier(.34,1.56,.64,1);backdrop-filter:var(--kf-dd-blur);-webkit-backdrop-filter:var(--kf-dd-blur);';
-
-    const perms = JSON.parse(localStorage.getItem('keyify_permissions') || '{}');
-    const isSuperAdmin   = role === 'admin' && Object.keys(perms).length === 0;
-    const isSupportAgent = role === 'admin' && (isSuperAdmin || perms.can_manage_support === true);
-    const canSQL         = role === 'admin' && (isSuperAdmin || perms.can_execute_sql === true);
 
     const sqlItem = canSQL ? `
       <a href="admin.html" onclick="localStorage.setItem('kf_admin_goto','sql')" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:600;color:#a259ff;text-decoration:none;">

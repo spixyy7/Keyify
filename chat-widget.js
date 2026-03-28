@@ -26,8 +26,27 @@
     getSessionId: () => sessionStorage.getItem('kfy_chat_sid'),
     setSessionId: (id) => sessionStorage.setItem('kfy_chat_sid', id),
     clearSession: () => sessionStorage.removeItem('kfy_chat_sid'),
-    getEmail:     () => localStorage.getItem('kfy_chat_email'),
-    setEmail:     (e) => localStorage.setItem('kfy_chat_email', e),
+    getEmail: () => {
+      try {
+        const raw = localStorage.getItem('kfy_chat_email');
+        if (!raw) return null;
+        const { email, ts } = JSON.parse(raw);
+        // Expire after 10 minutes
+        if (Date.now() - ts > 10 * 60 * 1000) {
+          localStorage.removeItem('kfy_chat_email');
+          return null;
+        }
+        return email;
+      } catch {
+        // Legacy plain-string value — treat as expired, clear it
+        localStorage.removeItem('kfy_chat_email');
+        return null;
+      }
+    },
+    setEmail: (e) => localStorage.setItem(
+      'kfy_chat_email',
+      JSON.stringify({ email: e, ts: Date.now() })
+    ),
     getToken:     () => localStorage.getItem('kfy_token') || sessionStorage.getItem('kfy_token'),
   };
 

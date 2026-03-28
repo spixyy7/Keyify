@@ -23,3 +23,9 @@ window.KEYIFY_CONFIG = {
     return isLocal ? 'http://localhost:3001/api' : this.API_URL;
   },
 };
+
+// ── Stripe Publishable Key ───────────────────────────────────────────────
+// Set this to your Stripe pk_live_... or pk_test_... key.
+// Only the publishable key is safe to expose in frontend code.
+// Leave as null to hide card payment option.
+window.KEYIFY_STRIPE_PK = null; // e.g. 'pk_live_...' or 'pk_test_...'

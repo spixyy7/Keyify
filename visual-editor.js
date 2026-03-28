@@ -498,6 +498,21 @@
       .kve-draft-cancel { background: rgba(255,255,255,0.07); color: #9090b8; }
       .kve-draft-save:hover, .kve-draft-cancel:hover { opacity: .82; }
       .kve-draft-save:disabled { opacity: .5; cursor: not-allowed; }
+      .kve-draft-img-zone { display: flex; flex-direction: column; gap: 6px; }
+      .kve-draft-img-row { display: flex; gap: 6px; align-items: center; }
+      .kve-draft-img-row input[type="url"] { flex: 1; }
+      .kve-draft-img-upload-btn {
+        padding: 8px 12px; border-radius: 9px; font-size: 12px; font-weight: 600;
+        cursor: pointer; border: 1px solid rgba(255,255,255,0.15);
+        background: rgba(255,255,255,0.06); color: #9090b8;
+        font-family: 'Inter', sans-serif; transition: all .15s; white-space: nowrap;
+      }
+      .kve-draft-img-upload-btn:hover { background: rgba(29,106,255,0.15); border-color: #1D6AFF; color: #fff; }
+      .kve-draft-img-upload-btn.uploading { opacity: .6; cursor: not-allowed; }
+      .kve-draft-img-thumb {
+        width: 100%; height: 80px; border-radius: 9px; object-fit: cover;
+        border: 1px solid rgba(255,255,255,0.1); display: none;
+      }
 
       /* ── [data-ck] content fields ──────────────── */
       [data-ck] {
@@ -786,7 +801,14 @@
           ${CATEGORIES.map(c => `<option value="${esc(c.value)}"${c.value === currentCat ? ' selected' : ''}>${c.label}</option>`).join('')}
         </select>
       </div>
-      <input type="url" class="kve-draft-img" placeholder="URL slike (opciono)"/>
+      <div class="kve-draft-img-zone">
+        <div class="kve-draft-img-row">
+          <input type="url" class="kve-draft-img" placeholder="URL slike (opciono)"/>
+          <button type="button" class="kve-draft-img-upload-btn">📁 Upload</button>
+          <input type="file" class="kve-draft-img-file" accept="image/*" style="display:none">
+        </div>
+        <img class="kve-draft-img-thumb" alt="preview"/>
+      </div>
       <div class="kve-draft-actions">
         <button class="kve-draft-save">✓ Sačuvaj</button>
         <button class="kve-draft-cancel">✕ Otkaži</button>
@@ -795,6 +817,48 @@
     grid.insertBefore(wrap, addWrap);
     wrap.querySelector('.kve-draft-save').addEventListener('click', () => submitDraftCard(wrap));
     wrap.querySelector('.kve-draft-cancel').addEventListener('click', () => wrap.remove());
+
+    /* ── Image upload wiring ── */
+    const uploadBtn  = wrap.querySelector('.kve-draft-img-upload-btn');
+    const fileInput  = wrap.querySelector('.kve-draft-img-file');
+    const urlInput   = wrap.querySelector('.kve-draft-img');
+    const thumb      = wrap.querySelector('.kve-draft-img-thumb');
+
+    uploadBtn.addEventListener('click', () => fileInput.click());
+
+    /* Show preview when URL is typed */
+    urlInput.addEventListener('input', () => {
+      const v = urlInput.value.trim();
+      if (v) { thumb.src = v; thumb.style.display = 'block'; }
+      else    { thumb.style.display = 'none'; }
+    });
+
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      uploadBtn.textContent = '⏳'; uploadBtn.classList.add('uploading'); uploadBtn.disabled = true;
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch(`${API}/admin/upload-asset`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
+        });
+        if (!res.ok) throw new Error((await res.json()).error || 'Upload greška');
+        const { url } = await res.json();
+        urlInput.value = url;
+        thumb.src = url; thumb.style.display = 'block';
+        uploadBtn.textContent = '✓';
+        setTimeout(() => { uploadBtn.textContent = '📁 Upload'; }, 2000);
+      } catch (err) {
+        uploadBtn.textContent = '✗ Greška';
+        setTimeout(() => { uploadBtn.textContent = '📁 Upload'; }, 2500);
+      } finally {
+        uploadBtn.classList.remove('uploading'); uploadBtn.disabled = false;
+      }
+    });
+
     setTimeout(() => wrap.querySelector('.kve-draft-name').focus(), 50);
   }
 
@@ -1427,6 +1491,7 @@
     if (el.closest('.kve-overlay, #kve-block-library')) return;
     if (el.closest('nav') || el.closest('footer')) return;
     if (el.closest('[data-kve-field], [data-ck]')) return;
+    if (el.closest('.kve-draft-wrap')) return;
 
     const type = el.dataset.kveSmart || _detectSmartType(el);
     if (!type) return;

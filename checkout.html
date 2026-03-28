@@ -6,6 +6,7 @@
   <title>Keyify – Blagajna</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="https://js.stripe.com/v3/"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -407,6 +408,15 @@
       });
     }
 
+    /* Stripe Card – trenutno nije dostupno */
+    methods.unshift({
+      id: 'stripe_coming_soon',
+      icon: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#9ca3af" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="3"/><path stroke-linecap="round" d="M2 10h20"/></svg>`,
+      label: 'Kreditna / debitna kartica',
+      sub: 'Uskoro dostupno',
+      disabled: true,
+    });
+
     /* Fallback if no settings configured */
     if (!methods.length) {
       container.innerHTML = `
@@ -417,7 +427,18 @@
       return;
     }
 
-    container.innerHTML = methods.map(m => `
+    container.innerHTML = methods.map(m => m.disabled ? `
+      <div class="method-card border-2 rounded-2xl p-4 flex items-center gap-3 select-none"
+           style="border-color:#e5e7eb;background:#f9fafb;opacity:0.65;cursor:not-allowed" data-method="${m.id}">
+        <div class="method-radio" style="border-color:#d1d5db"></div>
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+             style="background:#f3f4f6">${m.icon}</div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold text-gray-400">${escHtml(m.label)}</p>
+          <p class="text-xs text-gray-400 mt-0.5">${escHtml(m.sub)}</p>
+        </div>
+        <span style="font-size:10px;font-weight:700;background:#f3f4f6;color:#9ca3af;padding:3px 8px;border-radius:20px;letter-spacing:.04em">USKORO</span>
+      </div>` : `
       <div class="method-card border-2 border-gray-200 rounded-2xl p-4 cursor-pointer flex items-center gap-3 hover:border-blue-300 transition-all select-none"
            onclick="selectPaymentMethod('${m.id}')" data-method="${m.id}">
         <div class="method-radio"></div>
@@ -452,6 +473,21 @@
     const items    = cartData.map(i => `${i.name} (x${i.qty||1})`).join(', ');
 
     let html = `<p class="text-sm font-semibold text-blue-900 mb-3">Detalji za plaćanje:</p>`;
+
+    if (id === 'stripe_card') {
+      html += `
+        <p class="text-sm text-gray-600 mb-3">Unesite podatke vaše kartice. Plaćanje je sigurno i enkriptovano putem <strong class="text-blue-700">Stripe</strong>.</p>
+        <div id="stripe-element-container" class="bg-white rounded-xl p-4 border border-blue-200 min-h-[60px]">
+          <div id="stripe-payment-element"></div>
+          <div id="stripe-errors" class="mt-2 text-xs text-red-600 hidden"></div>
+        </div>
+        <div class="flex items-center gap-1.5 mt-2">
+          <svg class="w-3.5 h-3.5 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+          <span class="text-xs text-gray-400">Podaci kartice su enkriptovani i nikada ne prolaze kroz naše servere (TLS + Stripe PCI DSS Level 1)</span>
+        </div>`;
+      // Mount Stripe Elements after DOM settles
+      requestAnimationFrame(() => mountStripeElement());
+    }
 
     if (id === 'paypal' && paymentSettings.paypal_email) {
       html += `
@@ -516,6 +552,12 @@
     if (!email) { shakeField('buyer-email'); alert('Unesite email adresu.'); return; }
     if (!/\S+@\S+\.\S+/.test(email)) { shakeField('buyer-email'); alert('Nevažeća email adresa.'); return; }
     if (!selectedMethod) { alert('Izaberite način plaćanja.'); return; }
+
+    // Stripe nije dostupno
+    if (selectedMethod === 'stripe_card' || selectedMethod === 'stripe_coming_soon') {
+      alert('Plaćanje karticom trenutno nije dostupno. Molimo odaberite drugu metodu plaćanja.');
+      return;
+    }
 
     const btn = document.getElementById('place-order-btn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Obradom…'; }
@@ -631,6 +673,152 @@
     } else {
       document.getElementById('promo-discount-row')?.remove();
       if (totalEl) totalEl.textContent = fmt(subtotal);
+    }
+  }
+
+  /* ── STRIPE CARD FLOW ── */
+  let _stripeInstance = null;
+  let _stripeElements = null;
+  let _paymentElement = null;
+
+  function mountStripeElement() {
+    const pk = document.getElementById('checkout-root')?.dataset?.stripeKey
+      || window.KEYIFY_STRIPE_PK;
+    if (!pk || typeof Stripe === 'undefined') return;
+
+    // Unmount previous instance if any
+    if (_paymentElement) { try { _paymentElement.unmount(); } catch {} }
+    _stripeInstance = Stripe(pk);
+
+    const cart     = JSON.parse(localStorage.getItem('keyify_cart') || '[]');
+    const subtotal = cart.reduce((s, i) => s + i.price * (i.qty || 1), 0);
+    const discount = appliedPromo
+      ? (appliedPromo.discount_type === 'percent'
+          ? subtotal * (appliedPromo.discount_value / 100)
+          : appliedPromo.discount_value)
+      : 0;
+    const amountCents = Math.round(Math.max(0, subtotal - discount) * 100);
+
+    if (amountCents < 50) {
+      const el = document.getElementById('stripe-errors');
+      if (el) { el.textContent = 'Minimalni iznos za kartičarsko plaćanje je €0.50.'; el.classList.remove('hidden'); }
+      return;
+    }
+
+    // Create a temporary elements instance with amount for display
+    _stripeElements = _stripeInstance.elements({
+      mode:     'payment',
+      amount:   amountCents,
+      currency: 'eur',
+      appearance: {
+        theme: 'stripe',
+        variables: {
+          colorPrimary:       '#1D6AFF',
+          colorBackground:    '#ffffff',
+          colorText:          '#1f2937',
+          colorDanger:        '#ef4444',
+          fontFamily:         '"Inter", system-ui, sans-serif',
+          borderRadius:       '10px',
+          spacingUnit:        '4px',
+        },
+      },
+    });
+    _paymentElement = _stripeElements.create('payment');
+    _paymentElement.mount('#stripe-payment-element');
+  }
+
+  async function placeStripeOrder(email) {
+    const btn = document.getElementById('place-order-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Obradom…'; }
+
+    const errEl = document.getElementById('stripe-errors');
+    if (errEl) errEl.classList.add('hidden');
+
+    const cart     = JSON.parse(localStorage.getItem('keyify_cart') || '[]');
+    const subtotal = cart.reduce((s, i) => s + i.price * (i.qty || 1), 0);
+    const discount = appliedPromo
+      ? (appliedPromo.discount_type === 'percent'
+          ? subtotal * (appliedPromo.discount_value / 100)
+          : appliedPromo.discount_value)
+      : 0;
+    const total      = Math.max(0, subtotal - discount);
+    const amountCents = Math.round(total * 100);
+    const firstItem  = cart[0] || {};
+    const productName = cart.map(i => i.name || i.title).filter(Boolean).join(', ') || 'Digitalni proizvod';
+    const token      = localStorage.getItem('keyify_token') || null;
+
+    try {
+      // 1. Create Stripe Invoice on backend → get client_secret
+      const invoiceRes = await fetch(`${API_BASE}/stripe/create-invoice`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          email,
+          name:         localStorage.getItem('keyify_name') || undefined,
+          product_id:   firstItem.id   || undefined,
+          product_name: productName,
+          amount_cents: amountCents,
+          currency:     'eur',
+        }),
+      });
+      const invoiceData = await invoiceRes.json();
+      if (!invoiceRes.ok) throw new Error(invoiceData.error || 'Greška pri kreiranju računa');
+
+      // 2. Confirm payment with Stripe.js using returned client_secret
+      const { error: stripeErr } = await _stripeInstance.confirmPayment({
+        elements:      _stripeElements,
+        clientSecret:  invoiceData.client_secret,
+        redirect:      'if_required',
+        confirmParams: {
+          return_url: window.location.origin + '/purchase-success.html',
+          receipt_email: email,
+        },
+      });
+
+      if (stripeErr) {
+        if (errEl) { errEl.textContent = stripeErr.message; errEl.classList.remove('hidden'); }
+        if (btn) { btn.disabled = false; btn.textContent = 'Potvrdi narudžbu'; }
+        return;
+      }
+
+      // 3. Success — also call checkout/confirm to generate license key
+      const confirmRes = await fetch(`${API_BASE}/checkout/confirm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          guest_email:    email,
+          product_id:     firstItem.id || null,
+          product_name:   productName,
+          amount:         total,
+          payment_method: 'stripe_card',
+          tx_reference:   invoiceData.invoice_id,
+        }),
+      });
+      const confirmData = await confirmRes.json();
+
+      sessionStorage.setItem('kfy_last_order', JSON.stringify({
+        transaction_id: confirmData.transaction_id,
+        license_key:    confirmData.license_key,
+        product_name:   productName,
+        product_image:  confirmData.product_image || firstItem.image || firstItem.image_url || null,
+        amount:         total,
+        order_date:     new Date().toISOString(),
+        email_sent_to:  email,
+        stripe_invoice_url: invoiceData.invoice_url || null,
+      }));
+
+      KEYIFY.CART.clear();
+      window.location.href = 'purchase-success.html';
+
+    } catch (err) {
+      if (errEl) { errEl.textContent = err.message; errEl.classList.remove('hidden'); }
+      if (btn) { btn.disabled = false; btn.textContent = 'Potvrdi narudžbu'; }
     }
   }
 

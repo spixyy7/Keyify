@@ -28,6 +28,7 @@ const multer      = require('multer');
 const nodemailer  = require('nodemailer');
 const { google }  = require('googleapis');
 const { createClient } = require('@supabase/supabase-js');
+const Stripe           = require('stripe');
 
 /* ─────────────────────────────────────────
    Supabase client (service-role key – never expose to frontend)
@@ -56,6 +57,102 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
+/* ─────────────────────────────────────────
+   STRIPE – init (graceful if key missing)
+   Env: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+───────────────────────────────────────── */
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? Stripe(process.env.STRIPE_SECRET_KEY)
+  : null;
+
+/* ─────────────────────────────────────────
+   STRIPE WEBHOOK  –  MUST be registered BEFORE express.json()
+   so we receive the raw body that Stripe needs for signature verification.
+
+   Supabase table – run once in SQL editor:
+   ┌──────────────────────────────────────────────────────────────────────┐
+   │ CREATE TABLE IF NOT EXISTS invoices (                                │
+   │   id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),│
+   │   stripe_invoice_id        TEXT UNIQUE NOT NULL,                    │
+   │   stripe_payment_intent_id TEXT,                                    │
+   │   stripe_customer_id       TEXT,                                    │
+   │   user_id    UUID REFERENCES users(id) ON DELETE SET NULL,          │
+   │   customer_name            TEXT,                                    │
+   │   customer_email_enc       TEXT NOT NULL,   -- AES-256-CBC           │
+   │   product_id UUID REFERENCES products(id) ON DELETE SET NULL,       │
+   │   product_name             TEXT,                                    │
+   │   amount_cents             INTEGER NOT NULL,                        │
+   │   currency                 TEXT DEFAULT 'eur',                      │
+   │   status      TEXT DEFAULT 'draft',                                 │
+   │   payment_method_type      TEXT,                                    │
+   │   stripe_invoice_url       TEXT,                                    │
+   │   stripe_invoice_pdf       TEXT,                                    │
+   │   ip_address_enc           TEXT,            -- AES-256-CBC           │
+   │   created_at               TIMESTAMPTZ DEFAULT now(),               │
+   │   paid_at                  TIMESTAMPTZ                              │
+   │ );                                                                  │
+   │ CREATE INDEX ON invoices (status);                                  │
+   │ CREATE INDEX ON invoices (created_at DESC);                         │
+   └──────────────────────────────────────────────────────────────────────┘
+───────────────────────────────────────── */
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: 'Stripe nije konfigurisan' });
+
+  const sig = req.headers['stripe-signature'];
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    console.error('[stripe/webhook] Signature error:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  try {
+    if (event.type === 'invoice.paid') {
+      const inv = event.data.object;
+      const piId = typeof inv.payment_intent === 'string'
+        ? inv.payment_intent : inv.payment_intent?.id;
+
+      await supabase.from('invoices').update({
+        status:              'paid',
+        paid_at:             new Date().toISOString(),
+        stripe_invoice_pdf:  inv.invoice_pdf  || null,
+        stripe_invoice_url:  inv.hosted_invoice_url || null,
+      }).eq('stripe_invoice_id', inv.id);
+
+      if (piId) {
+        await supabase.from('invoices').update({ stripe_payment_intent_id: piId })
+          .eq('stripe_invoice_id', inv.id);
+      }
+    }
+
+    if (event.type === 'payment_intent.succeeded') {
+      const pi = event.data.object;
+      const pmType = pi.payment_method_types?.[0] || 'card';
+      await supabase.from('invoices')
+        .update({ payment_method_type: pmType })
+        .eq('stripe_payment_intent_id', pi.id);
+    }
+
+    if (event.type === 'invoice.payment_failed') {
+      const inv = event.data.object;
+      await supabase.from('invoices').update({ status: 'failed' })
+        .eq('stripe_invoice_id', inv.id);
+    }
+
+    if (event.type === 'invoice.voided') {
+      const inv = event.data.object;
+      await supabase.from('invoices').update({ status: 'void' })
+        .eq('stripe_invoice_id', inv.id);
+    }
+  } catch (dbErr) {
+    console.error('[stripe/webhook] DB error:', dbErr.message);
+  }
+
+  return res.json({ received: true });
+});
+
 app.use(express.json());
 
 // Trust proxy for correct IP behind Render/Railway/Nginx
@@ -627,7 +724,7 @@ app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) =>
   const [usersRes, txRes, logsRes] = await Promise.all([
     supabase
       .from('users')
-      .select('id, name, email, role, registered_ip, created_at, is_verified')
+      .select('id, name, email, role, rank, permissions, registered_ip, created_at, is_verified')
       .order('created_at', { ascending: false }),
 
     supabase
@@ -1055,22 +1152,28 @@ app.patch('/api/products/layout', authenticateToken, checkPermission('manage_pro
    ADMIN: Create user + manage permissions
 ───────────────────────────────────────── */
 
+// Valid ranks (hierarchy order)
+const VALID_RANKS = ['user', 'support', 'moderator', 'admin', 'super_admin'];
+
 /** POST /api/admin/users/create */
 app.post('/api/admin/users/create', authenticateToken, checkPermission('manage_users'), async (req, res) => {
-  const { name, email, password, permissions = {} } = req.body;
+  const { name, email, password, permissions = {}, rank = 'user' } = req.body;
   if (!name || !email || !password)
     return res.status(400).json({ error: 'Ime, email i lozinka su obavezni' });
   if (password.length < 8)
     return res.status(400).json({ error: 'Lozinka mora imati min. 8 karaktera' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     return res.status(400).json({ error: 'Nevažeći email' });
+  if (!VALID_RANKS.includes(rank))
+    return res.status(400).json({ error: 'Nevažeći rank' });
 
   const { data: existing } = await supabase
     .from('users').select('id').eq('email', email.toLowerCase()).maybeSingle();
   if (existing) return res.status(409).json({ error: 'Email već postoji' });
 
+  // role: admin if rank is admin/super_admin or has any permission, else user
   const hasAnyPerm = Object.values(permissions).some(v => v === true);
-  const role = hasAnyPerm ? 'admin' : 'user';
+  const role = (rank === 'admin' || rank === 'super_admin' || hasAnyPerm) ? 'admin' : 'user';
 
   const password_hash = await bcrypt.hash(password, 12);
   const { data, error } = await supabase
@@ -1080,12 +1183,13 @@ app.post('/api/admin/users/create', authenticateToken, checkPermission('manage_u
       email:         email.toLowerCase().trim(),
       password_hash,
       role,
+      rank,
       permissions,
       is_verified:   true,
       registered_ip: getClientIP(req),
       created_at:    new Date().toISOString(),
     })
-    .select('id, name, email, role, permissions, created_at')
+    .select('id, name, email, role, rank, permissions, created_at')
     .single();
 
   if (error) return res.status(500).json({ error: 'Greška pri kreiranju korisnika' });
@@ -1094,26 +1198,28 @@ app.post('/api/admin/users/create', authenticateToken, checkPermission('manage_u
 
 /** PATCH /api/admin/users/:id/permissions */
 app.patch('/api/admin/users/:id/permissions', authenticateToken, checkPermission('manage_users'), async (req, res) => {
-  const { id }          = req.params;
-  const { permissions } = req.body;
+  const { id } = req.params;
+  const { permissions, rank } = req.body;
+
   if (typeof permissions !== 'object' || permissions === null)
     return res.status(400).json({ error: 'permissions object required' });
+  if (rank !== undefined && !VALID_RANKS.includes(rank))
+    return res.status(400).json({ error: 'Nevažeći rank' });
 
-  // Determine role: if any permission is true → 'admin', else keep existing role
   const { data: user } = await supabase
-    .from('users').select('role').eq('id', id).maybeSingle();
+    .from('users').select('role, rank').eq('id', id).maybeSingle();
   if (!user) return res.status(404).json({ error: 'Korisnik nije pronađen' });
 
-  const hasAnyPerm = Object.values(permissions).some(v => v === true);
-  const newRole = hasAnyPerm ? 'admin' : (user.role === 'admin' ? 'user' : user.role);
+  const resolvedRank = rank !== undefined ? rank : (user.rank || 'user');
+  const hasAnyPerm   = Object.values(permissions).some(v => v === true);
+  const newRole      = (resolvedRank === 'admin' || resolvedRank === 'super_admin' || hasAnyPerm)
+    ? 'admin' : 'user';
 
-  const { error } = await supabase
-    .from('users')
-    .update({ permissions, role: newRole })
-    .eq('id', id);
+  const updates = { permissions, role: newRole, rank: resolvedRank };
 
+  const { error } = await supabase.from('users').update(updates).eq('id', id);
   if (error) return res.status(500).json({ error: 'Greška pri ažuriranju dozvola' });
-  return res.json({ message: 'Dozvole ažurirane', role: newRole });
+  return res.json({ message: 'Dozvole i rank ažurirani', role: newRole, rank: resolvedRank });
 });
 
 /* ─────────────────────────────────────────
@@ -2061,7 +2167,10 @@ app.get('/api/admin/transaction-logs', authenticateToken, requireAdmin, async (r
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
-  if (error) return res.status(500).json({ error: 'Greška' });
+  if (error) {
+    console.error('[transaction-logs] Supabase error:', error);
+    return res.status(500).json({ error: error.message || 'Greška pri čitanju logova' });
+  }
 
   const decrypted = (data || []).map(row => ({
     id:             row.id,
@@ -2129,18 +2238,20 @@ app.post('/api/checkout/confirm', async (req, res) => {
   }
 
   // 2. Save transaction record (includes license_key + buyer_email for guest retrieval)
+  const ip = getClientIP(req);
   const { data: tx, error: txErr } = await supabase
     .from('transactions')
     .insert({
-      user_id:        userId,
-      product_id:     product_id || null,
-      product_name:   product_name || null,
-      amount:         parsedAmount,
-      payment_method: payment_method || 'manual',
-      status:         'completed',
-      tx_reference:   tx_reference || null,
-      license_key:    licenseKey,
-      buyer_email:    email,
+      user_id:          userId,
+      product_id:       product_id || null,
+      product_name:     product_name || null,
+      amount:           parsedAmount,
+      payment_method:   payment_method || 'manual',
+      status:           'completed',
+      tx_reference:     tx_reference || null,
+      license_key:      licenseKey,
+      buyer_email:      email,
+      ip_address_enc:   encryptField(ip),
     })
     .select('id')
     .single();
@@ -2242,6 +2353,7 @@ app.post('/api/checkout/confirm', async (req, res) => {
       html:    receiptHTML,
     });
     emailSent = true;
+
   } catch (emailErr) {
     console.error('[checkout/confirm] email error:', emailErr.message);
   }
@@ -2423,6 +2535,349 @@ app.get('/api/pages/:slug', async (req, res) => {
   if (!data) return res.status(404).json({ error: 'Stranica nije pronađena' });
 
   return res.json({ slug, html: data.html, updated_at: data.updated_at });
+});
+
+/* ─────────────────────────────────────────
+   ADMIN – ALL TRANSACTIONS (sve metode plaćanja)
+   Supabase migration (run once):
+   ALTER TABLE transactions ADD COLUMN IF NOT EXISTS ip_address_enc TEXT;
+───────────────────────────────────────── */
+
+/** GET /api/admin/transactions/count – total transaction count for badge */
+app.get('/api/admin/transactions/count', authenticateToken, checkPermission('can_view_invoices'), async (req, res) => {
+  const { count, error } = await supabase
+    .from('transactions')
+    .select('id', { count: 'exact', head: true });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ count: count || 0 });
+});
+
+/** GET /api/admin/transactions – paginated, all payment methods */
+app.get('/api/admin/transactions', authenticateToken, checkPermission('can_view_invoices'), async (req, res) => {
+  const page   = Math.max(1, parseInt(req.query.page)  || 1);
+  const limit  = Math.min(100, parseInt(req.query.limit) || 25);
+  const offset = (page - 1) * limit;
+  const status = req.query.status || null;
+  const method = req.query.method || null;
+
+  let query = supabase
+    .from('transactions')
+    .select('id, user_id, product_name, amount, payment_method, status, tx_reference, license_key, buyer_email, ip_address_enc, created_at, users(name, email)', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (status) query = query.eq('status', status);
+  if (method) query = query.eq('payment_method', method);
+
+  const { data, error, count } = await query;
+  if (error) {
+    console.error('[admin/transactions]', error.message);
+    return res.status(500).json({ error: 'Greška pri dohvatanju transakcija' });
+  }
+
+  const transactions = (data || []).map(row => ({
+    id:             row.id,
+    customer_name:  row.users?.name  || null,
+    customer_email: row.buyer_email  || row.users?.email || null,
+    product_name:   row.product_name,
+    amount:         row.amount,
+    payment_method: row.payment_method,
+    status:         row.status,
+    tx_reference:   row.tx_reference,
+    license_key:    row.license_key,
+    ip_address:     row.ip_address_enc ? decryptField(row.ip_address_enc) : null,
+    created_at:     row.created_at,
+  }));
+
+  return res.json({ transactions, total: count, page, limit });
+});
+
+/** GET /api/admin/receipt/:id – printable HTML receipt, admin only */
+app.get('/api/admin/receipt/:id', authenticateToken, requireAdmin, async (req, res) => {
+  const { data: row, error } = await supabase
+    .from('transactions')
+    .select('*, users(name, email)')
+    .eq('id', req.params.id)
+    .maybeSingle();
+
+  if (error || !row) return res.status(404).send('<h2>Transakcija nije pronađena</h2>');
+
+  const buyerEmail = row.buyer_email || row.users?.email || '—';
+  const buyerName  = row.users?.name || buyerEmail.split('@')[0];
+  const amount     = parseFloat(row.amount || 0).toFixed(2);
+  const date       = new Date(row.created_at).toLocaleString('sr-RS', { dateStyle:'long', timeStyle:'short' });
+  const pm         = escServerHtml(row.payment_method || '—');
+  const esc        = escServerHtml;
+
+  const html = `<!DOCTYPE html>
+<html lang="bs">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Račun – ${esc(row.product_name || 'Narudžba')}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700;800&display=swap');
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'Inter',sans-serif; background:#f4f6f9; color:#1f2937; padding:32px 16px; }
+    .card { max-width:560px; margin:0 auto; background:#fff; border-radius:20px; overflow:hidden;
+            border:1px solid #e5e7eb; box-shadow:0 4px 24px rgba(0,0,0,0.08); }
+    .header { background:linear-gradient(135deg,#1D6AFF 0%,#A259FF 100%); padding:30px 36px; text-align:center; }
+    .header h1 { color:#fff; font-family:'Poppins',sans-serif; font-size:22px; font-weight:800; margin-bottom:4px; }
+    .header p  { color:rgba(255,255,255,0.75); font-size:13px; }
+    .body { padding:28px 36px; }
+    .key-box { background:linear-gradient(135deg,#f0f4ff,#faf5ff); border:2px solid #A259FF;
+               border-radius:14px; padding:20px; text-align:center; margin-bottom:24px; }
+    .key-box .lbl { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#7c3aed; margin-bottom:8px; }
+    .key-box .key { font-size:20px; font-weight:800; letter-spacing:4px; color:#1D6AFF;
+                    font-family:'Courier New',monospace; word-break:break-all; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    td { padding:10px 0; border-bottom:1px solid #f3f4f6; }
+    td:first-child { color:#6b7280; width:160px; }
+    td:last-child { font-weight:600; text-align:right; }
+    .amount { color:#1D6AFF; font-size:16px; font-weight:800; }
+    .footer { background:#f9fafb; border-top:1px solid #e5e7eb; padding:16px 36px; text-align:center;
+              font-size:11px; color:#9ca3af; }
+    .badge { display:inline-block; padding:3px 12px; border-radius:20px; font-size:11px; font-weight:700;
+             background:rgba(74,222,128,0.15); color:#16a34a; }
+    @media print {
+      body { background:#fff; padding:0; }
+      .card { box-shadow:none; border:none; }
+      .no-print { display:none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print" style="max-width:560px;margin:0 auto 16px;display:flex;gap:10px;justify-content:flex-end">
+    <button onclick="window.print()" style="background:#1D6AFF;color:#fff;border:none;border-radius:10px;
+            padding:10px 22px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">
+      🖨️ Štampaj / Spremi PDF
+    </button>
+    <button onclick="window.close()" style="background:#f3f4f6;color:#374151;border:none;border-radius:10px;
+            padding:10px 22px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">
+      Zatvori
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="header">
+      <div style="font-size:40px;margin-bottom:10px">🔑</div>
+      <h1>Račun / Potvrda narudžbe</h1>
+      <p>Keyify · Digitalna tržnica</p>
+    </div>
+
+    <div class="body">
+      <div class="key-box">
+        <div class="lbl">Licencni ključ</div>
+        <div class="key">${esc(row.license_key || '—')}</div>
+      </div>
+
+      <table>
+        <tr>
+          <td>Kupac</td>
+          <td>${esc(buyerName)} &lt;${esc(buyerEmail)}&gt;</td>
+        </tr>
+        <tr>
+          <td>Proizvod</td>
+          <td>${esc(row.product_name || '—')}</td>
+        </tr>
+        <tr>
+          <td>Iznos</td>
+          <td class="amount">€ ${amount}</td>
+        </tr>
+        <tr>
+          <td>Metoda plaćanja</td>
+          <td>${pm}</td>
+        </tr>
+        <tr>
+          <td>Datum</td>
+          <td>${date}</td>
+        </tr>
+        <tr>
+          <td>Status</td>
+          <td><span class="badge">${esc(row.status || 'completed')}</span></td>
+        </tr>
+        <tr>
+          <td>ID transakcije</td>
+          <td style="font-family:'Courier New',monospace;font-size:11px;color:#9ca3af">${esc(row.id)}</td>
+        </tr>
+        ${row.tx_reference ? `<tr>
+          <td>Referenca</td>
+          <td style="font-family:'Courier New',monospace;font-size:11px;color:#9ca3af">${esc(row.tx_reference)}</td>
+        </tr>` : ''}
+      </table>
+    </div>
+
+    <div class="footer">
+      © ${new Date().getFullYear()} Keyify · Račun generiran ${new Date().toLocaleString('sr-RS')}
+    </div>
+  </div>
+</body>
+</html>`;
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.send(html);
+});
+
+/* ─────────────────────────────────────────
+   STRIPE INVOICE ROUTES
+───────────────────────────────────────── */
+
+/**
+ * POST /api/stripe/create-invoice
+ * Body: { email, name?, product_id?, product_name, amount_cents, currency? }
+ * Optional Bearer JWT (identifies logged-in user).
+ * Creates a Stripe Customer → Invoice → finalizes → returns client_secret.
+ */
+const stripeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Previše zahtjeva za plaćanje. Pokušajte za 15 minuta.' },
+});
+
+app.post('/api/stripe/create-invoice', stripeLimiter, async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: 'Stripe nije konfigurisan na ovom serveru.' });
+
+  const {
+    email, name,
+    product_id, product_name,
+    amount_cents,
+    currency = 'eur',
+  } = req.body;
+
+  // Validation
+  if (!email || !product_name || !amount_cents)
+    return res.status(400).json({ error: 'email, product_name i amount_cents su obavezni' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return res.status(400).json({ error: 'Nevažeća email adresa' });
+  if (!Number.isInteger(amount_cents) || amount_cents < 50)
+    return res.status(400).json({ error: 'Iznos mora biti cijeli broj (centi) i minimum 50' });
+
+  const ip = getClientIP(req);
+
+  // Identify logged-in user if token present
+  let userId = null;
+  const jwtToken = req.headers['authorization']?.split(' ')[1];
+  if (jwtToken) {
+    try { userId = jwt.verify(jwtToken, process.env.JWT_SECRET).id; } catch {}
+  }
+
+  try {
+    // 1. Find or create Stripe Customer
+    const existing = await stripe.customers.list({ email: email.toLowerCase(), limit: 1 });
+    const customer = existing.data.length > 0
+      ? existing.data[0]
+      : await stripe.customers.create({
+          email: email.toLowerCase(),
+          name:  name || undefined,
+          metadata: { keyify_user_id: userId || '' },
+        });
+
+    // 2. Create draft Invoice
+    const draftInvoice = await stripe.invoices.create({
+      customer:            customer.id,
+      collection_method:   'charge_automatically',
+      currency,
+      description:         `Keyify – ${product_name}`,
+      metadata: {
+        product_id:   product_id || '',
+        product_name,
+        user_id:      userId || '',
+        ip:           ip,
+      },
+    });
+
+    // 3. Attach line item
+    await stripe.invoiceItems.create({
+      customer:    customer.id,
+      invoice:     draftInvoice.id,
+      description: product_name,
+      amount:      amount_cents,
+      currency,
+    });
+
+    // 4. Finalize → creates PaymentIntent automatically
+    const inv = await stripe.invoices.finalizeInvoice(draftInvoice.id);
+    const piId = typeof inv.payment_intent === 'string'
+      ? inv.payment_intent
+      : inv.payment_intent?.id;
+
+    // 5. Persist to DB (email + IP encrypted)
+    await supabase.from('invoices').insert({
+      stripe_invoice_id:        inv.id,
+      stripe_payment_intent_id: piId || null,
+      stripe_customer_id:       customer.id,
+      user_id:                  userId,
+      customer_name:            name || null,
+      customer_email_enc:       encryptField(email.toLowerCase()),
+      product_id:               product_id || null,
+      product_name,
+      amount_cents,
+      currency,
+      status:                   inv.status || 'open',
+      stripe_invoice_url:       inv.hosted_invoice_url || null,
+      stripe_invoice_pdf:       inv.invoice_pdf || null,
+      ip_address_enc:           encryptField(ip),
+    });
+
+    // 6. Fetch client_secret from the PaymentIntent
+    const pi = await stripe.paymentIntents.retrieve(piId);
+
+    return res.json({
+      client_secret: pi.client_secret,
+      invoice_id:    inv.id,
+      invoice_url:   inv.hosted_invoice_url,
+    });
+  } catch (err) {
+    console.error('[stripe/create-invoice] Error:', err.message);
+    return res.status(500).json({ error: 'Greška pri kreiranju računa: ' + err.message });
+  }
+});
+
+/* ─────────────────────────────────────────
+   ADMIN – All Invoices (Stripe)
+   Strictly requires admin role + permission.
+   Decrypts email + IP before sending to client.
+───────────────────────────────────────── */
+
+/** GET /api/admin/invoices  – paginated, optional ?status= filter */
+app.get('/api/admin/invoices', authenticateToken, checkPermission('can_view_invoices'), async (req, res) => {
+  const page   = Math.max(1, parseInt(req.query.page)  || 1);
+  const limit  = Math.min(100, parseInt(req.query.limit) || 25);
+  const offset = (page - 1) * limit;
+  const status = req.query.status || null;
+
+  let query = supabase
+    .from('invoices')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (status) query = query.eq('status', status);
+
+  const { data, error, count } = await query;
+  if (error) {
+    console.error('[admin/invoices]', error.message);
+    return res.status(500).json({ error: 'Greška pri dohvatanju računa' });
+  }
+
+  const invoices = (data || []).map(row => ({
+    id:                      row.id,
+    stripe_invoice_id:       row.stripe_invoice_id,
+    customer_name:           row.customer_name,
+    customer_email:          decryptField(row.customer_email_enc),
+    product_name:            row.product_name,
+    amount_cents:            row.amount_cents,
+    currency:                row.currency,
+    status:                  row.status,
+    payment_method_type:     row.payment_method_type,
+    stripe_invoice_url:      row.stripe_invoice_url,
+    stripe_invoice_pdf:      row.stripe_invoice_pdf,
+    ip_address:              decryptField(row.ip_address_enc),
+    created_at:              row.created_at,
+    paid_at:                 row.paid_at,
+  }));
+
+  return res.json({ invoices, total: count, page, limit });
 });
 
 /* ─────────────────────────────────────────
