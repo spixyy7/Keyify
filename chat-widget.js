@@ -52,9 +52,11 @@
     getToken:  () => localStorage.getItem('keyify_token') || sessionStorage.getItem('keyify_token'),
   };
 
-  let _pollInterval = null;
-  let _lastMsgCount = 0;
-  let _open         = false;
+  let _pollInterval  = null;
+  let _queuePoll     = null;
+  let _lastMsgCount  = 0;
+  let _open          = false;
+  let _adminInfo     = null;  // { name, avatar_url } when admin accepts
 
   /* ─────────────────────────────────────────────────────────────
      INJECT STYLES
@@ -410,6 +412,42 @@
     .kfy-closed-err { color:#ef4444;font-size:11px;margin-top:6px; }
     .kfy-articles-tab { padding:24px;font-size:13px;color:var(--kfy-articles-color,#9ca3af);text-align:center;background:var(--kfy-articles-bg,#f9fafb); }
 
+    /* ── Queue indicator ── */
+    @keyframes kfyQueuePulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%     { opacity:.7; transform:scale(1.02); }
+    }
+    .kfy-queue-indicator {
+      display:flex;align-items:center;gap:8px;
+      padding:8px 14px;margin:0;
+      background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(251,191,36,0.08));
+      border-bottom:1px solid rgba(245,158,11,0.18);
+      font-size:12px;color:#d97706;font-weight:600;
+      animation:kfyQueuePulse 2.4s ease-in-out infinite;
+      flex-shrink:0;
+    }
+    .kfy-queue-indicator .kfy-queue-dot {
+      width:8px;height:8px;border-radius:50%;background:#f59e0b;
+      box-shadow:0 0 6px rgba(245,158,11,0.6);flex-shrink:0;
+    }
+
+    /* ── Message row with avatar ── */
+    .kfy-msg-row {
+      display:flex;align-items:flex-end;gap:8px;
+    }
+    .kfy-msg-row.user-row {
+      flex-direction:row-reverse;
+    }
+    .kfy-msg-avatar {
+      width:28px;height:28px;min-width:28px;border-radius:50%;
+      object-fit:cover;flex-shrink:0;
+      border:1.5px solid var(--kfy-avatar-bdr,rgba(0,0,0,0.06));
+    }
+    .kfy-msg-avatar.kfy-logo-avatar {
+      background:linear-gradient(135deg,#1D6AFF,#A259FF);
+      display:flex;align-items:center;justify-content:center;
+    }
+
     @media (max-width:420px) {
       #kfy-chat-win { width:calc(100vw - 20px) !important; right:10px !important; bottom:84px !important; }
       #kfy-fab      { right:14px !important; bottom:16px !important; }
@@ -497,10 +535,21 @@
       <!-- ── CHAT PANEL ── -->
       <div id="kfy-panel-chat" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
 
+        <!-- Queue position indicator (hidden by default) -->
+        <div class="kfy-queue-indicator" id="kfy-queue-indicator" style="display:none;">
+          <span class="kfy-queue-dot"></span>
+          <span id="kfy-queue-text">Trenutno ste 1 u redu čekanja.</span>
+        </div>
+
         <!-- Scrollable message area -->
         <div class="kfy-body" id="kfy-body">
-          <!-- Welcome bubble (static, never removed) -->
-          <div class="kfy-bubble bot">Kako Vam možemo pomoći sa Keyify? 👋</div>
+          <!-- Welcome bubble with avatar (static, never removed) -->
+          <div class="kfy-msg-row">
+            <div class="kfy-msg-avatar kfy-logo-avatar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            </div>
+            <div class="kfy-bubble bot">Kako Vam možemo pomoći sa Keyify? 👋</div>
+          </div>
 
           <!-- Email capture card -->
           <div class="kfy-email-card" id="kfy-email-card">
@@ -721,6 +770,10 @@
       if (data.anon_id) STORAGE.setAnonId(data.anon_id);
       _activateChat();
       _startPoll(data.session_id);
+      // Show queue indicator and start polling position
+      const qi = document.getElementById('kfy-queue-indicator');
+      if (qi) qi.style.display = 'flex';
+      _startQueuePoll(data.session_id);
     } catch (err) {
       const msg = err.message || 'Greška servera. Pokušajte ponovo.';
       // Only show gate if chat isn't already active
@@ -792,13 +845,56 @@
     if (_pollInterval) { clearInterval(_pollInterval); _pollInterval = null; }
   }
 
+  function _startQueuePoll(sid) {
+    _stopQueuePoll();
+    _fetchQueuePosition(sid);
+    _queuePoll = setInterval(() => _fetchQueuePosition(sid), 4000);
+  }
+
+  function _stopQueuePoll() {
+    if (_queuePoll) { clearInterval(_queuePoll); _queuePoll = null; }
+  }
+
+  async function _fetchQueuePosition(sid) {
+    try {
+      const res = await fetch(`${API()}/chat/queue-position/${sid}`);
+      if (!res.ok) return;
+      const { position, status } = await res.json();
+      const qi = document.getElementById('kfy-queue-indicator');
+      const qt = document.getElementById('kfy-queue-text');
+      if (!qi || !qt) return;
+
+      if (status !== 'pending') {
+        qi.style.display = 'none';
+        _stopQueuePoll();
+        return;
+      }
+      qi.style.display = 'flex';
+      qt.textContent = `Trenutno ste ${position}. u redu čekanja.`;
+    } catch {}
+  }
+
   async function _loadMessages(sid) {
     try {
       const res = await fetch(`${API()}/chat/messages/${sid}`);
       if (!res.ok) return;
-      const { messages, session_status } = await res.json();
+      const { messages, session_status, admin_info } = await res.json();
 
-      if (session_status === 'closed') { _showClosed(); _stopPoll(); return; }
+      // Track admin info for avatar rendering
+      if (admin_info) _adminInfo = admin_info;
+
+      if (session_status === 'closed') { _showClosed(); _stopPoll(); _stopQueuePoll(); return; }
+
+      // Manage queue indicator
+      const qi = document.getElementById('kfy-queue-indicator');
+      if (session_status === 'active' && qi) {
+        qi.style.display = 'none';
+        _stopQueuePoll();
+      } else if (session_status === 'pending' && qi && qi.style.display === 'none') {
+        qi.style.display = 'flex';
+        _startQueuePoll(sid);
+      }
+
       if (messages.length !== _lastMsgCount) {
         _lastMsgCount = messages.length;
         _renderMessages(messages);
@@ -810,9 +906,46 @@
      RENDER MESSAGES
      Uses data-kfy-msg to distinguish dynamic from static DOM.
   ───────────────────────────────────────────────────────────── */
+  function _makeAvatar(sender) {
+    if (sender === 'admin' && _adminInfo?.avatar_url) {
+      const img = document.createElement('img');
+      img.className = 'kfy-msg-avatar';
+      img.src = _adminInfo.avatar_url;
+      img.alt = _adminInfo.name || 'Agent';
+      return img;
+    }
+    // Keyify logo avatar (for bot/system/default)
+    const div = document.createElement('div');
+    div.className = 'kfy-msg-avatar kfy-logo-avatar';
+    div.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>';
+    return div;
+  }
+
   function _renderMessages(messages) {
     body.querySelectorAll('[data-kfy-msg]').forEach(el => el.remove());
     messages.forEach(m => {
+      // ── System: agent_joined ──
+      if (m.sender === 'system' && m.message.startsWith('__agent_joined__')) {
+        const agentName = m.message.replace('__agent_joined__', '');
+        const wrap = document.createElement('div');
+        wrap.dataset.kfyMsg = '1';
+        wrap.className = 'kfy-system-card';
+        wrap.innerHTML = `<div style="font-size:12px;color:#10b981;font-weight:600;">✓ ${agentName} se pridružio/la razgovoru</div>`;
+        body.appendChild(wrap);
+        // Hide queue indicator when agent joins
+        const qi = document.getElementById('kfy-queue-indicator');
+        if (qi) qi.style.display = 'none';
+        return;
+      }
+      // ── System: chat_declined ──
+      if (m.sender === 'system' && m.message === '__chat_declined__') {
+        const wrap = document.createElement('div');
+        wrap.dataset.kfyMsg = '1';
+        wrap.className = 'kfy-system-card';
+        wrap.innerHTML = '<div style="font-size:12px;color:#ef4444;font-weight:600;">Sesija je odbijena. Pokušajte ponovo kasnije.</div>';
+        body.appendChild(wrap);
+        return;
+      }
       // ── System: ask_email → inline email form ──
       if (m.sender === 'system' && m.message === '__ask_email__') {
         const alreadyProvided = STORAGE.getEmail();
@@ -844,12 +977,22 @@
         body.appendChild(wrap);
         return;
       }
+      // ── System: user_left ──
+      if (m.sender === 'system' && m.message === '__user_left__') return;
 
-      const div = document.createElement('div');
-      div.className       = `kfy-bubble ${m.sender === 'admin' ? 'admin' : 'user'}`;
-      div.textContent     = m.message;
-      div.dataset.kfyMsg  = '1';
-      body.appendChild(div);
+      // ── Regular message with avatar ──
+      const row = document.createElement('div');
+      row.className = `kfy-msg-row ${m.sender === 'user' ? 'user-row' : ''}`;
+      row.dataset.kfyMsg = '1';
+
+      const avatar = _makeAvatar(m.sender === 'admin' ? 'admin' : 'bot');
+      const bubble = document.createElement('div');
+      bubble.className = `kfy-bubble ${m.sender === 'admin' ? 'admin' : 'user'}`;
+      bubble.textContent = m.message;
+
+      row.appendChild(avatar);
+      row.appendChild(bubble);
+      body.appendChild(row);
     });
     body.scrollTop = body.scrollHeight;
   }
@@ -883,11 +1026,18 @@
   };
 
   function _appendBubble(sender, text) {
-    const div = document.createElement('div');
-    div.className      = `kfy-bubble ${sender}`;
-    div.textContent    = text;
-    div.dataset.kfyMsg = '1';
-    body.appendChild(div);
+    const row = document.createElement('div');
+    row.className = `kfy-msg-row ${sender === 'user' ? 'user-row' : ''}`;
+    row.dataset.kfyMsg = '1';
+
+    const avatar = _makeAvatar(sender === 'admin' ? 'admin' : sender === 'user' ? 'bot' : 'bot');
+    const bubble = document.createElement('div');
+    bubble.className = `kfy-bubble ${sender}`;
+    bubble.textContent = text;
+
+    row.appendChild(avatar);
+    row.appendChild(bubble);
+    body.appendChild(row);
     body.scrollTop = body.scrollHeight;
   }
 
@@ -903,6 +1053,10 @@
     localStorage.removeItem('kfy_chat_email');
     sessionStorage.removeItem('kfy_chat_anon');
     _stopPoll();
+    _stopQueuePoll();
+    _adminInfo = null;
+    const qi = document.getElementById('kfy-queue-indicator');
+    if (qi) qi.style.display = 'none';
     inputRow.style.display     = 'none';
     closedNotice.style.display = 'none';
     if (exitBtn) exitBtn.style.display = 'none';
@@ -919,6 +1073,10 @@
     if (exitBtn) exitBtn.style.display = 'none';
     STORAGE.clearSession();
     _stopPoll();
+    _stopQueuePoll();
+    _adminInfo = null;
+    const qi = document.getElementById('kfy-queue-indicator');
+    if (qi) qi.style.display = 'none';
 
     const isLoggedIn = !!STORAGE.getToken();
 

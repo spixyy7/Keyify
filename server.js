@@ -1381,7 +1381,7 @@ app.post('/api/chat/start', async (req, res) => {
 
   const { data, error } = await supabase
     .from('chat_sessions')
-    .insert({ user_id: userId, guest_email: finalEmail, status: 'new' })
+    .insert({ user_id: userId, guest_email: finalEmail, status: 'pending' })
     .select('id, guest_email')
     .single();
 
@@ -1400,11 +1400,22 @@ app.post('/api/chat/start', async (req, res) => {
 app.get('/api/chat/messages/:sessionId', async (req, res) => {
   const { data: session } = await supabase
     .from('chat_sessions')
-    .select('id, status')
+    .select('id, status, admin_id')
     .eq('id', req.params.sessionId)
     .maybeSingle();
 
   if (!session) return res.status(404).json({ error: 'Sesija nije pronađena' });
+
+  // Fetch assigned admin info (avatar + name) if session is active
+  let admin_info = null;
+  if (session.admin_id) {
+    const { data: adminUser } = await supabase
+      .from('users')
+      .select('name, avatar_url')
+      .eq('id', session.admin_id)
+      .maybeSingle();
+    if (adminUser) admin_info = adminUser;
+  }
 
   const { data, error } = await supabase
     .from('chat_messages')
@@ -1413,7 +1424,7 @@ app.get('/api/chat/messages/:sessionId', async (req, res) => {
     .order('created_at', { ascending: true });
 
   if (error) return res.status(500).json({ error: 'Greška' });
-  return res.json({ messages: data || [], session_status: session.status });
+  return res.json({ messages: data || [], session_status: session.status, admin_info });
 });
 
 /** POST /api/chat/message – user sends a message (resets session status to 'new') */
@@ -1440,9 +1451,11 @@ app.post('/api/chat/message', async (req, res) => {
 
   if (error) return res.status(500).json({ error: 'Greška pri slanju poruke' });
 
-  // Reset session status to 'new' so agents see the unread indicator
+  // If session is active (admin assigned), keep it active but update preview.
+  // If pending, keep pending. Never revert closed sessions.
+  const newStatus = session.status === 'active' ? 'active' : 'pending';
   await supabase.from('chat_sessions').update({
-    status:               'new',
+    status:               newStatus,
     last_message_at:      data.created_at,
     last_message_preview: message.trim().substring(0, 120),
   }).eq('id', session_id).neq('status', 'closed');
@@ -1450,12 +1463,12 @@ app.post('/api/chat/message', async (req, res) => {
   return res.status(201).json(data);
 });
 
-/** GET /api/admin/chat/sessions/new-count – count of sessions with status 'new' */
+/** GET /api/admin/chat/sessions/new-count – count of pending sessions in queue */
 app.get('/api/admin/chat/sessions/new-count', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
   const { count, error } = await supabase
     .from('chat_sessions')
     .select('id', { count: 'exact', head: true })
-    .eq('status', 'new');
+    .eq('status', 'pending');
   if (error) return res.status(500).json({ error: 'Greška' });
   return res.json({ count: count || 0 });
 });
@@ -1503,13 +1516,8 @@ app.get('/api/admin/chat/sessions/:id/messages', authenticateToken, checkPermiss
   return res.json(data || []);
 });
 
-/** PATCH /api/admin/chat/sessions/:id/read – mark session as 'seen' (only if currently 'new') */
+/** PATCH /api/admin/chat/sessions/:id/read – mark session as seen (no-op in queue model, kept for compat) */
 app.patch('/api/admin/chat/sessions/:id/read', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
-  await supabase
-    .from('chat_sessions')
-    .update({ status: 'seen' })
-    .eq('id', req.params.id)
-    .eq('status', 'new');
   return res.json({ ok: true });
 });
 
@@ -1536,9 +1544,9 @@ app.post('/api/admin/chat/reply', authenticateToken, checkPermission('can_manage
 
   if (error) return res.status(500).json({ error: 'Greška pri slanju odgovora' });
 
-  // Mark session as answered + update preview
+  // Keep session active + update preview
   await supabase.from('chat_sessions').update({
-    status:               'answered',
+    status:               'active',
     last_message_at:      data.created_at,
     last_message_preview: `Agent: ${message.trim().substring(0, 100)}`,
   }).eq('id', session_id);
@@ -1569,6 +1577,106 @@ app.put('/api/admin/chat/sessions/:id/close', authenticateToken, checkPermission
 
   if (error) return res.status(500).json({ error: 'Greška' });
   return res.json({ message: 'Sesija zatvorena' });
+});
+
+/** POST /api/admin/chat/sessions/:id/accept – admin accepts a pending chat */
+app.post('/api/admin/chat/sessions/:id/accept', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  const sid = req.params.id;
+  const adminId = req.user.id;
+
+  const { data: session } = await supabase
+    .from('chat_sessions')
+    .select('id, status')
+    .eq('id', sid)
+    .maybeSingle();
+
+  if (!session) return res.status(404).json({ error: 'Sesija nije pronađena' });
+  if (session.status !== 'pending') return res.status(400).json({ error: 'Sesija više nije u redu čekanja' });
+
+  // Fetch admin info for the response
+  const { data: adminUser } = await supabase
+    .from('users')
+    .select('name, avatar_url')
+    .eq('id', adminId)
+    .maybeSingle();
+
+  const { error } = await supabase
+    .from('chat_sessions')
+    .update({
+      status: 'active',
+      admin_id: adminId,
+      accepted_at: new Date().toISOString(),
+    })
+    .eq('id', sid);
+
+  if (error) return res.status(500).json({ error: 'Greška pri preuzimanju chata' });
+
+  // Insert system message so user knows an agent joined
+  const agentName = adminUser?.name || 'Agent';
+  await supabase.from('chat_messages').insert({
+    session_id: sid,
+    sender: 'system',
+    message: `__agent_joined__${agentName}`,
+  });
+
+  return res.json({
+    ok: true,
+    admin_info: { name: agentName, avatar_url: adminUser?.avatar_url || null },
+  });
+});
+
+/** POST /api/admin/chat/sessions/:id/decline – admin declines a pending chat */
+app.post('/api/admin/chat/sessions/:id/decline', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  const sid = req.params.id;
+
+  const { data: session } = await supabase
+    .from('chat_sessions')
+    .select('id, status')
+    .eq('id', sid)
+    .maybeSingle();
+
+  if (!session) return res.status(404).json({ error: 'Sesija nije pronađena' });
+  if (session.status !== 'pending') return res.status(400).json({ error: 'Sesija više nije u redu čekanja' });
+
+  const { error } = await supabase
+    .from('chat_sessions')
+    .update({ status: 'closed' })
+    .eq('id', sid);
+
+  if (error) return res.status(500).json({ error: 'Greška' });
+
+  // Notify user the session was declined
+  await supabase.from('chat_messages').insert({
+    session_id: sid,
+    sender: 'system',
+    message: '__chat_declined__',
+  });
+
+  return res.json({ ok: true });
+});
+
+/** GET /api/chat/queue-position/:sessionId – get user's position in queue */
+app.get('/api/chat/queue-position/:sessionId', async (req, res) => {
+  const sid = req.params.sessionId;
+
+  const { data: session } = await supabase
+    .from('chat_sessions')
+    .select('id, status, created_at')
+    .eq('id', sid)
+    .maybeSingle();
+
+  if (!session) return res.status(404).json({ error: 'Sesija nije pronađena' });
+  if (session.status !== 'pending') return res.json({ position: 0, status: session.status });
+
+  // Count how many pending sessions were created before this one
+  const { count, error } = await supabase
+    .from('chat_sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pending')
+    .lte('created_at', session.created_at);
+
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json({ position: count || 1, status: 'pending' });
 });
 
 /** POST /api/admin/chat/sessions/:id/request-email – admin asks guest for email (system message) */

@@ -30,10 +30,16 @@
 
     /* Status badge */
     .status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px}
-    .status-dot.new{background:#ef4444;box-shadow:0 0 6px #ef4444}
-    .status-dot.seen{background:#f59e0b;box-shadow:0 0 6px #f59e0b}
-    .status-dot.answered{background:#10b981;box-shadow:0 0 6px #10b981}
+    .status-dot.pending{background:#ef4444;box-shadow:0 0 6px #ef4444}
+    .status-dot.active{background:#10b981;box-shadow:0 0 6px #10b981}
     .status-dot.closed{background:#4b5563}
+
+    /* Accept / Decline buttons */
+    .queue-action-row{display:flex;gap:6px;margin-top:6px}
+    .queue-accept-btn{padding:4px 12px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:600;background:rgba(16,185,129,0.18);color:#10b981;transition:background .15s}
+    .queue-accept-btn:hover{background:rgba(16,185,129,0.3)}
+    .queue-decline-btn{padding:4px 12px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:600;background:rgba(239,68,68,0.15);color:#f87171;transition:background .15s}
+    .queue-decline-btn:hover{background:rgba(239,68,68,0.25)}
 
     /* Chat bubble */
     .bubble{max-width:78%;padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.5;word-break:break-word}
@@ -74,8 +80,9 @@
       </div>
     </div>
     <div class="flex items-center gap-2" id="hdr-filters">
-      <button class="ftab active" data-filter="active" onclick="setFilter('active',this)">Aktivni</button>
-      <button class="ftab"        data-filter="closed" onclick="setFilter('closed',this)">Zatvoreni</button>
+      <button class="ftab active" data-filter="pending" onclick="setFilter('pending',this)">Red čekanja</button>
+      <button class="ftab"        data-filter="active"  onclick="setFilter('active',this)">Aktivni</button>
+      <button class="ftab"        data-filter="closed"  onclick="setFilter('closed',this)">Zatvoreni</button>
     </div>
   </div>
 </header>
@@ -173,19 +180,18 @@
   let _queuePoll       = null;
   let _msgPoll         = null;
   let _lastMsgCount    = 0;
-  let _currentFilter   = 'active';
+  let _currentFilter   = 'pending';
   let _searchQuery     = '';
 
   /* ── STATUS HELPERS ─────────────────────────────────────────── */
   function statusDot(s)   { return `<span class="status-dot ${s}"></span>`; }
   function statusLabel(s) {
-    return { new:'🔴 Novo', seen:'🟡 Viđeno', answered:'🟢 Odgovoreno', closed:'⚫ Zatvoreno' }[s] || s;
+    return { pending:'🔴 Čeka', active:'🟢 Aktivan', closed:'⚫ Zatvoren' }[s] || s;
   }
   function statusBadgeStyle(s) {
     const m = {
-      new:      'background:rgba(239,68,68,0.2);color:#f87171',
-      seen:     'background:rgba(245,158,11,0.2);color:#fbbf24',
-      answered: 'background:rgba(16,185,129,0.2);color:#10b981',
+      pending:  'background:rgba(239,68,68,0.2);color:#f87171',
+      active:   'background:rgba(16,185,129,0.2);color:#10b981',
       closed:   'background:rgba(255,255,255,0.06);color:#707090',
     };
     return m[s] || '';
@@ -206,11 +212,15 @@
 
   /* ── QUEUE LOAD & RENDER ────────────────────────────────────── */
   async function loadQueue() {
-    const closed = _currentFilter === 'closed' ? '?closed=1' : '';
+    const qs = _currentFilter === 'closed' ? '?closed=1' : '';
     try {
-      const r = await fetch(`${API()}/admin/chat/sessions${closed}`, { headers: HDRS() });
+      const r = await fetch(`${API()}/admin/chat/sessions${qs}`, { headers: HDRS() });
       if (!r.ok) return;
-      _sessions = await r.json();
+      let all = await r.json();
+      // Client-side filter by tab
+      if (_currentFilter === 'pending') all = all.filter(s => s.status === 'pending');
+      else if (_currentFilter === 'active') all = all.filter(s => s.status === 'active');
+      _sessions = all;
       renderQueue();
       updateHeaderBadge();
     } catch {}
@@ -237,23 +247,31 @@
       const preview = s.last_message_preview || 'Sesija pokrenuta';
       const time    = fmtTime(s.last_message_at || s.created_at);
       const active  = s.id === _activeId ? ' active' : '';
+      const isPending = s.status === 'pending';
+      const actionRow = isPending
+        ? `<div class="queue-action-row">
+             <button class="queue-accept-btn" onclick="event.stopPropagation();acceptSession('${escH(s.id)}')">Preuzmi</button>
+             <button class="queue-decline-btn" onclick="event.stopPropagation();declineSession('${escH(s.id)}')">Odbij</button>
+           </div>`
+        : '';
       return `<div class="session-item${active}" onclick="selectSession('${escH(s.id)}')">
         ${statusDot(s.status)}
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px">
-            <span style="font-size:13px;font-weight:600;color:${s.status==='new'?'#fff':'#a0a0b8'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(name)}</span>
+            <span style="font-size:13px;font-weight:600;color:${isPending?'#fff':'#a0a0b8'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(name)}</span>
             <span style="font-size:10px;color:#505070;flex-shrink:0">${time}</span>
           </div>
           <div style="font-size:11px;color:#505070;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(preview)}</div>
+          ${actionRow}
         </div>
       </div>`;
     }).join('');
   }
 
   function updateHeaderBadge() {
-    const newCount = _sessions.filter(s => s.status === 'new').length;
+    const pendingCount = _sessions.filter(s => s.status === 'pending').length;
     const badge = document.getElementById('hdr-new-badge');
-    if (badge) { badge.textContent = newCount || ''; badge.style.display = newCount ? '' : 'none'; }
+    if (badge) { badge.textContent = pendingCount || ''; badge.style.display = pendingCount ? '' : 'none'; }
   }
 
   /* ── FILTER & SEARCH ────────────────────────────────────────── */
@@ -275,6 +293,7 @@
     if (!s) return;
 
     _activeClosed = s.status === 'closed';
+    const isPending = s.status === 'pending';
 
     // Update active highlight in queue
     renderQueue();
@@ -292,24 +311,34 @@
     const hdrStatus = document.getElementById('chat-hdr-status');
     hdrStatus.textContent = statusLabel(s.status);
     hdrStatus.style.cssText = `padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;${statusBadgeStyle(s.status)}`;
-    document.getElementById('chat-close-btn').style.display    = _activeClosed ? 'none' : '';
-    document.getElementById('chat-reply-area').style.display   = _activeClosed ? 'none' : 'flex';
+    document.getElementById('chat-close-btn').style.display     = (_activeClosed || isPending) ? 'none' : '';
+    document.getElementById('chat-reply-area').style.display    = (_activeClosed || isPending) ? 'none' : 'flex';
     document.getElementById('chat-closed-notice').style.display = _activeClosed ? 'block' : 'none';
+
+    // Show accept bar for pending sessions
+    let acceptBar = document.getElementById('chat-accept-bar');
+    if (!acceptBar) {
+      acceptBar = document.createElement('div');
+      acceptBar.id = 'chat-accept-bar';
+      acceptBar.style.cssText = 'padding:12px 16px;display:flex;gap:10px;align-items:center;justify-content:center;border-top:1px solid rgba(255,255,255,0.07);flex-shrink:0;background:rgba(16,185,129,0.06)';
+      document.getElementById('chat-active').appendChild(acceptBar);
+    }
+    if (isPending) {
+      acceptBar.style.display = 'flex';
+      acceptBar.innerHTML = `
+        <button onclick="acceptSession('${escH(id)}')" style="padding:8px 24px;border-radius:10px;border:none;cursor:pointer;font-size:13px;font-weight:700;background:linear-gradient(135deg,#10b981,#34d399);color:#fff;box-shadow:0 4px 14px rgba(16,185,129,0.35);transition:opacity .15s" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Preuzmi razgovor</button>
+        <button onclick="declineSession('${escH(id)}')" style="padding:8px 18px;border-radius:10px;border:1px solid rgba(239,68,68,0.3);cursor:pointer;font-size:13px;font-weight:600;background:transparent;color:#f87171;transition:all .15s" onmouseover="this.style.background='rgba(239,68,68,0.1)'" onmouseout="this.style.background='transparent'">Odbij</button>`;
+    } else {
+      acceptBar.style.display = 'none';
+    }
 
     // Clear messages
     document.getElementById('chat-messages').innerHTML = '<div style="text-align:center;color:#505070;font-size:13px;padding:20px">Učitavanje poruka...</div>';
     document.getElementById('chat-reply-input').value = '';
 
-    // Mark as seen (only if 'new')
-    if (s.status === 'new') {
-      fetch(`${API()}/admin/chat/sessions/${id}/read`, { method:'PATCH', headers:HDRS() })
-        .then(() => {
-          s.status = 'seen';
-          renderQueue();
-          hdrStatus.textContent = statusLabel('seen');
-          hdrStatus.style.cssText = `padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;${statusBadgeStyle('seen')}`;
-          updateHeaderBadge();
-        }).catch(() => {});
+    // Mark as read (compat, no-op in queue model)
+    if (s.status === 'pending') {
+      fetch(`${API()}/admin/chat/sessions/${id}/read`, { method:'PATCH', headers:HDRS() }).catch(() => {});
     }
 
     // Load messages + start polling
@@ -337,6 +366,15 @@
       return;
     }
     box.innerHTML = msgs.map(m => {
+      if (m.sender === 'system' && m.message.startsWith('__agent_joined__')) {
+        const agentName = m.message.replace('__agent_joined__','');
+        return `<div style="text-align:center;padding:8px;font-size:11px;color:#6ee7b7;background:rgba(16,185,129,0.1);border-radius:10px;margin:4px 0">
+          ✓ ${escH(agentName)} je preuzeo/la razgovor · ${fmtFull(m.created_at)}</div>`;
+      }
+      if (m.sender === 'system' && m.message === '__chat_declined__') {
+        return `<div style="text-align:center;padding:8px;font-size:11px;color:#fca5a5;background:rgba(239,68,68,0.1);border-radius:10px;margin:4px 0">
+          Sesija je odbijena · ${fmtFull(m.created_at)}</div>`;
+      }
       if (m.sender === 'system' && m.message === '__ask_email__') {
         return `<div style="text-align:center;padding:8px;font-size:11px;color:#93c5fd;background:rgba(59,130,246,0.1);border-radius:10px;margin:4px 0">
           📧 Zahtjev za email poslan · ${fmtFull(m.created_at)}</div>`;
@@ -384,13 +422,13 @@
       // Update local session status
       const s = _sessions.find(x => x.id === _activeId);
       if (s) {
-        s.status = 'answered';
+        s.status = 'active';
         s.last_message_preview = `Agent: ${text.substring(0,80)}`;
         s.last_message_at = data.created_at;
         renderQueue();
         const hdrStatus = document.getElementById('chat-hdr-status');
-        hdrStatus.textContent = statusLabel('answered');
-        hdrStatus.style.cssText = `padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;${statusBadgeStyle('answered')}`;
+        hdrStatus.textContent = statusLabel('active');
+        hdrStatus.style.cssText = `padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;${statusBadgeStyle('active')}`;
       }
     } catch (err) {
       alert(err.message || 'Greška pri slanju');
@@ -421,6 +459,55 @@
       const hdrStatus = document.getElementById('chat-hdr-status');
       hdrStatus.textContent = statusLabel('closed');
       hdrStatus.style.cssText = `padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;${statusBadgeStyle('closed')}`;
+    } catch (err) {
+      alert(err.message || 'Greška');
+    }
+  }
+
+  /* ── ACCEPT / DECLINE ────────────────────────────────────────── */
+  async function acceptSession(id) {
+    try {
+      const r = await fetch(`${API()}/admin/chat/sessions/${id}/accept`, {
+        method: 'POST', headers: HDRS(),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error);
+
+      // Update local state and switch to active tab
+      const s = _sessions.find(x => x.id === id);
+      if (s) { s.status = 'active'; s.admin_id = true; }
+
+      // Switch filter to active and open the session
+      _currentFilter = 'active';
+      document.querySelectorAll('.ftab').forEach(b =>
+        b.classList.toggle('active', b.dataset.filter === 'active'));
+      await loadQueue();
+      selectSession(id);
+    } catch (err) {
+      alert(err.message || 'Greška pri preuzimanju');
+    }
+  }
+
+  async function declineSession(id) {
+    if (!confirm('Odbiti ovaj chat zahtjev?')) return;
+    try {
+      const r = await fetch(`${API()}/admin/chat/sessions/${id}/decline`, {
+        method: 'POST', headers: HDRS(),
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+
+      // Remove from local list
+      _sessions = _sessions.filter(x => x.id !== id);
+      renderQueue();
+      updateHeaderBadge();
+
+      // If this was the active chat, reset to empty state
+      if (_activeId === id) {
+        _activeId = null;
+        _stopMsgPoll();
+        document.getElementById('chat-active').style.display = 'none';
+        document.getElementById('chat-empty').style.display  = 'flex';
+      }
     } catch (err) {
       alert(err.message || 'Greška');
     }

@@ -125,6 +125,7 @@ const KEYIFY = (() => {
       this._save(items);
       this.updateNavbarText();
       this._renderDrawerItems();
+      _renderMiniCartItems();
       this._toast(t('cart.itemAdded', _lang), '✓');
     },
 
@@ -133,6 +134,7 @@ const KEYIFY = (() => {
       this._save(items);
       this.updateNavbarText();
       this._renderDrawerItems();
+      _renderMiniCartItems();
     },
 
     setQty(id, qty) {
@@ -144,12 +146,14 @@ const KEYIFY = (() => {
       this._save(items);
       this.updateNavbarText();
       this._renderDrawerItems();
+      _renderMiniCartItems();
     },
 
     clear() {
       this._save([]);
       this.updateNavbarText();
       this._renderDrawerItems();
+      _renderMiniCartItems();
     },
 
     total()  { return this._load().reduce((s, i) => s + i.price * (i.qty || 1), 0); },
@@ -359,35 +363,39 @@ const KEYIFY = (() => {
 
       /* ── 2. THEME TOGGLE (full header only) ── */
       _injectThemeToggle(cartBtnContainer);
-
-      /* ── 3. WRAP CART BUTTON SPAN ── */
-      cartBtnContainer.querySelectorAll('button').forEach(btn => {
-        const span = btn.querySelector('span');
-        if (span && span.textContent.includes('Korpa') && !span.classList.contains('kf-cart-label')) {
-          span.classList.add('kf-cart-label');
-          btn.addEventListener('click', () => CART.open());
-          btn.style.cursor = 'pointer';
-        }
-      });
-
-      /* ── 4. BADGE OVERLAY on cart button ── */
-      cartBtnContainer.querySelectorAll('button').forEach(btn => {
-        if (btn.querySelector('.kf-cart-label') && !btn.querySelector('.kf-cart-badge')) {
-          btn.style.position = 'relative';
-          const badge = document.createElement('span');
-          badge.className = 'kf-cart-badge';
-          badge.style.cssText = `
-            position:absolute; top:-6px; right:-6px;
-            background:#ef4444; color:#fff;
-            font-size:10px; font-weight:700; min-width:18px; height:18px;
-            border-radius:999px; display:none;
-            align-items:center; justify-content:center; padding:0 4px;
-            border:2px solid #fff; pointer-events:none;`;
-          btn.appendChild(badge);
-        }
-      });
     }
-    /* Minimal header: no lang switcher, no theme toggle, no cart label wiring */
+    /* Minimal header: no lang switcher, no theme toggle — but cart ALWAYS wired */
+
+    /* ── 3. WRAP CART BUTTON SPAN (runs on ALL headers) ── */
+    cartBtnContainer.querySelectorAll('button').forEach(btn => {
+      const span = btn.querySelector('span');
+      if (span && span.textContent.includes('Korpa') && !span.classList.contains('kf-cart-label')) {
+        span.classList.add('kf-cart-label');
+        btn.classList.add('kf-cart-btn');
+        btn.style.cursor = 'pointer';
+        btn.style.position = 'relative';
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          _toggleMiniCart();
+        });
+      }
+    });
+
+    /* ── 4. BADGE OVERLAY on cart button (runs on ALL headers) ── */
+    cartBtnContainer.querySelectorAll('button').forEach(btn => {
+      if (btn.querySelector('.kf-cart-label') && !btn.querySelector('.kf-cart-badge')) {
+        const badge = document.createElement('span');
+        badge.className = 'kf-cart-badge';
+        badge.style.cssText = `
+          position:absolute; top:-6px; right:-6px;
+          background:#ef4444; color:#fff;
+          font-size:10px; font-weight:700; min-width:18px; height:18px;
+          border-radius:999px; display:none;
+          align-items:center; justify-content:center; padding:0 4px;
+          border:2px solid #fff; pointer-events:none;`;
+        btn.appendChild(badge);
+      }
+    });
   }
 
 
@@ -466,6 +474,238 @@ const KEYIFY = (() => {
 
 
   /* ─────────────────────────────────────────────────────────
+     MINI CART POPUP
+     A lightweight dropdown that appears below the header cart
+     button. Shows current items, total, "Idi na korpu",
+     "Nastavi kupovinu", and "You may also like" section.
+  ───────────────────────────────────────────────────────── */
+  let _miniCartOpen = false;
+
+  function _injectMiniCart() {
+    if (document.getElementById('kf-minicart')) return;
+
+    const mc = document.createElement('div');
+    mc.id = 'kf-minicart';
+    mc.style.cssText = `
+      position:fixed; top:70px; right:16px; z-index:9990;
+      width:380px; max-width:calc(100vw - 32px);
+      background:#fff; border-radius:20px;
+      border:1px solid rgba(0,0,0,0.06);
+      box-shadow:0 20px 60px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.08);
+      opacity:0; transform:translateY(-10px) scale(0.97);
+      pointer-events:none;
+      transition:opacity 0.25s cubic-bezier(.22,.68,0,1), transform 0.25s cubic-bezier(.22,.68,0,1);
+      font-family:'Inter',sans-serif;
+      overflow:hidden;
+    `;
+
+    mc.innerHTML = `
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid #f3f4f6">
+        <h3 id="kf-mc-title" style="font-family:'Poppins',sans-serif;font-size:15px;font-weight:700;color:#111;margin:0">
+          Korpa
+        </h3>
+        <button id="kf-mc-close" style="width:28px;height:28px;border:none;background:#f3f4f6;border-radius:8px;cursor:pointer;font-size:13px;color:#6b7280;display:flex;align-items:center;justify-content:center;transition:all 0.15s"
+                onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Items list -->
+      <div id="kf-mc-items" style="max-height:240px;overflow-y:auto;padding:8px 16px;scrollbar-width:thin;scrollbar-color:#e5e7eb transparent"></div>
+
+      <!-- Empty state -->
+      <div id="kf-mc-empty" style="display:none;text-align:center;padding:28px 16px">
+        <svg style="width:48px;height:48px;color:#d1d5db;margin:0 auto 12px" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+        </svg>
+        <p style="font-size:14px;font-weight:600;color:#6b7280;margin:0 0 4px">Korpa je prazna</p>
+        <p style="font-size:12px;color:#9ca3af;margin:0">Dodajte proizvode da biste nastavili</p>
+      </div>
+
+      <!-- Footer: total + buttons -->
+      <div id="kf-mc-footer" style="border-top:1px solid #f3f4f6;padding:14px 20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <span style="font-size:13px;color:#6b7280;font-weight:500">Ukupno</span>
+          <span id="kf-mc-total" style="font-size:16px;font-weight:800;background:linear-gradient(135deg,#1D6AFF,#A259FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent">€ 0,00</span>
+        </div>
+        <a href="cart.html" id="kf-mc-goto-cart"
+           style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;border-radius:14px;background:linear-gradient(135deg,#1D6AFF,#A259FF);color:#fff;font-size:13px;font-weight:700;text-decoration:none;transition:opacity 0.15s;box-shadow:0 6px 24px rgba(29,106,255,0.3)"
+           onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+          </svg>
+          Idi na korpu
+        </a>
+        <button id="kf-mc-continue"
+                style="width:100%;padding:10px;margin-top:8px;border:none;background:transparent;color:#6b7280;font-size:13px;font-weight:600;cursor:pointer;border-radius:10px;transition:all 0.15s"
+                onmouseover="this.style.background='#f3f4f6';this.style.color='#374151'" onmouseout="this.style.background='transparent';this.style.color='#6b7280'">
+          Nastavi kupovinu
+        </button>
+      </div>
+
+      <!-- You may also like -->
+      <div id="kf-mc-related" style="display:none;border-top:1px solid #f3f4f6;padding:14px 20px">
+        <p style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 10px">Mozda vas zanima</p>
+        <div id="kf-mc-related-grid" style="display:flex;gap:10px"></div>
+      </div>
+    `;
+
+    document.body.appendChild(mc);
+
+    /* Close button */
+    mc.querySelector('#kf-mc-close').addEventListener('click', (e) => {
+      e.stopPropagation();
+      _closeMiniCart();
+    });
+
+    /* Continue shopping */
+    mc.querySelector('#kf-mc-continue').addEventListener('click', (e) => {
+      e.stopPropagation();
+      _closeMiniCart();
+    });
+
+    /* Click outside to close */
+    document.addEventListener('click', (e) => {
+      if (!_miniCartOpen) return;
+      const mc = document.getElementById('kf-minicart');
+      const cartBtn = document.querySelector('.kf-cart-btn');
+      if (mc && !mc.contains(e.target) && cartBtn && !cartBtn.contains(e.target)) {
+        _closeMiniCart();
+      }
+    });
+  }
+
+  function _toggleMiniCart() {
+    _miniCartOpen ? _closeMiniCart() : _openMiniCart();
+  }
+
+  function _openMiniCart() {
+    const mc = document.getElementById('kf-minicart');
+    if (!mc) return;
+    _renderMiniCartItems();
+    _loadMiniCartRelated();
+    mc.style.opacity = '1';
+    mc.style.transform = 'translateY(0) scale(1)';
+    mc.style.pointerEvents = 'auto';
+    _miniCartOpen = true;
+  }
+
+  function _closeMiniCart() {
+    const mc = document.getElementById('kf-minicart');
+    if (!mc) return;
+    mc.style.opacity = '0';
+    mc.style.transform = 'translateY(-10px) scale(0.97)';
+    mc.style.pointerEvents = 'none';
+    _miniCartOpen = false;
+  }
+
+  function _renderMiniCartItems() {
+    const items     = CART._load();
+    const container = document.getElementById('kf-mc-items');
+    const emptyEl   = document.getElementById('kf-mc-empty');
+    const footerEl  = document.getElementById('kf-mc-footer');
+    const titleEl   = document.getElementById('kf-mc-title');
+    if (!container) return;
+
+    const count = CART.count();
+    if (titleEl) titleEl.textContent = count > 0 ? `Korpa (${count})` : 'Korpa';
+
+    if (!items.length) {
+      container.style.display = 'none';
+      emptyEl.style.display = 'block';
+      footerEl.style.display = 'none';
+      return;
+    }
+
+    container.style.display = 'block';
+    emptyEl.style.display = 'none';
+    footerEl.style.display = 'block';
+
+    container.innerHTML = items.map(item => {
+      const qty = item.qty || 1;
+      const subtotal = (item.price * qty).toFixed(2).replace('.', ',');
+      const iconBg = item.color || '#1D6AFF';
+      return `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f9fafb" data-mc-id="${escAttr(item.id)}">
+          <div style="flex-shrink:0;width:44px;height:44px;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:${item.imageUrl ? 'linear-gradient(145deg,#0f0f1a,#1a1a2e)' : `linear-gradient(135deg,${iconBg},${iconBg}aa)`}">
+            ${item.imageUrl
+              ? `<img src="${escAttr(item.imageUrl)}" alt="${escAttr(item.name)}" style="width:44px;height:44px;object-fit:contain;padding:4px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))"/>`
+              : `<span style="color:#fff;font-weight:700;font-size:16px;font-family:'Poppins',sans-serif">${escHtml(item.name.charAt(0))}</span>`}
+          </div>
+          <div style="flex:1;min-width:0">
+            <p style="font-size:13px;font-weight:600;color:#111;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.name)}</p>
+            <p style="font-size:11px;color:#9ca3af;margin:2px 0 0">${qty > 1 ? qty + ' × ' : ''}€ ${item.price.toFixed(2).replace('.', ',')}</p>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <span style="font-size:13px;font-weight:700;color:#111">€ ${subtotal}</span>
+            <button onclick="event.stopPropagation();KEYIFY.CART.remove('${escAttr(item.id)}')"
+                    style="width:24px;height:24px;border:none;background:transparent;color:#d1d5db;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:all 0.15s"
+                    onmouseover="this.style.background='#fef2f2';this.style.color='#ef4444'" onmouseout="this.style.background='transparent';this.style.color='#d1d5db'">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>`;
+    }).join('');
+
+    const totalEl = document.getElementById('kf-mc-total');
+    if (totalEl) totalEl.textContent = `€ ${CART.total().toFixed(2).replace('.', ',')}`;
+  }
+
+  async function _loadMiniCartRelated() {
+    const relatedSection = document.getElementById('kf-mc-related');
+    const relatedGrid    = document.getElementById('kf-mc-related-grid');
+    if (!relatedSection || !relatedGrid) return;
+
+    const API_BASE = (window.KEYIFY_CONFIG && window.KEYIFY_CONFIG.API_BASE) || 'http://localhost:3001/api';
+    try {
+      const res = await fetch(`${API_BASE}/products`);
+      if (!res.ok) return;
+      const products = await res.json();
+      const cartIds  = new Set(CART._load().map(i => i.id));
+
+      const related = products.filter(p => {
+        const pid = p.id || (p.name_sr || '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        return !cartIds.has(pid) && !cartIds.has(p.id);
+      }).slice(0, 2);
+
+      if (!related.length) { relatedSection.style.display = 'none'; return; }
+
+      relatedSection.style.display = 'block';
+      const lang = _lang;
+      relatedGrid.innerHTML = related.map(p => {
+        const name  = (lang === 'en' && p.name_en) ? p.name_en : (p.name_sr || p.name || '');
+        const price = parseFloat(p.price) || 0;
+        const color = p.badge_color || '#1D6AFF';
+        const dataP = escAttr(JSON.stringify({
+          id: p.id, name: name, price: price,
+          desc: p.description_sr || p.description || '',
+          color: color, imageUrl: p.image_url || null
+        }));
+        return `
+          <div style="flex:1;background:#f9fafb;border-radius:12px;padding:10px;text-align:center;border:1px solid #f0f0f4;transition:all 0.2s;cursor:pointer"
+               onmouseover="this.style.borderColor='#1D6AFF';this.style.transform='translateY(-2px)'"
+               onmouseout="this.style.borderColor='#f0f0f4';this.style.transform=''">
+            <div style="width:40px;height:40px;border-radius:10px;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;background:${p.image_url ? 'linear-gradient(145deg,#0f0f1a,#1a1a2e)' : `linear-gradient(135deg,${color},${color}88)`}">
+              ${p.image_url
+                ? `<img src="${escAttr(p.image_url)}" alt="${escAttr(name)}" style="width:32px;height:32px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))"/>`
+                : `<span style="color:#fff;font-weight:700;font-size:14px;font-family:'Poppins',sans-serif">${escHtml(name.charAt(0))}</span>`}
+            </div>
+            <p style="font-size:11px;font-weight:600;color:#374151;margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(name)}</p>
+            <p style="font-size:12px;font-weight:700;color:#1D6AFF;margin:0 0 6px">€ ${price.toFixed(2).replace('.', ',')}</p>
+            <button onclick="event.stopPropagation();try{KEYIFY.CART.add(JSON.parse(this.dataset.p))}catch(e){}"
+                    data-p='${dataP}'
+                    style="width:100%;padding:6px;border:none;border-radius:8px;background:#1D6AFF;color:#fff;font-size:10px;font-weight:700;cursor:pointer;transition:opacity 0.15s"
+                    onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+              + Dodaj
+            </button>
+          </div>`;
+      }).join('');
+    } catch { relatedSection.style.display = 'none'; }
+  }
+
+
+  /* ─────────────────────────────────────────────────────────
      WIRE ADD-TO-CART BUTTONS
      Scans for buttons containing "Dodaj u korpu" or "Kupi Sada"
      and attaches cart logic + data-attribute markup.
@@ -530,7 +770,8 @@ const KEYIFY = (() => {
           return { id: obj.id || obj.name.toLowerCase().replace(/[^a-z0-9]+/g,'-'),
                    name: obj.name, price: parseFloat(obj.price),
                    desc: obj.desc || '', color: obj.color || '#1D6AFF',
-                   imageUrl: obj.imageUrl || null };
+                   imageUrl: obj.imageUrl || null,
+                   category: obj.category || null };
         }
       } catch {}
     }
@@ -1263,6 +1504,7 @@ const KEYIFY = (() => {
   function init() {
     _initTheme();
     _injectCartDrawer();
+    _injectMiniCart();
     _injectNavbarExtras();
     _wireProductButtons();
     _updateAccountNavbar();
