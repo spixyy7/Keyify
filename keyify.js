@@ -651,10 +651,20 @@ const KEYIFY = (() => {
           </div>
           <div style="flex:1;min-width:0">
             <p style="font-size:13px;font-weight:600;color:#111;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.name)}</p>
-            <p style="font-size:11px;color:#9ca3af;margin:2px 0 0">${qty > 1 ? qty + ' × ' : ''}€ ${item.price.toFixed(2).replace('.', ',')}</p>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+              <div style="display:inline-flex;align-items:center;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+                <button onclick="event.stopPropagation();KEYIFY.CART.setQty('${escAttr(item.id)}',${qty - 1})"
+                        style="width:24px;height:24px;border:none;background:transparent;color:#6b7280;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;transition:background 0.15s"
+                        onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">−</button>
+                <span style="width:26px;text-align:center;font-size:12px;font-weight:600;color:#111;user-select:none">${qty}</span>
+                <button onclick="event.stopPropagation();KEYIFY.CART.setQty('${escAttr(item.id)}',${qty + 1})"
+                        style="width:24px;height:24px;border:none;background:transparent;color:#6b7280;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;transition:background 0.15s"
+                        onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">+</button>
+              </div>
+              <span style="font-size:12px;font-weight:700;color:#111">€ ${subtotal}</span>
+            </div>
           </div>
-          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-            <span style="font-size:13px;font-weight:700;color:#111">€ ${subtotal}</span>
+          <div style="display:flex;align-items:center;flex-shrink:0">
             <button onclick="event.stopPropagation();KEYIFY.CART.remove('${escAttr(item.id)}')"
                     style="width:24px;height:24px;border:none;background:transparent;color:#d1d5db;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:all 0.15s"
                     onmouseover="this.style.background='#fef2f2';this.style.color='#ef4444'" onmouseout="this.style.background='transparent';this.style.color='#d1d5db'">
@@ -748,24 +758,31 @@ const KEYIFY = (() => {
         e.stopPropagation();
         const product = _extractProduct(btn);
         if (!product) return;
+        if (btn._loading) return;
 
-        /* Button feedback */
+        /* Ensure smooth transition on background */
+        btn.style.transition = 'background 0.3s ease, opacity 0.3s ease';
+
+        /* Button feedback — single clean SVG checkmark + text */
         const original = btn.innerHTML;
+        const origBg   = btn.style.background;
         btn._loading = true;
-        btn.innerHTML = `
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-          </svg>
-          ${t('btn.added', _lang)}`;
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> ${t('btn.added', _lang)}`;
+        btn.style.display = 'inline-flex';
+        btn.style.alignItems = 'center';
+        btn.style.gap = '6px';
         btn.style.background = '#059669';
         btn.disabled = true;
 
         setTimeout(() => {
           btn.innerHTML = original;
-          btn.style.background = '';
+          btn.style.background = origBg;
+          btn.style.display = '';
+          btn.style.alignItems = '';
+          btn.style.gap = '';
           btn.disabled = false;
           btn._loading = false;
-        }, 1800);
+        }, 2500);
 
         CART.add(product);
       });
@@ -1210,6 +1227,18 @@ const KEYIFY = (() => {
       [data-theme="dark"] header .dropdown-menu a         { color: rgba(200,200,240,0.8) !important; }
       [data-theme="dark"] header .dropdown-menu a:hover   { background: rgba(99,102,241,0.16) !important; color: #fff !important; }
 
+      /* ── Dropdown hover bridge — fills gap between trigger and menu ── */
+      @media (min-width: 1024px) {
+        .dropdown-menu::before {
+          content: '';
+          position: absolute;
+          top: -10px;
+          left: 0;
+          width: 100%;
+          height: 10px;
+        }
+      }
+
       [data-theme="dark"] header button.text-gray-500       { color: rgba(160,160,220,0.65) !important; }
       [data-theme="dark"] header button.text-gray-500:hover { background: rgba(255,255,255,0.07) !important; color: #c0c0ee !important; }
       [data-theme="dark"] header a.text-gray-700            { color: rgba(200,200,240,0.8) !important; }
@@ -1503,7 +1532,7 @@ const KEYIFY = (() => {
               ${origPrice ? `<span style="color:#6060a0;font-size:14px;text-decoration:line-through">&euro;${origPrice}</span>` : ''}
               ${disc > 0 ? `<span style="background:rgba(16,185,129,0.15);color:#10b981;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px">-${disc}%</span>` : ''}
             </div>
-            <button onclick="try{KEYIFY.CART.add(JSON.parse(this.dataset.p))}catch{}; this.innerHTML='&#10003; Dodano!';this.style.background='#10b981';setTimeout(()=>{this.closest('#kfy-qv-modal').remove()},800)"
+            <button onclick="try{KEYIFY.CART.add(JSON.parse(this.dataset.p))}catch{}; this.innerHTML='<svg width=16 height=16 viewBox=&quot;0 0 24 24&quot; fill=none stroke=currentColor stroke-width=3 stroke-linecap=round stroke-linejoin=round style=&quot;vertical-align:middle;margin-right:4px&quot;><polyline points=&quot;20 6 9 17 4 12&quot;/></svg>Dodano!';this.style.background='#10b981';setTimeout(()=>{this.closest('#kfy-qv-modal').remove()},800)"
                     data-p='${escAttr(JSON.stringify(p))}'
                     style="width:100%;padding:12px;border:none;border-radius:12px;background:linear-gradient(135deg,#1D6AFF,#A259FF);color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s">
               Dodaj u korpu

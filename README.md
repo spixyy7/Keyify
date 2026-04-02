@@ -336,15 +336,145 @@ Prikazuju se samo konfigurisani načini — ako nema kripto adrese, kripto se ne
 
 ---
 
+## Super Admin dodjela
+
+Super admin ima neograničen pristup svim admin funkcijama (transakcije, SQL editor, itd.).
+
+### Automatski (server bootstrap)
+Server automatski promoviše `spasojep3@gmail.com` u super_admin pri svakom pokretanju.
+
+### Manuelno (SQL u Supabase SQL Editor)
+```sql
+UPDATE users
+SET role = 'admin',
+    rank = 'super_admin',
+    permissions = '{}'::jsonb
+WHERE email = 'tvoj@email.com';
+```
+
+> **Važno:** `permissions` mora biti prazan `{}` (ne NULL). Prazan JSONB = neograničen pristup.
+> Nakon SQL update-a, korisnik se mora ponovo ulogovati da bi JWT dobio `role: 'admin'`.
+
+---
+
+## .env konfiguracija
+
+Kreiraj `.env` fajl u root direktorijumu:
+
+```env
+# Supabase
+SUPABASE_URL=https://xxxxx.supabase.co
+SUPABASE_SERVICE_KEY=eyJhbGciOiJIUz...
+
+# Auth
+JWT_SECRET=tvoj_random_string_min_40_karaktera
+
+# Email (Gmail)
+EMAIL_USER=tvoj@gmail.com
+EMAIL_PASS=xxxx xxxx xxxx xxxx
+
+# Server
+PORT=3001
+FRONTEND_URL=https://keyify-nu.vercel.app
+
+# Google OAuth (opcionalno)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URL=
+GMAIL_REFRESH_TOKEN=
+
+# Enkripcija (64 hex karaktera = 32 bajta)
+AES_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+
+# Stripe (opcionalno)
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Admin SQL Editor PIN
+SQL_MASTER_PIN=tvoj_pin
+```
+
+> **Nikada ne commituj `.env`!** Fajl je u `.gitignore`.
+
+---
+
+## PayPal integracija
+
+### Korak 1 — Kreiraj PayPal App
+1. Idi na [developer.paypal.com](https://developer.paypal.com)
+2. **My Apps & Credentials** → Create App
+3. Kopiraj **Client ID** i **Secret**
+
+### Korak 2 — Unesi u Admin Panel
+1. `admin.html` → Sidebar → **Plaćanja**
+2. Unesi PayPal email, Client ID i Secret
+3. **Client ID** (javni) se koristi za PayPal SDK dugme na checkout stranici
+4. **Secret** (tajni) se enkriptuje AES-256 prije upisa u bazu — frontend ga nikada ne vidi
+
+### Korak 3 — Pokreni migraciju
+```sql
+-- Pokreni u Supabase SQL Editor:
+ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS paypal_client_id TEXT;
+ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS paypal_secret_enc TEXT;
+```
+
+---
+
+## Kripto plaćanje
+
+### Postavljanje
+1. `admin.html` → **Plaćanja**
+2. Unesi wallet adrese: BTC, ETH (ERC-20), USDT (TRC-20)
+3. Checkout automatski generiše QR kod za svaku adresu
+
+### Podržane mreže
+| Valuta | Mreža | Format adrese |
+|--------|-------|---------------|
+| BTC | Bitcoin Mainnet | `bc1q...` ili `1...` ili `3...` |
+| ETH | Ethereum Mainnet | `0x...` |
+| USDT | Tron (TRC-20) | `T...` |
+
+---
+
+## Bezbednost
+
+### Šta je zaštićeno
+- **`.env`** — svi tajni ključevi, nikada u Git-u (`.gitignore`)
+- **AES-256-CBC enkripcija** — IP adrese, email-ovi i PayPal Secret u bazi
+- **JWT + Session Binding** — IP + User-Agent verifikacija za svaki zahtjev
+- **Rate Limiting** — 300 req/15min (API), 15 req/15min (auth)
+- **RBAC** — permisije po adminu, super_admin = neograničen
+
+### Šta frontend nikada ne dobija
+- `SUPABASE_SERVICE_KEY`
+- `JWT_SECRET`
+- `paypal_secret_enc` (enkriptovan u bazi)
+- `AES_KEY`
+- `STRIPE_SECRET_KEY`
+
+### Enkripcija u kodu
+```javascript
+// server.js koristi AES-256-CBC sa random IV
+const encrypted = encryptField('osetljivi_podatak');  // → "iv_hex:ciphertext_hex"
+const original  = decryptField(encrypted);            // → "osetljivi_podatak"
+```
+
+---
+
 ## Checklist za deployment
 
 - [ ] Pokreni `schema.sql` u Supabase SQL Editoru
+- [ ] Pokreni `schema_payment_secrets.sql` (PayPal Client ID + Secret kolone)
+- [ ] Pokreni `schema_chat_queue.sql` (Chat queue sistem)
 - [ ] Kopiraj Supabase URL + service_role key
+- [ ] Generiši `AES_KEY` (64 hex) — `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
 - [ ] Deployuj backend na **Railway**, dodaj sve env varijable
 - [ ] Kopiraj Railway URL u **`config.js`** → `API_URL`
 - [ ] Deployuj frontend na **Vercel** (importuj GitHub repo)
 - [ ] Kopiraj Vercel URL → dodaj kao `FRONTEND_URL` u Railway Variables
 - [ ] Provjeri `GET https://tvoj-api.up.railway.app/api/health` → `{"status":"ok"}`
 - [ ] Promijeni default admin lozinku u Supabase
+- [ ] Dodijeli super_admin rang svom nalogu (SQL gore)
 - [ ] Postavi načine plaćanja u Admin Panel → Plaćanja
+- [ ] (Opcionalno) Unesi PayPal Client ID + Secret za SDK integraciju
 - [ ] Testiraj cijeli flow: registracija → OTP → login → korpa → checkout

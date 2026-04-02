@@ -54,7 +54,7 @@ const TRANSLATIONS = {
     /* — BUTTONS — */
     btn: {
       addToCart:   'Dodaj u korpu',
-      added:       '✓ Dodano!',
+      added:       'Dodano!',
       buyNow:      'Kupi Sada',
       learnMore:   'Saznaj više',
       viewAll:     'Pogledaj sve',
@@ -410,7 +410,7 @@ const TRANSLATIONS = {
 
     btn: {
       addToCart:   'Add to Cart',
-      added:       '✓ Added!',
+      added:       'Added!',
       buyNow:      'Buy Now',
       learnMore:   'Learn More',
       viewAll:     'View All',

@@ -424,13 +424,17 @@ async function authenticateToken(req, res, next) {
       }
     }
 
-    // Load permissions fresh from DB (enables real-time permission changes)
+    // Load permissions + rank fresh from DB (enables real-time permission changes)
     const { data: userRow } = await supabase
       .from('users')
-      .select('permissions')
+      .select('permissions, rank')
       .eq('id', decoded.id)
       .maybeSingle();
-    req.user = { ...decoded, permissions: userRow?.permissions || {} };
+    req.user = {
+      ...decoded,
+      permissions: userRow?.permissions || {},
+      rank: userRow?.rank || 'user',
+    };
     next();
   } catch (err) {
     return res.status(403).json({ error: 'Token je nevažeći ili je istekao' });
@@ -454,8 +458,9 @@ function checkPermission(permName) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Pristup odbijen' });
+    // Super admin: rank or empty permissions = unrestricted
+    if (req.user.rank === 'super_admin') return next();
     const perms = req.user.permissions;
-    // Super admin: empty permissions = unrestricted
     if (!perms || Object.keys(perms).length === 0) return next();
     // Limited admin: must have specific permission set to true
     if (perms[permName] === true) return next();
@@ -770,35 +775,50 @@ app.get('/api/admin/settings', authenticateToken, requireAdmin, async (req, res)
     .maybeSingle();
 
   if (error) return res.status(500).json({ error: 'Greška pri čitanju podešavanja' });
-  return res.json(data || {});
+  const settings = data || {};
+  // Mask the encrypted secret — admin sees if it's set, but never the actual value
+  if (settings.paypal_secret_enc) {
+    settings.paypal_secret_set = true;
+    delete settings.paypal_secret_enc;
+  }
+  return res.json(settings);
 });
 
 /**
  * POST /api/admin/settings
- * Body: { primary_color, panel_bg, paypal_email, btc_wallet, eth_wallet, usdt_wallet, bank_iban, bank_name }
+ * Body: { primary_color, panel_bg, paypal_email, paypal_client_id, paypal_secret,
+ *         btc_wallet, eth_wallet, usdt_wallet, bank_iban, bank_name }
  */
 app.post('/api/admin/settings', authenticateToken, requireAdmin, async (req, res) => {
   const {
     primary_color, panel_bg,
-    paypal_email,
+    paypal_email, paypal_client_id, paypal_secret,
     btc_wallet, eth_wallet, usdt_wallet,
     bank_iban, bank_name,
   } = req.body;
 
+  const row = {
+    id: 1,
+    primary_color,
+    panel_bg,
+    paypal_email,
+    paypal_client_id: paypal_client_id || null,
+    btc_wallet,
+    eth_wallet,
+    usdt_wallet,
+    bank_iban,
+    bank_name,
+    updated_at: new Date().toISOString(),
+  };
+
+  // Encrypt PayPal secret if provided (never store in plaintext)
+  if (paypal_secret && paypal_secret.trim()) {
+    row.paypal_secret_enc = encryptField(paypal_secret.trim());
+  }
+
   const { error } = await supabase
     .from('site_settings')
-    .upsert({
-      id: 1,
-      primary_color,
-      panel_bg,
-      paypal_email,
-      btc_wallet,
-      eth_wallet,
-      usdt_wallet,
-      bank_iban,
-      bank_name,
-      updated_at: new Date().toISOString(),
-    });
+    .upsert(row);
 
   if (error) {
     console.error('Settings error:', error);
@@ -1142,7 +1162,7 @@ app.put('/api/user/settings', authenticateToken, async (req, res) => {
 app.get('/api/checkout-settings', async (req, res) => {
   const { data, error } = await supabase
     .from('site_settings')
-    .select('paypal_email, btc_wallet, eth_wallet, usdt_wallet, bank_iban, bank_name')
+    .select('paypal_email, paypal_client_id, btc_wallet, eth_wallet, usdt_wallet, bank_iban, bank_name')
     .eq('id', 1)
     .maybeSingle();
 

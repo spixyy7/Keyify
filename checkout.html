@@ -60,7 +60,7 @@
 <body class="antialiased">
 
 <!-- ─── NAVBAR ─────────────────────────────────────────────── -->
-<header class="sticky top-0 z-50 navbar-blur bg-white/90 border-b border-gray-100 shadow-sm">
+<header data-kf-minimal class="sticky top-0 z-50 navbar-blur bg-white/90 border-b border-gray-100 shadow-sm">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex items-center justify-between h-16">
 
@@ -496,14 +496,29 @@
     }
 
     if (id === 'paypal' && paymentSettings.paypal_email) {
-      html += `
-        <p class="text-sm text-gray-600 mb-3">Pošaljite uplatu od <strong class="text-blue-700">${total}</strong> na PayPal:</p>
-        <div class="flex items-center gap-2 bg-white rounded-xl p-3 border border-blue-200">
-          ${paypalIcon()}
-          <span class="text-sm font-mono font-semibold text-gray-800 flex-1">${escHtml(paymentSettings.paypal_email)}</span>
-          <button onclick="copyText('${escAttr(paymentSettings.paypal_email)}')" class="copy-btn text-xs text-blue-600 font-semibold px-2 py-1 bg-blue-100 rounded-lg">Kopiraj</button>
-        </div>
-        <p class="text-xs text-gray-500 mt-2">U napomeni navedite: "<strong>${escHtml(items)}</strong>"</p>`;
+      const hasPayPalSDK = !!paymentSettings.paypal_client_id;
+      if (hasPayPalSDK) {
+        html += `
+          <p class="text-sm text-gray-600 mb-3">Platite sigurno putem PayPal-a:</p>
+          <div id="paypal-button-container" class="bg-white rounded-xl p-4 border border-blue-200 min-h-[60px]">
+            <div class="flex items-center justify-center py-4 text-gray-400 text-sm">Učitavanje PayPal dugmeta...</div>
+          </div>
+          <div class="flex items-center gap-1.5 mt-2">
+            <svg class="w-3.5 h-3.5 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+            <span class="text-xs text-gray-400">Zaštićeno PayPal Buyer Protection programom</span>
+          </div>`;
+        // Load PayPal SDK dynamically
+        requestAnimationFrame(() => _loadPayPalSDK(paymentSettings.paypal_client_id));
+      } else {
+        html += `
+          <p class="text-sm text-gray-600 mb-3">Pošaljite uplatu od <strong class="text-blue-700">${total}</strong> na PayPal:</p>
+          <div class="flex items-center gap-2 bg-white rounded-xl p-3 border border-blue-200">
+            ${paypalIcon()}
+            <span class="text-sm font-mono font-semibold text-gray-800 flex-1">${escHtml(paymentSettings.paypal_email)}</span>
+            <button onclick="copyText('${escAttr(paymentSettings.paypal_email)}')" class="copy-btn text-xs text-blue-600 font-semibold px-2 py-1 bg-blue-100 rounded-lg">Kopiraj</button>
+          </div>
+          <p class="text-xs text-gray-500 mt-2">U napomeni navedite: "<strong>${escHtml(items)}</strong>"</p>`;
+      }
     }
 
     if (id === 'btc' && paymentSettings.btc_wallet) {
@@ -537,16 +552,102 @@
   }
 
   function cryptoDetailBlock(label, address, total, items, color, icon) {
+    // Generate QR code URL via public API (address only, no secrets)
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(address)}`;
     return `
       <p class="text-sm text-gray-600 mb-3">Pošaljite <strong class="text-blue-700">${escHtml(total)}</strong> u ${escHtml(label)} na adresu:</p>
-      <div class="bg-white rounded-xl p-3 border border-blue-200">
-        <div class="flex items-center gap-2 mb-2">${icon}<span class="text-sm font-semibold">${escHtml(label)}</span></div>
-        <div class="flex items-start gap-2">
-          <code class="text-xs font-mono text-gray-700 flex-1 break-all leading-relaxed">${escHtml(address)}</code>
-          <button onclick="copyText('${escAttr(address)}')" class="copy-btn flex-shrink-0 text-xs text-blue-600 font-semibold px-2 py-1 bg-blue-100 rounded-lg">Kopiraj</button>
+      <div class="bg-white rounded-xl p-4 border border-blue-200">
+        <div class="flex items-center gap-2 mb-3">${icon}<span class="text-sm font-semibold">${escHtml(label)}</span></div>
+        <div class="flex gap-4 items-start">
+          <div class="flex-shrink-0 w-[120px] h-[120px] rounded-xl overflow-hidden border border-gray-100 bg-gray-50 flex items-center justify-center">
+            <img src="${qrUrl}" alt="QR Code" width="120" height="120" style="image-rendering:pixelated" onerror="this.parentElement.innerHTML='<span style=font-size:11px;color:#9ca3af;text-align:center>QR nedostupan</span>'"/>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs text-gray-500 mb-1 font-medium">Wallet adresa:</p>
+            <code class="text-xs font-mono text-gray-700 break-all leading-relaxed block mb-2">${escHtml(address)}</code>
+            <button onclick="copyText('${escAttr(address)}')" class="text-xs text-blue-600 font-semibold px-3 py-1.5 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+              <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              Kopiraj adresu
+            </button>
+          </div>
         </div>
       </div>
       <p class="text-xs text-gray-500 mt-2">U memo/tag navesti: "<strong>${escHtml(items)}</strong>"</p>`;
+  }
+
+  /* ── PAYPAL SDK LOADER ── */
+  let _paypalLoaded = false;
+  function _loadPayPalSDK(clientId) {
+    if (_paypalLoaded) { _renderPayPalButtons(); return; }
+    const script = document.createElement('script');
+    script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=EUR`;
+    script.onload = () => { _paypalLoaded = true; _renderPayPalButtons(); };
+    script.onerror = () => {
+      const container = document.getElementById('paypal-button-container');
+      if (container) container.innerHTML = '<p class="text-sm text-red-500 text-center py-3">Greška pri učitavanju PayPal-a. Pokušajte ponovo.</p>';
+    };
+    document.head.appendChild(script);
+  }
+
+  function _renderPayPalButtons() {
+    const container = document.getElementById('paypal-button-container');
+    if (!container || !window.paypal) return;
+    container.innerHTML = '';
+
+    const cart     = JSON.parse(localStorage.getItem('keyify_cart') || '[]');
+    const subtotal = cart.reduce((s, i) => s + i.price * (i.qty || 1), 0);
+    const discount = appliedPromo
+      ? (appliedPromo.discount_type === 'percent'
+          ? subtotal * (appliedPromo.discount_value / 100)
+          : appliedPromo.discount_value)
+      : 0;
+    const total = Math.max(0.01, subtotal - discount);
+
+    window.paypal.Buttons({
+      style: { layout: 'vertical', color: 'blue', shape: 'pill', label: 'paypal', height: 45 },
+      createOrder: (data, actions) => {
+        return actions.order.create({
+          purchase_units: [{
+            description: cart.map(i => i.name).join(', ').substring(0, 127) || 'Keyify',
+            amount: { currency_code: 'EUR', value: total.toFixed(2) },
+          }],
+        });
+      },
+      onApprove: async (data, actions) => {
+        const details = await actions.order.capture();
+        // Auto-confirm order on backend
+        const name  = document.getElementById('buyer-name').value.trim();
+        const email = document.getElementById('buyer-email').value.trim();
+        if (!name || !email) { alert('Unesite ime i email prije potvrde.'); return; }
+
+        const token = localStorage.getItem('kf_token') || null;
+        const firstItem = cart[0] || {};
+        try {
+          const res = await fetch(`${API_BASE}/checkout/confirm`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            body: JSON.stringify({
+              guest_email: email, buyer_name: name,
+              product_id: firstItem.id || null,
+              product_name: cart.map(i => i.name || i.title).filter(Boolean).join(', ') || 'Digitalni proizvod',
+              amount: total, payment_method: 'paypal',
+              tx_reference: details.id || null,
+            }),
+          });
+          const result = await res.json();
+          if (res.ok) {
+            localStorage.removeItem('keyify_cart');
+            window.location.href = `purchase-success.html?tx=${result.transaction_id}&key=${encodeURIComponent(result.license_key)}`;
+          } else {
+            alert(result.error || 'Greška pri potvrdi narudžbe.');
+          }
+        } catch { alert('Mrežna greška. Pokušajte ponovo.'); }
+      },
+      onError: (err) => {
+        console.error('PayPal error:', err);
+        alert('PayPal plaćanje nije uspjelo. Pokušajte ponovo.');
+      },
+    }).render('#paypal-button-container');
   }
 
   /* ── PLACE ORDER ── */
