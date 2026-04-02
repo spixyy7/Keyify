@@ -73,6 +73,12 @@ GRANT EXECUTE ON FUNCTION keyify_execute_sql(TEXT) TO service_role;
 -- ── 5. ENSURE COLUMNS EXIST (safe for re-runs) ───────────────
 ALTER TABLE sql_audit_logs ADD COLUMN IF NOT EXISTS executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS discount_type  TEXT NOT NULL DEFAULT 'percent' CHECK (discount_type IN ('percent', 'fixed'));
+ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS discount_value NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (discount_value > 0);
+ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS usage_limit    INTEGER DEFAULT NULL;
+ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS used_count     INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS expires_at     TIMESTAMPTZ DEFAULT NULL;
+ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS is_active      BOOLEAN NOT NULL DEFAULT TRUE;
 
 -- ── 6. PERFORMANCE INDEXES ────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_support_tickets_status  ON support_tickets(status);

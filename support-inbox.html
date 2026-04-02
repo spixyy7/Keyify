@@ -174,7 +174,8 @@
   const HDRS  = () => ({ 'Content-Type':'application/json','Authorization':`Bearer ${_token}` });
   const escH  = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-  let _sessions        = [];
+  let _allSessions     = [];   // full cache (all statuses)
+  let _sessions        = [];   // filtered view for current tab
   let _activeId        = null;
   let _activeClosed    = false;
   let _queuePoll       = null;
@@ -212,19 +213,19 @@
 
   /* ── QUEUE LOAD & RENDER ────────────────────────────────────── */
   async function loadQueue() {
-    const qs = _currentFilter === 'closed' ? '?closed=1' : '';
     try {
-      const r = await fetch(`${API()}/admin/chat/sessions${qs}`, { headers: HDRS() });
+      // Single request — fetch all sessions including closed
+      const r = await fetch(`${API()}/admin/chat/sessions?all=1`, { headers: HDRS() });
       if (!r.ok) return;
-      let all = await r.json();
-      // Client-side filter by tab
-      if (_currentFilter === 'pending') all = all.filter(s => s.status === 'pending');
-      else if (_currentFilter === 'active') all = all.filter(s => s.status === 'active');
-      else if (_currentFilter === 'closed') all = all.filter(s => s.status === 'closed');
-      _sessions = all;
-      renderQueue();
-      updateHeaderBadge();
+      _allSessions = await r.json();
+      _applyFilter();
     } catch {}
+  }
+
+  function _applyFilter() {
+    _sessions = _allSessions.filter(s => s.status === _currentFilter);
+    renderQueue();
+    updateHeaderBadge();
   }
 
   function renderQueue() {
@@ -270,7 +271,7 @@
   }
 
   function updateHeaderBadge() {
-    const pendingCount = _sessions.filter(s => s.status === 'pending').length;
+    const pendingCount = _allSessions.filter(s => s.status === 'pending').length;
     const badge = document.getElementById('hdr-new-badge');
     if (badge) { badge.textContent = pendingCount || ''; badge.style.display = pendingCount ? '' : 'none'; }
   }
@@ -279,7 +280,7 @@
   function setFilter(f, btn) {
     _currentFilter = f;
     document.querySelectorAll('.ftab').forEach(b => b.classList.toggle('active', b === btn));
-    loadQueue();
+    _applyFilter();  // instant — no network request
   }
   function filterQueue(q) { _searchQuery = q; renderQueue(); }
 

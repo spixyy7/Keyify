@@ -171,7 +171,7 @@ const authLimiter = rateLimit({
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 300,
   message: { error: 'Previše zahtjeva.' },
 });
 
@@ -1476,6 +1476,7 @@ app.get('/api/admin/chat/sessions/new-count', authenticateToken, checkPermission
 /** GET /api/admin/chat/sessions – list chat sessions sorted by latest activity */
 app.get('/api/admin/chat/sessions', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
   const showClosed = req.query.closed === '1';
+  const showAll    = req.query.all === '1';
 
   // Try full select with join; progressively strip missing columns on failure
   const attempts = [
@@ -1487,8 +1488,10 @@ app.get('/api/admin/chat/sessions', authenticateToken, checkPermission('can_mana
   let data = null, error = null;
   for (const att of attempts) {
     let q = supabase.from('chat_sessions').select(att.cols);
-    if (showClosed) q = q.eq('status', 'closed');
-    else q = q.neq('status', 'closed');
+    if (!showAll) {
+      if (showClosed) q = q.eq('status', 'closed');
+      else q = q.neq('status', 'closed');
+    }
     const res2 = await q
       .order(att.orderCol, { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false });
