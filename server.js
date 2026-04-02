@@ -1479,7 +1479,7 @@ app.get('/api/admin/chat/sessions', authenticateToken, checkPermission('can_mana
 
   // Try full select with join; progressively strip missing columns on failure
   const attempts = [
-    { cols: 'id, user_id, guest_email, status, created_at, last_message_at, last_message_preview, users(name, email)', orderCol: 'last_message_at' },
+    { cols: 'id, user_id, guest_email, status, created_at, last_message_at, last_message_preview, users!chat_sessions_user_id_fkey(name, email)', orderCol: 'last_message_at' },
     { cols: 'id, user_id, guest_email, status, created_at, last_message_at, last_message_preview', orderCol: 'last_message_at' },
     { cols: 'id, user_id, guest_email, status, created_at', orderCol: 'created_at' },
   ];
@@ -1487,7 +1487,8 @@ app.get('/api/admin/chat/sessions', authenticateToken, checkPermission('can_mana
   let data = null, error = null;
   for (const att of attempts) {
     let q = supabase.from('chat_sessions').select(att.cols);
-    if (!showClosed) q = q.neq('status', 'closed');
+    if (showClosed) q = q.eq('status', 'closed');
+    else q = q.neq('status', 'closed');
     const res2 = await q
       .order(att.orderCol, { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false });
@@ -1738,7 +1739,7 @@ app.get('/api/admin/chat/sessions/:id/guest-info', authenticateToken, checkPermi
   let session;
   const { data: s1 } = await supabase
     .from('chat_sessions')
-    .select('id, guest_email, user_id, users(id, name, email, role, created_at)')
+    .select('id, guest_email, user_id, users!chat_sessions_user_id_fkey(id, name, email, role, created_at)')
     .eq('id', req.params.id)
     .maybeSingle();
   if (s1) {
@@ -2623,65 +2624,6 @@ app.post('/api/checkout/confirm', async (req, res) => {
     email_sent_to:  email,
     email_sent:     emailSent,
   });
-});
-
-/* ─────────────────────────────────────────
-   COUPONS (alias for promo_codes with usage analytics)
-───────────────────────────────────────── */
-
-/** GET /api/admin/coupons – list all coupons with usage stats */
-app.get('/api/admin/coupons', authenticateToken, checkPermission('can_manage_promos'), async (req, res) => {
-  const { data, error } = await supabase
-    .from('promo_codes')
-    .select('*')
-    .order('created_at', { ascending: false });
-  if (error) return res.status(500).json({ error: 'Greška' });
-  return res.json(data || []);
-});
-
-/** POST /api/admin/coupons – create a coupon */
-app.post('/api/admin/coupons', authenticateToken, checkPermission('can_manage_promos'), async (req, res) => {
-  const { code, discount_percent, expiry_date, is_active, usage_limit } = req.body;
-  if (!code || !discount_percent)
-    return res.status(400).json({ error: 'code i discount_percent su obavezni' });
-  if (parseFloat(discount_percent) <= 0 || parseFloat(discount_percent) > 100)
-    return res.status(400).json({ error: 'Popust mora biti između 1 i 100%' });
-
-  const { data, error } = await supabase.from('promo_codes').insert({
-    code:           code.trim().toUpperCase(),
-    discount_type:  'percent',
-    discount_value: parseFloat(discount_percent),
-    usage_limit:    usage_limit ? parseInt(usage_limit) : null,
-    used_count:     0,
-    expires_at:     expiry_date || null,
-    is_active:      is_active !== false,
-    created_by:     req.user.id,
-  }).select().single();
-
-  if (error) {
-    if (error.code === '23505') return res.status(400).json({ error: 'Kupon s tim kodom već postoji' });
-    return res.status(500).json({ error: 'Greška pri kreiranju kupona' });
-  }
-  return res.status(201).json(data);
-});
-
-/** PATCH /api/admin/coupons/:id – toggle active/update coupon */
-app.patch('/api/admin/coupons/:id', authenticateToken, checkPermission('can_manage_promos'), async (req, res) => {
-  const updates = {};
-  if (req.body.is_active  !== undefined) updates.is_active  = Boolean(req.body.is_active);
-  if (req.body.expires_at !== undefined) updates.expires_at = req.body.expires_at || null;
-  if (req.body.usage_limit !== undefined) updates.usage_limit = req.body.usage_limit ? parseInt(req.body.usage_limit) : null;
-
-  const { error } = await supabase.from('promo_codes').update(updates).eq('id', req.params.id);
-  if (error) return res.status(500).json({ error: 'Greška pri ažuriranju' });
-  return res.json({ message: 'Kupon ažuriran' });
-});
-
-/** DELETE /api/admin/coupons/:id */
-app.delete('/api/admin/coupons/:id', authenticateToken, checkPermission('can_manage_promos'), async (req, res) => {
-  const { error } = await supabase.from('promo_codes').delete().eq('id', req.params.id);
-  if (error) return res.status(500).json({ error: 'Greška pri brisanju' });
-  return res.json({ message: 'Kupon obrisan' });
 });
 
 /* ─────────────────────────────────────────

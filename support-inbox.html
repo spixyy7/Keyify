@@ -220,6 +220,7 @@
       // Client-side filter by tab
       if (_currentFilter === 'pending') all = all.filter(s => s.status === 'pending');
       else if (_currentFilter === 'active') all = all.filter(s => s.status === 'active');
+      else if (_currentFilter === 'closed') all = all.filter(s => s.status === 'closed');
       _sessions = all;
       renderQueue();
       updateHeaderBadge();

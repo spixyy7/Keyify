@@ -13,9 +13,11 @@ CREATE TABLE IF NOT EXISTS promo_codes (
   expires_at     TIMESTAMPTZ   DEFAULT NULL,      -- NULL = never expires
   is_active      BOOLEAN       NOT NULL DEFAULT TRUE,
   created_by     UUID          REFERENCES users(id) ON DELETE SET NULL,
-  created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-  CONSTRAINT promo_codes_code_unique UNIQUE (UPPER(code))
+  created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
+
+-- Case-insensitive unique constraint on promo code
+CREATE UNIQUE INDEX IF NOT EXISTS promo_codes_code_unique ON promo_codes (UPPER(code));
 
 -- ── 2. SUPPORT TICKETS ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS support_tickets (
@@ -68,7 +70,11 @@ $$;
 REVOKE ALL   ON FUNCTION keyify_execute_sql(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION keyify_execute_sql(TEXT) TO service_role;
 
--- ── 5. PERFORMANCE INDEXES ────────────────────────────────────
+-- ── 5. ENSURE COLUMNS EXIST (safe for re-runs) ───────────────
+ALTER TABLE sql_audit_logs ADD COLUMN IF NOT EXISTS executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES users(id) ON DELETE SET NULL;
+
+-- ── 6. PERFORMANCE INDEXES ────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_support_tickets_status  ON support_tickets(status);
 CREATE INDEX IF NOT EXISTS idx_support_tickets_created ON support_tickets(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_promo_codes_active       ON promo_codes(UPPER(code)) WHERE is_active = TRUE;

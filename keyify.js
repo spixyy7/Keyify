@@ -324,66 +324,72 @@ const KEYIFY = (() => {
     const headerEl        = document.querySelector('header');
     const isMinimalHeader = headerEl?.hasAttribute('data-kf-minimal');
 
-    /* Find the right-side controls container (gap-1 on minimal, gap-2 on full) */
-    const cartBtnContainer = document.querySelector(
-      'header .flex.items-center.gap-1, header .flex.items-center.gap-2'
-    );
-    if (!cartBtnContainer) return;
-
     if (!isMinimalHeader) {
-      /* ── 1. LANGUAGE SWITCHER (full header only) ── */
-      if (!document.getElementById('kf-lang-switch')) {
-        const ls = document.createElement('div');
-        ls.id = 'kf-lang-switch';
-        ls.className = 'hidden sm:flex items-center gap-0.5';
-        ls.style.cssText = 'border:1px solid #e5e7eb; border-radius:10px; padding:3px; background:#fff; transition: background .3s, border-color .3s;';
+      /* Find the right-side controls container — the div wrapping login + cart + hamburger.
+         Use ml-auto to distinguish it from the cart button itself (which also has gap-2). */
+      const cartBtnContainer =
+        document.querySelector('header .flex.items-center.ml-auto') ||
+        document.querySelector('header .flex.items-center.gap-2');
 
-        ['sr', 'en'].forEach(lang => {
-          const btn = document.createElement('button');
-          btn.className    = 'kf-lang-btn';
-          btn.dataset.lang = lang;
-          btn.textContent  = lang.toUpperCase();
-          const isActive   = lang === _lang;
-          btn.style.cssText = `padding:4px 10px; border-radius:7px; font-size:11px; cursor:pointer; border:none;
-            transition:all 0.2s; font-family:inherit;
-            background:${isActive ? '#1D6AFF' : 'transparent'};
-            color:${isActive ? '#fff' : '#6b7280'};
-            font-weight:${isActive ? '700' : '500'};`;
-          btn.addEventListener('click', () => LANG.set(lang));
-          ls.appendChild(btn);
-        });
+      if (cartBtnContainer && cartBtnContainer.tagName !== 'BUTTON') {
+        /* ── 1. LANGUAGE SWITCHER (full header only) ── */
+        if (!document.getElementById('kf-lang-switch')) {
+          const ls = document.createElement('div');
+          ls.id = 'kf-lang-switch';
+          ls.className = 'hidden sm:flex items-center gap-0.5';
+          ls.style.cssText = 'border:1px solid #e5e7eb; border-radius:10px; padding:3px; background:#fff; transition: background .3s, border-color .3s;';
 
-        const cartBtn = cartBtnContainer.querySelector('button > span, button');
-        if (cartBtn) {
-          cartBtnContainer.insertBefore(ls, cartBtn.closest('button') ?? cartBtn);
-        } else {
-          cartBtnContainer.prepend(ls);
+          ['sr', 'en'].forEach(lang => {
+            const btn = document.createElement('button');
+            btn.className    = 'kf-lang-btn';
+            btn.dataset.lang = lang;
+            btn.textContent  = lang.toUpperCase();
+            const isActive   = lang === _lang;
+            btn.style.cssText = `padding:4px 10px; border-radius:7px; font-size:11px; cursor:pointer; border:none;
+              transition:all 0.2s; font-family:inherit;
+              background:${isActive ? '#1D6AFF' : 'transparent'};
+              color:${isActive ? '#fff' : '#6b7280'};
+              font-weight:${isActive ? '700' : '500'};`;
+            btn.addEventListener('click', () => LANG.set(lang));
+            ls.appendChild(btn);
+          });
+
+          /* Insert before the cart button */
+          const cartRef = document.getElementById('kf-header-cart-btn');
+          if (cartRef && cartRef.parentNode === cartBtnContainer) {
+            cartBtnContainer.insertBefore(ls, cartRef);
+          } else {
+            cartBtnContainer.prepend(ls);
+          }
         }
-      }
 
-      /* ── 2. THEME TOGGLE (full header only) ── */
-      _injectThemeToggle(cartBtnContainer);
+        /* ── 2. THEME TOGGLE (full header only) ── */
+        _injectThemeToggle(cartBtnContainer);
+      }
     }
-    /* Minimal header: no lang switcher, no theme toggle — but cart ALWAYS wired */
 
-    /* ── 3. WRAP CART BUTTON SPAN (runs on ALL headers) ── */
-    cartBtnContainer.querySelectorAll('button').forEach(btn => {
-      const span = btn.querySelector('span');
-      if (span && span.textContent.includes('Korpa') && !span.classList.contains('kf-cart-label')) {
-        span.classList.add('kf-cart-label');
-        btn.classList.add('kf-cart-btn');
-        btn.style.cursor = 'pointer';
-        btn.style.position = 'relative';
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          _toggleMiniCart();
-        });
+    /* ── 3. WIRE CART BUTTON by ID (runs on ALL pages) ── */
+    const cartBtn = document.getElementById('kf-header-cart-btn');
+    if (cartBtn && !cartBtn.classList.contains('kf-cart-btn')) {
+      /* Ensure it has a <span> with .kf-cart-label for updateNavbarText() */
+      let span = cartBtn.querySelector('span');
+      if (!span) {
+        span = document.createElement('span');
+        span.textContent = 'Korpa € 0,00';
+        cartBtn.appendChild(span);
       }
-    });
+      span.classList.add('kf-cart-label');
+      cartBtn.classList.add('kf-cart-btn');
+      cartBtn.style.position = 'relative';
 
-    /* ── 4. BADGE OVERLAY on cart button (runs on ALL headers) ── */
-    cartBtnContainer.querySelectorAll('button').forEach(btn => {
-      if (btn.querySelector('.kf-cart-label') && !btn.querySelector('.kf-cart-badge')) {
+      cartBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        _toggleMiniCart();
+      });
+
+      /* ── 4. BADGE OVERLAY ── */
+      if (!cartBtn.querySelector('.kf-cart-badge')) {
         const badge = document.createElement('span');
         badge.className = 'kf-cart-badge';
         badge.style.cssText = `
@@ -393,9 +399,9 @@ const KEYIFY = (() => {
           border-radius:999px; display:none;
           align-items:center; justify-content:center; padding:0 4px;
           border:2px solid #fff; pointer-events:none;`;
-        btn.appendChild(badge);
+        cartBtn.appendChild(badge);
       }
-    });
+    }
   }
 
 
@@ -581,8 +587,18 @@ const KEYIFY = (() => {
   }
 
   function _openMiniCart() {
-    const mc = document.getElementById('kf-minicart');
+    const mc  = document.getElementById('kf-minicart');
+    const btn = document.getElementById('kf-header-cart-btn');
     if (!mc) return;
+
+    /* Position below the cart button */
+    if (btn) {
+      const rect = btn.getBoundingClientRect();
+      mc.style.top   = (rect.bottom + 8) + 'px';
+      mc.style.right  = Math.max(8, window.innerWidth - rect.right) + 'px';
+      mc.style.left  = 'auto';
+    }
+
     _renderMiniCartItems();
     _loadMiniCartRelated();
     mc.style.opacity = '1';
