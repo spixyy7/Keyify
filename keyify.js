@@ -956,6 +956,12 @@ const KEYIFY = (() => {
         <a href="profile.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:500;color:var(--kf-dd-item);text-decoration:none;border-radius:10px;">
           <span style="font-size:16px;line-height:1;flex-shrink:0">👤</span>Moj profil
         </a>
+        <a href="profile.html#referral" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:500;color:var(--kf-dd-item);text-decoration:none;border-radius:10px;">
+          <span style="font-size:16px;line-height:1;flex-shrink:0">🏆</span>Referral Program
+        </a>
+        <a href="profile.html#coupons" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:500;color:var(--kf-dd-item);text-decoration:none;border-radius:10px;">
+          <span style="font-size:16px;line-height:1;flex-shrink:0">🏷️</span>Moji kuponi
+        </a>
         ${adminItem}
         ${inboxItem}
       </div>

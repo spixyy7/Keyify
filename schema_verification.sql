@@ -33,8 +33,11 @@ ALTER TABLE transactions ADD COLUMN IF NOT EXISTS verification_status TEXT DEFAU
 -- 3. Conditional discounts: min product count for promo codes
 ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS min_products INTEGER DEFAULT NULL;
 
--- 4. Bonus coupon system
+-- 4. Bonus coupon system + custom delivery message
 ALTER TABLE products ADD COLUMN IF NOT EXISTS bonus_coupon_id UUID REFERENCES promo_codes(id) ON DELETE SET NULL;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS delivery_message TEXT DEFAULT NULL;
+-- delivery_message: custom HTML/text admin sends to buyer instead of/alongside license key
+-- e.g., a download link, account credentials, or special instructions
 
 CREATE TABLE IF NOT EXISTS user_coupons (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -945,7 +945,8 @@ app.post('/api/products', authenticateToken, requireAdmin, (req, res, next) => {
       image_url:      finalImageUrl,
       badge:          badge || null,
       stars:          starsVal,
-      bonus_coupon_id: req.body.bonus_coupon_id || null,
+      bonus_coupon_id:  req.body.bonus_coupon_id || null,
+      delivery_message: req.body.delivery_message || null,
       created_at:     new Date().toISOString(),
     })
     .select()
@@ -984,7 +985,8 @@ app.put('/api/products/:id', authenticateToken, requireAdmin, (req, res, next) =
   if (stars            !== undefined) updates.stars            = Math.min(5, Math.max(1, parseInt(stars) || 5));
   if (card_size        !== undefined) updates.card_size        = card_size;
   if (grid_order       !== undefined) updates.grid_order       = Number(grid_order);
-  if (req.body.bonus_coupon_id !== undefined) updates.bonus_coupon_id = req.body.bonus_coupon_id || null;
+  if (req.body.bonus_coupon_id !== undefined)  updates.bonus_coupon_id  = req.body.bonus_coupon_id || null;
+  if (req.body.delivery_message !== undefined) updates.delivery_message = req.body.delivery_message || null;
 
   // File upload takes priority; fall back to URL field; undefined = keep existing
   if (req.file) {
@@ -3347,6 +3349,35 @@ app.get('/api/products/:id/reviews', async (req, res) => {
   return res.json({ reviews: data || [], average: Math.round(avg * 10) / 10, count: ratings.length, distribution: dist });
 });
 
+/** GET /api/products/:id/can-review – check if user can leave a review */
+app.get('/api/products/:id/can-review', authenticateToken, async (req, res) => {
+  const productId = req.params.id;
+
+  // Check completed transaction exists
+  const { data: tx } = await supabase
+    .from('transactions')
+    .select('id')
+    .eq('product_id', productId)
+    .eq('user_id', req.user.id)
+    .eq('status', 'completed')
+    .limit(1)
+    .maybeSingle();
+
+  if (!tx) return res.json({ can_review: false, reason: 'Niste kupili ovaj proizvod ili uplata još nije potvrđena.' });
+
+  // Check if already reviewed
+  const { data: existing } = await supabase
+    .from('reviews')
+    .select('id')
+    .eq('product_id', productId)
+    .eq('user_id', req.user.id)
+    .maybeSingle();
+
+  if (existing) return res.json({ can_review: false, reason: 'Već ste ostavili recenziju.' });
+
+  return res.json({ can_review: true });
+});
+
 /** POST /api/products/:id/reviews – user submits review */
 app.post('/api/products/:id/reviews', authenticateToken, async (req, res) => {
   const { rating, text } = req.body;
@@ -3364,7 +3395,7 @@ app.post('/api/products/:id/reviews', authenticateToken, async (req, res) => {
     .maybeSingle();
   if (existing) return res.status(400).json({ error: 'Već ste ostavili recenziju za ovaj proizvod' });
 
-  // Check if user has a completed transaction for verified badge
+  // Require completed (admin-verified) purchase to leave a review
   const { data: txMatch } = await supabase
     .from('transactions')
     .select('id')
@@ -3373,6 +3404,9 @@ app.post('/api/products/:id/reviews', authenticateToken, async (req, res) => {
     .eq('status', 'completed')
     .limit(1)
     .maybeSingle();
+
+  if (!txMatch)
+    return res.status(403).json({ error: 'Možete ostaviti recenziju samo nakon što admin potvrdi vašu kupovinu ovog proizvoda.' });
 
   const { data: user } = await supabase.from('users').select('name').eq('id', req.user.id).maybeSingle();
 
@@ -3706,39 +3740,115 @@ app.put('/api/admin/verifications/:id/approve', authenticateToken, checkPermissi
     verification_status: 'approved',
   }).eq('id', pv.transaction_id);
 
-  // Send license key email
+  // Send premium delivery email
   const tx = pv.transactions;
-  if (tx && tx.license_key && tx.buyer_email) {
+  if (tx && tx.buyer_email) {
+    // Fetch product's custom delivery message if exists
+    let deliveryMsg = '';
+    if (tx.product_id) {
+      const { data: prod } = await supabase.from('products').select('delivery_message, image_url').eq('id', tx.product_id).maybeSingle();
+      if (prod?.delivery_message) deliveryMsg = prod.delivery_message;
+    }
+
     const orderDate = new Date().toLocaleDateString('bs-BA', { year: 'numeric', month: 'long', day: 'numeric' });
+    const buyerName = tx.buyer_email.split('@')[0];
+
+    // Build the delivery content block
+    const deliveryBlock = deliveryMsg
+      ? `<!-- Custom admin message -->
+        <div style="background:linear-gradient(135deg,#f0fdf4 0%,#ecfdf5 100%);border:2px solid #22c55e;border-radius:16px;padding:24px;text-align:center;margin-bottom:24px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#16a34a;margin-bottom:12px">Vaš proizvod</div>
+          <div style="font-size:14px;color:#374151;line-height:1.6">${deliveryMsg}</div>
+        </div>`
+      : '';
+
+    const licenseBlock = tx.license_key
+      ? `<!-- License key -->
+        <div style="background:linear-gradient(135deg,rgba(29,106,255,0.06) 0%,rgba(162,89,255,0.06) 100%);border:2px solid rgba(162,89,255,0.4);border-radius:16px;padding:24px;text-align:center;margin-bottom:24px">
+          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.15em;color:#7c3aed;margin-bottom:12px">🔑 Licencni ključ</div>
+          <div style="font-size:20px;font-weight:800;letter-spacing:4px;color:#1D6AFF;font-family:'Courier New','Fira Mono',monospace;word-break:break-all;padding:8px 0">${escServerHtml(tx.license_key)}</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:8px">Čuvajte ovaj ključ na sigurnom · nije ponovljiv</div>
+        </div>`
+      : '';
+
     try {
       await sendMailSafe({
         from:    process.env.EMAIL_FROM || `"Keyify" <${process.env.EMAIL_USER}>`,
         to:      tx.buyer_email,
-        subject: `🔑 Keyify – Uplata potvrđena · Vaš ključ za ${escServerHtml(tx.product_name || 'narudžbu')}`,
+        subject: `🔑 Keyify – Uplata potvrđena · ${escServerHtml(tx.product_name || 'Vaša narudžba')}`,
         html: `<!DOCTYPE html>
-<html lang="bs"><head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:20px 0;background:#f4f6f9;font-family:'Segoe UI',Arial,sans-serif">
-<div style="max-width:520px;margin:0 auto">
-  <div style="background:linear-gradient(135deg,#1D6AFF 0%,#A259FF 100%);border-radius:18px 18px 0 0;padding:32px 36px 28px;text-align:center">
-    <div style="display:inline-block;background:rgba(255,255,255,0.15);border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px;margin-bottom:12px">✅</div>
-    <h1 style="color:#fff;margin:0;font-size:24px;font-weight:800">Uplata potvrđena!</h1>
-    <p style="color:rgba(255,255,255,0.80);margin:6px 0 0;font-size:14px">Vaša narudžba je verificirana i odobrena.</p>
+<html lang="bs"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+<body style="margin:0;padding:0;background:#0f0f1a;font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif">
+
+<!-- Dark wrapper -->
+<div style="max-width:560px;margin:0 auto;padding:24px 16px">
+
+  <!-- Logo bar -->
+  <div style="text-align:center;padding:20px 0 24px">
+    <span style="font-size:22px;font-weight:800;letter-spacing:-.01em;color:#fff">Key<span style="color:#1D6AFF">ify</span></span>
   </div>
-  <div style="background:#fff;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;padding:28px 36px">
-    <div style="background:linear-gradient(135deg,#f0f4ff 0%,#faf5ff 100%);border:2px solid #A259FF;border-radius:14px;padding:22px;text-align:center;margin-bottom:24px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#7c3aed;margin-bottom:10px">Licencni ključ</div>
-      <div style="font-size:22px;font-weight:800;letter-spacing:5px;color:#1D6AFF;font-family:'Courier New',monospace;word-break:break-all">${escServerHtml(tx.license_key)}</div>
+
+  <!-- Main card -->
+  <div style="background:linear-gradient(180deg,#1a1a2e 0%,#16162a 100%);border:1px solid rgba(255,255,255,0.06);border-radius:24px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
+
+    <!-- Header gradient -->
+    <div style="background:linear-gradient(135deg,#1D6AFF 0%,#A259FF 50%,#22c55e 100%);padding:40px 36px 36px;text-align:center;position:relative">
+      <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2220%22 cy=%2230%22 r=%2240%22 fill=%22rgba(255,255,255,0.03)%22/><circle cx=%2280%22 cy=%2270%22 r=%2250%22 fill=%22rgba(255,255,255,0.02)%22/></svg>');background-size:cover"></div>
+      <div style="position:relative;z-index:1">
+        <div style="display:inline-block;background:rgba(255,255,255,0.15);backdrop-filter:blur(10px);border-radius:50%;width:64px;height:64px;line-height:64px;font-size:30px;margin-bottom:14px;border:2px solid rgba(255,255,255,0.2)">✅</div>
+        <h1 style="color:#fff;margin:0;font-size:26px;font-weight:800;letter-spacing:-.02em">Uplata potvrđena!</h1>
+        <p style="color:rgba(255,255,255,0.75);margin:8px 0 0;font-size:14px;font-weight:400">Hvala na kupovini, ${escServerHtml(buyerName)}!</p>
+      </div>
     </div>
-    <table style="width:100%;border-collapse:collapse;font-size:13px;color:#374151">
-      <tr><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;color:#6b7280">Proizvod</td><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;text-align:right;font-weight:600">${escServerHtml(tx.product_name || 'Digitalni proizvod')}</td></tr>
-      <tr><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;color:#6b7280">Iznos</td><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;text-align:right;font-weight:700;color:#1D6AFF">€ ${parseFloat(tx.amount).toFixed(2)}</td></tr>
-      <tr><td style="padding:10px 0;color:#6b7280">Datum odobrenja</td><td style="padding:10px 0;text-align:right">${orderDate}</td></tr>
-    </table>
+
+    <!-- Body -->
+    <div style="padding:32px 36px 28px">
+
+      ${deliveryBlock}
+      ${licenseBlock}
+
+      <!-- Order details -->
+      <div style="border:1px solid rgba(255,255,255,0.06);border-radius:14px;overflow:hidden;margin-bottom:24px">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
+            <td style="padding:14px 16px;color:#94a3b8">Proizvod</td>
+            <td style="padding:14px 16px;text-align:right;font-weight:700;color:#f1f5f9">${escServerHtml(tx.product_name || 'Digitalni proizvod')}</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
+            <td style="padding:14px 16px;color:#94a3b8">Iznos</td>
+            <td style="padding:14px 16px;text-align:right;font-weight:800;color:#22c55e;font-size:16px">€ ${parseFloat(tx.amount).toFixed(2)}</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
+            <td style="padding:14px 16px;color:#94a3b8">Datum</td>
+            <td style="padding:14px 16px;text-align:right;color:#cbd5e1">${orderDate}</td>
+          </tr>
+          <tr>
+            <td style="padding:14px 16px;color:#94a3b8">ID narudžbe</td>
+            <td style="padding:14px 16px;text-align:right;font-family:'Courier New',monospace;font-size:11px;color:#64748b">${escServerHtml(tx.id)}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- CTA -->
+      <div style="text-align:center;margin-bottom:8px">
+        <a href="https://www.instagram.com/keyifyshop/" target="_blank" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#E1306C,#C13584);color:#fff;font-weight:700;font-size:14px;text-decoration:none;border-radius:12px;letter-spacing:.02em">Zapratite @keyifyshop</a>
+        <p style="font-size:12px;color:#64748b;margin:10px 0 0">Za ekskluzivne promo kodove i popuste</p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="background:rgba(255,255,255,0.02);border-top:1px solid rgba(255,255,255,0.04);padding:20px 36px;text-align:center">
+      <p style="margin:0 0 4px;font-size:11px;color:#475569">Pitanja? <a href="mailto:${escServerHtml(process.env.EMAIL_USER || 'support@keyify.app')}" style="color:#1D6AFF;text-decoration:none">${escServerHtml(process.env.EMAIL_USER || 'support@keyify.app')}</a></p>
+      <p style="margin:0;font-size:10px;color:#334155">© ${new Date().getFullYear()} Keyify · Sva prava zadržana</p>
+    </div>
   </div>
-  <div style="background:#f9fafb;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 18px 18px;padding:20px 36px;text-align:center">
-    <p style="margin:0;font-size:11px;color:#d1d5db">© ${new Date().getFullYear()} Keyify · Automatski generiran email</p>
+
+  <!-- Unsubscribe-style footer -->
+  <div style="text-align:center;padding:16px 0">
+    <p style="margin:0;font-size:10px;color:#334155">Ovaj email je automatski generiran nakon potvrde vaše uplate.</p>
   </div>
-</div></body></html>`,
+</div>
+</body></html>`,
       });
     } catch (e) { console.error('[verify/approve] email error:', e.message); }
   }

@@ -584,10 +584,20 @@
                 }
             }
 
-            // Show write-review form if user is logged in
+            // Show write-review form only if user is logged in AND has a completed purchase
             const token = localStorage.getItem('keyify_token') || localStorage.getItem('kfy_token');
             if (token) {
-                document.getElementById('pdp-write-review').style.display = 'block';
+                try {
+                    const canRes = await fetch(`${apiBase}/products/${pid}/can-review`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (canRes.ok) {
+                        const canData = await canRes.json();
+                        if (canData.can_review) {
+                            document.getElementById('pdp-write-review').style.display = 'block';
+                        }
+                    }
+                } catch {}
             }
 
             if (!reviews.length) {

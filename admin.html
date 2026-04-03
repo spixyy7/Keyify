@@ -1382,6 +1382,13 @@
         <p class="text-xs text-dark-400 mt-1">Kada se uplata potvrdi, korisnik dobija kopiju ovog kupona.</p>
       </div>
 
+      <!-- Custom delivery message -->
+      <div>
+        <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Custom poruka za dostavu</label>
+        <textarea id="prod-delivery-msg" rows="3" placeholder="Opciono: link za preuzimanje, kredencijali, uputstva... Šalje se umjesto/uz licencni ključ u emailu kupcu." class="admin-input resize-none"></textarea>
+        <p class="text-xs text-dark-400 mt-1">HTML dozvoljen. Ako je prazno, šalje se standardni licencni ključ.</p>
+      </div>
+
       <div class="flex gap-3 pt-2">
         <button type="button" onclick="closeModal()" class="flex-1 py-3 rounded-xl text-sm font-semibold transition-colors"
                 style="background:rgba(255,255,255,0.06);color:#9090b8">
@@ -2093,8 +2100,9 @@
     document.getElementById('prod-image-url').value = product?.image_url || '';
     switchImgTab('url');
     updateImgPreview();
-    // Populate bonus coupon dropdown
+    // Populate bonus coupon dropdown + delivery message
     populateBonusCouponDropdown(product?.bonus_coupon_id || '');
+    document.getElementById('prod-delivery-msg').value = product?.delivery_message || '';
     document.getElementById('modal-overlay').classList.add('open');
   }
 
@@ -2136,7 +2144,8 @@
       category:       document.getElementById('prod-category').value,
       image_url:      document.getElementById('prod-image-url').value || '',
       badge:          document.getElementById('prod-badge').value || '',
-      bonus_coupon_id: document.getElementById('prod-bonus-coupon').value || null,
+      bonus_coupon_id:  document.getElementById('prod-bonus-coupon').value || null,
+      delivery_message: document.getElementById('prod-delivery-msg').value || null,
     };
 
     const endpoint = id ? `${API_BASE}/products/${id}` : `${API_BASE}/products`;
@@ -3341,7 +3350,7 @@
   async function loadAdminReferrals() {
     // Load stats
     try {
-      const res = await fetch(`${API}/api/admin/referral/stats`, { headers: authHeaders() });
+      const res = await fetch(`${API_BASE}/admin/referral/stats`, { headers: authHeaders() });
       if (res.ok) {
         const s = await res.json();
         document.getElementById('ref-stat-total').textContent = s.total_referrals;
@@ -3353,7 +3362,7 @@
     // Load tiers
     const tbody = document.getElementById('ref-tiers-tbody');
     try {
-      const res = await fetch(`${API}/api/admin/referral/tiers`, { headers: authHeaders() });
+      const res = await fetch(`${API_BASE}/admin/referral/tiers`, { headers: authHeaders() });
       if (!res.ok) throw new Error();
       const tiers = await res.json();
 
@@ -3387,7 +3396,7 @@
     };
     if (!body.name || !body.tier_level || !body.required_referrals || !body.reward_value) { alert('Sva polja su obavezna'); return; }
     try {
-      const res = await fetch(`${API}/api/admin/referral/tiers`, {
+      const res = await fetch(`${API_BASE}/admin/referral/tiers`, {
         method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
       if (!res.ok) { const d = await res.json(); alert(d.error || 'Greška'); return; }
@@ -3399,7 +3408,7 @@
   async function deleteTier(id) {
     if (!confirm('Obrisati ovaj nivo?')) return;
     try {
-      await fetch(`${API}/api/admin/referral/tiers/${id}`, { method: 'DELETE', headers: authHeaders() });
+      await fetch(`${API_BASE}/admin/referral/tiers/${id}`, { method: 'DELETE', headers: authHeaders() });
       loadAdminReferrals();
     } catch {}
   }
@@ -3424,7 +3433,7 @@
     // Load reviews table
     const tbody = document.getElementById('reviews-tbody');
     try {
-      const res = await fetch(`${API}/api/admin/reviews`, { headers: authHeaders() });
+      const res = await fetch(`${API_BASE}/admin/reviews`, { headers: authHeaders() });
       if (!res.ok) throw new Error();
       const reviews = await res.json();
 
@@ -3488,7 +3497,7 @@
 
     const token = localStorage.getItem('keyify_token');
     try {
-      const res = await fetch(`${API}/api/admin/reviews`, {
+      const res = await fetch(`${API_BASE}/admin/reviews`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: fd,
@@ -3509,7 +3518,7 @@
 
   async function toggleReviewVisibility(id, visible) {
     try {
-      await fetch(`${API}/api/admin/reviews/${id}/visibility`, {
+      await fetch(`${API_BASE}/admin/reviews/${id}/visibility`, {
         method: 'PATCH',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_visible: visible }),
@@ -3521,7 +3530,7 @@
   async function deleteReview(id) {
     if (!confirm('Obrisati ovu recenziju?')) return;
     try {
-      await fetch(`${API}/api/admin/reviews/${id}`, { method: 'DELETE', headers: authHeaders() });
+      await fetch(`${API_BASE}/admin/reviews/${id}`, { method: 'DELETE', headers: authHeaders() });
       loadAdminReviews();
     } catch {}
   }
@@ -3547,7 +3556,7 @@
       btn.style.border = isActive ? '1px solid rgba(245,158,11,0.3)' : '1px solid rgba(255,255,255,0.08)';
     });
 
-    const url = `${API}/api/admin/verifications${status ? '?status=' + status : ''}`;
+    const url = `${API_BASE}/admin/verifications${status ? '?status=' + status : ''}`;
     try {
       const res = await fetch(url, { headers: authHeaders() });
       if (!res.ok) { tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-red-400">Greška pri učitavanju</td></tr>'; return; }
@@ -3598,7 +3607,7 @@
   async function approveVerification(id) {
     const notes = prompt('Admin napomena (opciono):') || '';
     try {
-      const res = await fetch(`${API}/api/admin/verifications/${id}/approve`, {
+      const res = await fetch(`${API_BASE}/admin/verifications/${id}/approve`, {
         method: 'PUT',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ admin_notes: notes }),
@@ -3615,7 +3624,7 @@
     const notes = prompt('Razlog odbijanja:');
     if (notes === null) return;
     try {
-      const res = await fetch(`${API}/api/admin/verifications/${id}/reject`, {
+      const res = await fetch(`${API_BASE}/admin/verifications/${id}/reject`, {
         method: 'PUT',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ admin_notes: notes }),
@@ -3630,7 +3639,7 @@
 
   async function loadVerifyBadge() {
     try {
-      const res = await fetch(`${API}/api/admin/verifications/pending-count`, { headers: authHeaders() });
+      const res = await fetch(`${API_BASE}/admin/verifications/pending-count`, { headers: authHeaders() });
       if (!res.ok) return;
       const { count } = await res.json();
       const badge = document.getElementById('verify-badge');
