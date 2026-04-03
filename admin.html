@@ -254,6 +254,19 @@
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
       <span>Promo kodovi</span>
     </a>
+    <a class="sidebar-link" onclick="showSection('referrals')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      <span>Referrali</span>
+    </a>
+    <a class="sidebar-link" onclick="showSection('reviews')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+      <span>Recenzije</span>
+    </a>
+    <a class="sidebar-link relative" onclick="showSection('verifications')" id="nav-verifications">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+      <span>Verifikacija</span>
+      <span id="verify-badge" style="display:none;margin-left:auto;background:#f59e0b;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;min-width:18px;text-align:center;line-height:18px"></span>
+    </a>
     <a class="sidebar-link" onclick="showSection('invoices')" id="sidebar-invoices-link">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg>
       <span>Transakcije</span>
@@ -774,6 +787,10 @@
             <input type="number" id="promo-limit" min="1" placeholder="Neograničeno" class="admin-input"/>
           </div>
           <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Min. proizvoda</label>
+            <input type="number" id="promo-min-products" min="1" placeholder="Bez limita" class="admin-input"/>
+          </div>
+          <div>
             <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Datum isteka</label>
             <input type="datetime-local" id="promo-expires" class="admin-input"/>
           </div>
@@ -1041,6 +1058,186 @@
       <div id="txlog-pagination" class="flex items-center justify-center gap-2"></div>
     </div>
 
+    <!-- ══════════════════════════════════════════════════ -->
+    <!-- REFERRALS SECTION                                  -->
+    <!-- ══════════════════════════════════════════════════ -->
+    <div id="section-referrals" class="section space-y-5">
+
+      <!-- Stats cards -->
+      <div class="grid grid-cols-3 gap-4">
+        <div class="glass rounded-2xl p-5 text-center" style="border:1px solid rgba(255,255,255,0.07)">
+          <div class="text-2xl font-bold text-white" id="ref-stat-total">0</div>
+          <div class="text-xs text-dark-300 mt-1">Ukupno referala</div>
+        </div>
+        <div class="glass rounded-2xl p-5 text-center" style="border:1px solid rgba(255,255,255,0.07)">
+          <div class="text-2xl font-bold text-white" id="ref-stat-referrers">0</div>
+          <div class="text-xs text-dark-300 mt-1">Aktivnih referera</div>
+        </div>
+        <div class="glass rounded-2xl p-5 text-center" style="border:1px solid rgba(255,255,255,0.07)">
+          <div class="text-2xl font-bold text-white" id="ref-stat-rewards">0</div>
+          <div class="text-xs text-dark-300 mt-1">Nagrade dodijeljene</div>
+        </div>
+      </div>
+
+      <!-- Tier config -->
+      <div class="glass rounded-2xl p-6 space-y-4" style="border:1px solid rgba(255,255,255,0.07)">
+        <h3 class="font-display font-semibold text-white">Konfiguracija nivoa</h3>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nivo</th>
+                <th>Naziv</th>
+                <th>Potrebno referala</th>
+                <th>Tip nagrade</th>
+                <th>Vrijednost</th>
+                <th>Akcije</th>
+              </tr>
+            </thead>
+            <tbody id="ref-tiers-tbody">
+              <tr><td colspan="6" class="text-center py-6 text-dark-300">Učitavanje...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- Add tier form -->
+        <div class="flex gap-2 items-end flex-wrap">
+          <input type="number" id="ref-new-level" placeholder="Nivo" min="1" class="admin-input" style="width:70px"/>
+          <input type="text" id="ref-new-name" placeholder="Naziv" class="admin-input" style="width:120px"/>
+          <input type="number" id="ref-new-required" placeholder="Ref." min="1" class="admin-input" style="width:70px"/>
+          <select id="ref-new-type" class="admin-input" style="width:100px">
+            <option value="percent">%</option>
+            <option value="fixed">€</option>
+          </select>
+          <input type="number" id="ref-new-value" placeholder="Vr." min="1" step="0.01" class="admin-input" style="width:80px"/>
+          <button onclick="createTier()" class="px-4 py-2.5 rounded-xl text-white text-sm font-semibold" style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">+ Dodaj</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════ -->
+    <!-- REVIEWS SECTION                                    -->
+    <!-- ══════════════════════════════════════════════════ -->
+    <div id="section-reviews" class="section space-y-5">
+
+      <!-- Fake review creator -->
+      <div class="glass rounded-2xl p-6 space-y-4">
+        <h3 class="font-display font-semibold text-white mb-1">Kreiraj recenziju (Social Proof)</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Proizvod *</label>
+            <select id="review-product" class="admin-input" required></select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Ime korisnika *</label>
+            <input type="text" id="review-name" placeholder="Petar M." class="admin-input"/>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Ocjena *</label>
+            <select id="review-rating" class="admin-input">
+              <option value="5">★★★★★ (5)</option>
+              <option value="4">★★★★☆ (4)</option>
+              <option value="3">★★★☆☆ (3)</option>
+              <option value="2">★★☆☆☆ (2)</option>
+              <option value="1">★☆☆☆☆ (1)</option>
+            </select>
+          </div>
+          <div class="col-span-2">
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Tekst recenzije</label>
+            <textarea id="review-text" rows="2" placeholder="Odličan proizvod..." class="admin-input resize-none"></textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Avatar slika</label>
+            <input type="file" id="review-avatar" accept="image/*" class="admin-input" style="padding:6px"/>
+          </div>
+          <div class="flex items-end">
+            <label class="flex items-center gap-2.5 cursor-pointer pb-2.5">
+              <input type="checkbox" id="review-verified" checked class="w-4 h-4 rounded accent-green-500"/>
+              <span class="text-sm text-dark-200">Verifikovan kupac</span>
+            </label>
+          </div>
+        </div>
+        <div id="review-create-msg" style="display:none" class="px-3 py-2 rounded-lg text-xs font-semibold"></div>
+        <button onclick="createFakeReview()" class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 active:scale-95 transition-all"
+                style="background:linear-gradient(135deg,#f59e0b,#ef4444)">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 4v16m8-8H4"/></svg>
+          Kreiraj recenziju
+        </button>
+      </div>
+
+      <!-- Reviews table -->
+      <div class="glass rounded-2xl overflow-hidden" style="border:1px solid rgba(255,255,255,0.07)">
+        <div class="p-5 border-b" style="border-color:rgba(255,255,255,0.06)">
+          <h3 class="font-display font-semibold text-white">Sve recenzije</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Proizvod</th>
+                <th>Ime</th>
+                <th>Ocjena</th>
+                <th>Tekst</th>
+                <th>Tip</th>
+                <th>Vidljiv</th>
+                <th>Akcije</th>
+              </tr>
+            </thead>
+            <tbody id="reviews-tbody">
+              <tr><td colspan="7" class="text-center py-8 text-dark-300">Učitavanje...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════ -->
+    <!-- VERIFICATIONS SECTION                              -->
+    <!-- ══════════════════════════════════════════════════ -->
+    <div id="section-verifications" class="section space-y-5">
+
+      <!-- Info banner -->
+      <div class="glass rounded-2xl p-5" style="border:1px solid rgba(245,158,11,0.2);background:rgba(245,158,11,0.04)">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl flex items-center justify-center text-lg" style="background:rgba(245,158,11,0.15)">🛡️</div>
+          <div>
+            <div class="font-display font-bold text-white text-sm">Verifikacija uplata</div>
+            <div class="text-xs text-dark-300">Pregledajte i odobrite PayPal / kripto uplate korisnika. Odobrene narudžbe dobijaju licencni ključ na email.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter tabs -->
+      <div class="flex gap-2">
+        <button onclick="loadVerifications('pending')" id="vf-tab-pending" class="px-4 py-2 rounded-xl text-sm font-semibold text-amber-400" style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3)">Na čekanju</button>
+        <button onclick="loadVerifications('approved')" id="vf-tab-approved" class="px-4 py-2 rounded-xl text-sm font-semibold text-dark-300" style="border:1px solid rgba(255,255,255,0.08)">Odobrene</button>
+        <button onclick="loadVerifications('rejected')" id="vf-tab-rejected" class="px-4 py-2 rounded-xl text-sm font-semibold text-dark-300" style="border:1px solid rgba(255,255,255,0.08)">Odbijene</button>
+        <button onclick="loadVerifications()" id="vf-tab-all" class="px-4 py-2 rounded-xl text-sm font-semibold text-dark-300" style="border:1px solid rgba(255,255,255,0.08)">Sve</button>
+      </div>
+
+      <!-- Verifications table -->
+      <div class="glass rounded-2xl overflow-hidden" style="border:1px solid rgba(255,255,255,0.07)">
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Kupac</th>
+                <th>Proizvod</th>
+                <th>Tip</th>
+                <th>Iznos</th>
+                <th>Dokaz</th>
+                <th>Status</th>
+                <th>Datum</th>
+                <th>Akcije</th>
+              </tr>
+            </thead>
+            <tbody id="verifications-tbody">
+              <tr><td colspan="8" class="text-center py-8 text-dark-300">Učitavanje...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -1174,6 +1371,15 @@
                  style="max-height:60px;max-width:100%;border-radius:8px;object-fit:contain;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);padding:4px"/>
           </div>
         </div>
+      </div>
+
+      <!-- Bonus coupon template -->
+      <div>
+        <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Bonus kupon šablon</label>
+        <select id="prod-bonus-coupon" class="admin-input">
+          <option value="">Bez bonus kupona</option>
+        </select>
+        <p class="text-xs text-dark-400 mt-1">Kada se uplata potvrdi, korisnik dobija kopiju ovog kupona.</p>
       </div>
 
       <div class="flex gap-3 pt-2">
@@ -1527,6 +1733,9 @@
     const sectionLabels = {
       support:  ['🎧 Podrška',              'Tiketi korisnika'],
       promos:   ['🏷️ Promo kodovi',         'Upravljanje kodovima za popust'],
+      referrals:     ['🏆 Referral Program',     'Upravljanje nivoima i praćenje referala'],
+      reviews:       ['⭐ Recenzije',            'Upravljanje recenzijama i Social Proof alat'],
+      verifications: ['🛡️ Verifikacija uplata', 'Odobravanje manuelnih plaćanja (PayPal / kripto)'],
       invoices: ['📋 Transakcije',              'Sve kupovine svih korisnika – sve metode plaćanja'],
       txlogs:   ['🔐 Encrypted Logs',       'AES-256-CBC dekriptovani log transakcija'],
       sql:      ['🗄️ SQL Editor',           'Direktni pristup bazi podataka'],
@@ -1544,6 +1753,9 @@
         // NOVO: Automatski osvežavaj listu chatova svakih 5 sekundi!
         window._inboxQueueTimer = setInterval(() => loadInbox(), 5000);
       }
+      if (name === 'referrals')     loadAdminReferrals();
+      if (name === 'reviews')       loadAdminReviews();
+      if (name === 'verifications') loadVerifications('pending');
       if (name === 'promos')   loadPromos();
       if (name === 'invoices') { loadInvoices(1); clearTxBadge(); }
       if (name === 'txlogs')   loadTxLogs(1);
@@ -1881,7 +2093,26 @@
     document.getElementById('prod-image-url').value = product?.image_url || '';
     switchImgTab('url');
     updateImgPreview();
+    // Populate bonus coupon dropdown
+    populateBonusCouponDropdown(product?.bonus_coupon_id || '');
     document.getElementById('modal-overlay').classList.add('open');
+  }
+
+  async function populateBonusCouponDropdown(selectedId) {
+    const sel = document.getElementById('prod-bonus-coupon');
+    sel.innerHTML = '<option value="">Bez bonus kupona</option>';
+    try {
+      const res = await fetch(`${API_BASE}/admin/promos`, { headers: authHeaders() });
+      if (!res.ok) return;
+      const promos = await res.json();
+      promos.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.code} (${p.discount_type === 'percent' ? p.discount_value + '%' : '€' + p.discount_value})`;
+        if (p.id === selectedId) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    } catch {}
   }
 
   function closeModal() {
@@ -1905,6 +2136,7 @@
       category:       document.getElementById('prod-category').value,
       image_url:      document.getElementById('prod-image-url').value || '',
       badge:          document.getElementById('prod-badge').value || '',
+      bonus_coupon_id: document.getElementById('prod-bonus-coupon').value || null,
     };
 
     const endpoint = id ? `${API_BASE}/products/${id}` : `${API_BASE}/products`;
@@ -2494,6 +2726,7 @@
       discount_type:  document.getElementById('promo-type').value,
       discount_value: document.getElementById('promo-value').value,
       usage_limit:    document.getElementById('promo-limit').value || null,
+      min_products:   document.getElementById('promo-min-products').value || null,
       expires_at:     document.getElementById('promo-expires').value || null,
       is_active:      document.getElementById('promo-active').checked,
     };
@@ -2503,7 +2736,7 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       showPromoMsg(msgEl,'Promo kod kreiran!','success');
-      ['promo-code','promo-value','promo-limit','promo-expires'].forEach(id => { document.getElementById(id).value=''; });
+      ['promo-code','promo-value','promo-limit','promo-min-products','promo-expires'].forEach(id => { document.getElementById(id).value=''; });
       loadPromos();
     } catch (err) { showPromoMsg(msgEl,err.message,'error'); }
   }
@@ -3100,6 +3333,317 @@
   /* ── Handle kf_admin_goto (set by navbar SQL Editor link) ── */
   const _adminGoto = localStorage.getItem('kf_admin_goto');
   if (_adminGoto) { localStorage.removeItem('kf_admin_goto'); showSection(_adminGoto); }
+
+  /* ─────────────────────────────────────────────────────────
+     REFERRAL MANAGEMENT
+  ───────────────────────────────────────────────────────── */
+
+  async function loadAdminReferrals() {
+    // Load stats
+    try {
+      const res = await fetch(`${API}/api/admin/referral/stats`, { headers: authHeaders() });
+      if (res.ok) {
+        const s = await res.json();
+        document.getElementById('ref-stat-total').textContent = s.total_referrals;
+        document.getElementById('ref-stat-referrers').textContent = s.total_referrers;
+        document.getElementById('ref-stat-rewards').textContent = s.rewards_issued;
+      }
+    } catch {}
+
+    // Load tiers
+    const tbody = document.getElementById('ref-tiers-tbody');
+    try {
+      const res = await fetch(`${API}/api/admin/referral/tiers`, { headers: authHeaders() });
+      if (!res.ok) throw new Error();
+      const tiers = await res.json();
+
+      if (!tiers.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-dark-300">Nema nivoa. Dodajte prvi ispod.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = tiers.map(t => `<tr>
+        <td class="font-bold text-amber-400">${t.tier_level}</td>
+        <td class="text-sm font-semibold text-white">${esc(t.name)}</td>
+        <td class="text-sm">${t.required_referrals}</td>
+        <td class="text-xs uppercase">${t.reward_type === 'percent' ? 'Procenat' : 'Fiksni'}</td>
+        <td class="font-semibold" style="color:#22c55e">${t.reward_type === 'percent' ? t.reward_value + '%' : '€' + t.reward_value}</td>
+        <td>
+          <button onclick="deleteTier('${t.id}')" class="px-2 py-1 rounded-lg text-xs font-semibold" style="background:rgba(239,68,68,0.15);color:#ef4444">Obriši</button>
+        </td>
+      </tr>`).join('');
+    } catch {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-red-400">Greška</td></tr>';
+    }
+  }
+
+  async function createTier() {
+    const body = {
+      tier_level:          document.getElementById('ref-new-level').value,
+      name:                document.getElementById('ref-new-name').value.trim(),
+      required_referrals:  document.getElementById('ref-new-required').value,
+      reward_type:         document.getElementById('ref-new-type').value,
+      reward_value:        document.getElementById('ref-new-value').value,
+    };
+    if (!body.name || !body.tier_level || !body.required_referrals || !body.reward_value) { alert('Sva polja su obavezna'); return; }
+    try {
+      const res = await fetch(`${API}/api/admin/referral/tiers`, {
+        method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      if (!res.ok) { const d = await res.json(); alert(d.error || 'Greška'); return; }
+      ['ref-new-level','ref-new-name','ref-new-required','ref-new-value'].forEach(id => document.getElementById(id).value = '');
+      loadAdminReferrals();
+    } catch { alert('Greška'); }
+  }
+
+  async function deleteTier(id) {
+    if (!confirm('Obrisati ovaj nivo?')) return;
+    try {
+      await fetch(`${API}/api/admin/referral/tiers/${id}`, { method: 'DELETE', headers: authHeaders() });
+      loadAdminReferrals();
+    } catch {}
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     REVIEWS / SOCIAL PROOF
+  ───────────────────────────────────────────────────────── */
+
+  async function loadAdminReviews() {
+    // Populate product dropdown
+    const sel = document.getElementById('review-product');
+    if (sel && !sel.dataset.loaded) {
+      try {
+        const res = await fetch(`${API_BASE}/products`, { headers: authHeaders() });
+        const prods = await res.json();
+        sel.innerHTML = '<option value="">Izaberite proizvod...</option>' +
+          (prods || []).map(p => `<option value="${p.id}">${esc(p.name_sr || p.name_en || '—')}</option>`).join('');
+        sel.dataset.loaded = '1';
+      } catch {}
+    }
+
+    // Load reviews table
+    const tbody = document.getElementById('reviews-tbody');
+    try {
+      const res = await fetch(`${API}/api/admin/reviews`, { headers: authHeaders() });
+      if (!res.ok) throw new Error();
+      const reviews = await res.json();
+
+      if (!reviews.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-dark-300">Nema recenzija</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = reviews.map(r => {
+        const prodName = r.products?.name_sr || r.products?.name_en || '—';
+        const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+        const typeBadge = r.is_admin_created
+          ? '<span style="color:#f59e0b;font-size:10px;font-weight:600">Admin</span>'
+          : '<span style="color:#22c55e;font-size:10px;font-weight:600">Korisnik</span>';
+        const visBadge = r.is_visible
+          ? '<span style="color:#22c55e;font-size:10px">Vidljiv</span>'
+          : '<span style="color:#ef4444;font-size:10px">Skriven</span>';
+
+        return `<tr>
+          <td class="text-sm">${esc(prodName)}</td>
+          <td class="text-sm">${esc(r.reviewer_name)}</td>
+          <td class="text-yellow-400 text-sm">${stars}</td>
+          <td class="text-xs text-dark-200" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.text || '—')}</td>
+          <td>${typeBadge}</td>
+          <td>${visBadge}</td>
+          <td>
+            <div class="flex gap-1.5">
+              <button onclick="toggleReviewVisibility('${r.id}', ${!r.is_visible})" class="px-2 py-1 rounded-lg text-xs font-semibold" style="background:rgba(255,255,255,0.08);color:#9090b8">${r.is_visible ? 'Sakrij' : 'Prikaži'}</button>
+              <button onclick="deleteReview('${r.id}')" class="px-2 py-1 rounded-lg text-xs font-semibold" style="background:rgba(239,68,68,0.15);color:#ef4444">Obriši</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    } catch {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-red-400">Greška</td></tr>';
+    }
+  }
+
+  async function createFakeReview() {
+    const msgEl = document.getElementById('review-create-msg');
+    const productId = document.getElementById('review-product').value;
+    const name = document.getElementById('review-name').value.trim();
+    const rating = document.getElementById('review-rating').value;
+    const text = document.getElementById('review-text').value.trim();
+    const avatarFile = document.getElementById('review-avatar').files[0];
+    const verified = document.getElementById('review-verified').checked;
+
+    if (!productId || !name) {
+      msgEl.style.display = 'block'; msgEl.textContent = 'Proizvod i ime su obavezni';
+      msgEl.style.background = 'rgba(239,68,68,0.15)'; msgEl.style.color = '#ef4444';
+      return;
+    }
+
+    const fd = new FormData();
+    fd.append('product_id', productId);
+    fd.append('reviewer_name', name);
+    fd.append('rating', rating);
+    fd.append('text', text);
+    fd.append('is_verified_purchase', verified);
+    if (avatarFile) fd.append('avatar', avatarFile);
+
+    const token = localStorage.getItem('keyify_token');
+    try {
+      const res = await fetch(`${API}/api/admin/reviews`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      msgEl.style.display = 'block'; msgEl.textContent = 'Recenzija kreirana!';
+      msgEl.style.background = 'rgba(34,197,94,0.15)'; msgEl.style.color = '#22c55e';
+      document.getElementById('review-name').value = '';
+      document.getElementById('review-text').value = '';
+      document.getElementById('review-avatar').value = '';
+      loadAdminReviews();
+    } catch (e) {
+      msgEl.style.display = 'block'; msgEl.textContent = e.message;
+      msgEl.style.background = 'rgba(239,68,68,0.15)'; msgEl.style.color = '#ef4444';
+    }
+  }
+
+  async function toggleReviewVisibility(id, visible) {
+    try {
+      await fetch(`${API}/api/admin/reviews/${id}/visibility`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_visible: visible }),
+      });
+      loadAdminReviews();
+    } catch {}
+  }
+
+  async function deleteReview(id) {
+    if (!confirm('Obrisati ovu recenziju?')) return;
+    try {
+      await fetch(`${API}/api/admin/reviews/${id}`, { method: 'DELETE', headers: authHeaders() });
+      loadAdminReviews();
+    } catch {}
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     PAYMENT VERIFICATIONS
+  ───────────────────────────────────────────────────────── */
+  let _vfCurrentFilter = 'pending';
+
+  async function loadVerifications(status) {
+    _vfCurrentFilter = status || null;
+    const tbody = document.getElementById('verifications-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-dark-300">Učitavanje...</td></tr>';
+
+    // Update tab styles
+    ['pending','approved','rejected','all'].forEach(t => {
+      const btn = document.getElementById(`vf-tab-${t}`);
+      if (!btn) return;
+      const isActive = (t === 'all' && !status) || t === status;
+      btn.className = `px-4 py-2 rounded-xl text-sm font-semibold ${isActive ? 'text-amber-400' : 'text-dark-300'}`;
+      btn.style.background = isActive ? 'rgba(245,158,11,0.15)' : 'transparent';
+      btn.style.border = isActive ? '1px solid rgba(245,158,11,0.3)' : '1px solid rgba(255,255,255,0.08)';
+    });
+
+    const url = `${API}/api/admin/verifications${status ? '?status=' + status : ''}`;
+    try {
+      const res = await fetch(url, { headers: authHeaders() });
+      if (!res.ok) { tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-red-400">Greška pri učitavanju</td></tr>'; return; }
+      const data = await res.json();
+
+      if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-dark-300">Nema verifikacija</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = data.map(v => {
+        const tx = v.transactions || {};
+        const statusBadge = v.status === 'pending'
+          ? '<span style="color:#f59e0b;background:rgba(245,158,11,0.15);padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600">Na čekanju</span>'
+          : v.status === 'approved'
+          ? '<span style="color:#22c55e;background:rgba(34,197,94,0.15);padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600">Odobrena</span>'
+          : '<span style="color:#ef4444;background:rgba(239,68,68,0.15);padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600">Odbijena</span>';
+
+        const proofCell = v.payment_type === 'paypal'
+          ? (v.screenshot_url ? `<a href="${esc(v.screenshot_url)}" target="_blank" class="text-blue-400 hover:underline text-xs">📷 Screenshot</a>` : '<span class="text-dark-400 text-xs">—</span>')
+          : (v.tx_hash ? `<span class="font-mono text-xs text-dark-200" title="${esc(v.tx_hash)}">${esc(v.tx_hash.substring(0,12))}…</span>` : '<span class="text-dark-400 text-xs">—</span>');
+
+        const date = new Date(v.created_at).toLocaleDateString('bs-BA', { day:'numeric', month:'short', year:'numeric' });
+
+        const actions = v.status === 'pending'
+          ? `<div class="flex gap-1.5">
+              <button onclick="approveVerification('${v.id}')" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-white" style="background:rgba(34,197,94,0.8)">✓ Potvrdi</button>
+              <button onclick="rejectVerification('${v.id}')" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-white" style="background:rgba(239,68,68,0.8)">✕ Odbij</button>
+            </div>`
+          : `<span class="text-dark-400 text-xs">${v.reviewed_at ? new Date(v.reviewed_at).toLocaleDateString('bs-BA') : '—'}</span>`;
+
+        return `<tr>
+          <td class="text-sm">${esc(v.buyer_email)}</td>
+          <td class="text-sm">${esc(tx.product_name || '—')}</td>
+          <td><span class="text-xs font-semibold uppercase" style="color:${v.payment_type === 'paypal' ? '#1D6AFF' : '#f59e0b'}">${v.payment_type === 'paypal' ? 'PayPal' : 'Kripto' + (v.network ? ' · ' + v.network : '')}</span></td>
+          <td class="font-semibold text-sm" style="color:#1D6AFF">€ ${v.amount ? parseFloat(v.amount).toFixed(2) : (tx.amount ? parseFloat(tx.amount).toFixed(2) : '—')}</td>
+          <td>${proofCell}</td>
+          <td>${statusBadge}</td>
+          <td class="text-xs text-dark-300">${date}</td>
+          <td>${actions}</td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-red-400">Greška pri učitavanju</td></tr>';
+    }
+  }
+
+  async function approveVerification(id) {
+    const notes = prompt('Admin napomena (opciono):') || '';
+    try {
+      const res = await fetch(`${API}/api/admin/verifications/${id}/approve`, {
+        method: 'PUT',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ admin_notes: notes }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Greška'); return; }
+      alert('✅ Uplata odobrena! Licencni ključ poslan na email.');
+      loadVerifications(_vfCurrentFilter);
+      loadVerifyBadge();
+    } catch (e) { alert('Greška pri odobrenju'); }
+  }
+
+  async function rejectVerification(id) {
+    const notes = prompt('Razlog odbijanja:');
+    if (notes === null) return;
+    try {
+      const res = await fetch(`${API}/api/admin/verifications/${id}/reject`, {
+        method: 'PUT',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ admin_notes: notes }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Greška'); return; }
+      alert('Uplata odbijena. Korisnik je obaviješten.');
+      loadVerifications(_vfCurrentFilter);
+      loadVerifyBadge();
+    } catch (e) { alert('Greška pri odbijanju'); }
+  }
+
+  async function loadVerifyBadge() {
+    try {
+      const res = await fetch(`${API}/api/admin/verifications/pending-count`, { headers: authHeaders() });
+      if (!res.ok) return;
+      const { count } = await res.json();
+      const badge = document.getElementById('verify-badge');
+      if (badge) {
+        badge.textContent = count;
+        badge.style.display = count > 0 ? 'inline-block' : 'none';
+      }
+    } catch {}
+  }
+
+  // Load badge on page load
+  loadVerifyBadge();
+  setInterval(loadVerifyBadge, 30000);
 
   /* ─────────────────────────────────────────────────────────
      ENCRYPTED TRANSACTION LOGS

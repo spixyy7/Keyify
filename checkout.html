@@ -716,10 +716,18 @@
         amount:         data.amount         ?? total,
         order_date:     data.order_date     || new Date().toISOString(),
         email_sent_to:  data.email_sent_to  || email,
+        payment_method: selectedMethod,
+        cart_items:     cart.map(i => ({ name: i.name || i.title, qty: i.qty || 1, price: i.price })),
       }));
 
       KEYIFY.CART.clear();
-      window.location.href = 'purchase-success.html';
+
+      // Redirect: verification page for PayPal/crypto, success page otherwise
+      if (data.needs_verification) {
+        window.location.href = `verify-payment.html?tx=${data.transaction_id}`;
+      } else {
+        window.location.href = 'purchase-success.html';
+      }
 
     } catch (err) {
       if (btn) { btn.disabled = false; btn.textContent = 'Potvrdi narudžbu'; }
@@ -741,7 +749,7 @@
       const res  = await fetch(`${API_BASE}/checkout/apply-promo`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ code, subtotal }),
+        body:    JSON.stringify({ code, subtotal, cart_item_count: cart.length }),
       });
       const data = await res.json();
       if (!res.ok) { showPromoMsg(data.error || 'Nevažeći kod', 'error'); appliedPromo = null; _refreshTotals(subtotal); return; }

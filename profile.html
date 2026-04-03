@@ -315,6 +315,34 @@
             </div>
         </div>
 
+        <!-- ── REFERRAL HUB ── -->
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <h2 class="font-display text-base font-bold text-gray-800 mb-1 flex items-center gap-2">
+                <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                </svg>
+                Referral Program
+            </h2>
+            <p class="text-sm text-gray-500 mb-4">Pozovite prijatelje i otključajte popuste!</p>
+            <div id="referral-hub-body">
+                <p class="text-sm text-gray-400 italic">Učitavanje...</p>
+            </div>
+        </div>
+
+        <!-- ── MY PROMO CODES ── -->
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <h2 class="font-display text-base font-bold text-gray-800 mb-1 flex items-center gap-2">
+                <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                </svg>
+                Moji promo kodovi
+            </h2>
+            <p class="text-sm text-gray-500 mb-4">Bonus kuponi od kupovina i referala</p>
+            <div id="my-coupons-body">
+                <p class="text-sm text-gray-400 italic">Učitavanje...</p>
+            </div>
+        </div>
+
         <!-- ── LOGOUT ── -->
         <div class="flex justify-end">
             <button onclick="KEYIFY.logout()"
@@ -502,9 +530,105 @@
     const mobileMenu   = document.getElementById('mobile-menu');
     if (mobileToggle) mobileToggle.addEventListener('click', () => mobileMenu.classList.toggle('open'));
 
-    /* ── Load purchases after KEYIFY init ── */
-    document.addEventListener('DOMContentLoaded', loadPurchases);
-    if (document.readyState !== 'loading') loadPurchases();
+    /* ── Load purchases + coupons + referral after KEYIFY init ── */
+    document.addEventListener('DOMContentLoaded', () => { loadPurchases(); loadMyCoupons(); loadReferralHub(); });
+    if (document.readyState !== 'loading') { loadPurchases(); loadMyCoupons(); loadReferralHub(); }
+
+    async function loadReferralHub() {
+      const body = document.getElementById('referral-hub-body');
+      if (!body) return;
+      const API = (typeof KEYIFY_CONFIG !== 'undefined') ? KEYIFY_CONFIG.API_BASE : '/api';
+      const token = localStorage.getItem('keyify_token') || localStorage.getItem('kfy_token');
+      if (!token) { body.innerHTML = '<p class="text-sm text-gray-400 italic">Prijavite se za pristup referral programu.</p>'; return; }
+      try {
+        const res = await fetch(`${API}/user/referral`, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        const origin = window.location.origin;
+        const refLink = `${origin}/login.html?ref=${data.code}`;
+        const tierBadgeColor = data.current_tier ? '#f59e0b' : '#9ca3af';
+        const tierName = data.current_tier?.name || 'Nema nivoa';
+        const nextInfo = data.next_tier
+          ? `Još ${data.next_tier.required_referrals - data.referral_count} referala do nivoa "${data.next_tier.name}"`
+          : 'Maksimalni nivo dostignut!';
+
+        body.innerHTML = `
+          <div class="space-y-4">
+            <!-- Referral code -->
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-blue-50 border border-blue-100">
+              <div class="flex-1">
+                <div class="text-xs text-gray-500 mb-0.5">Vaš referral kod</div>
+                <div class="font-mono font-bold text-blue-600 text-lg">${data.code || '—'}</div>
+              </div>
+              <button onclick="navigator.clipboard?.writeText('${data.code || ''}').then(()=>{this.textContent='✓';setTimeout(()=>this.textContent='Kopiraj',1500)})"
+                class="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors">Kopiraj</button>
+            </div>
+
+            <!-- Shareable link -->
+            <div class="flex items-center gap-2 p-2.5 rounded-lg bg-gray-50 border border-gray-100">
+              <input type="text" value="${refLink}" readonly class="flex-1 bg-transparent text-xs text-gray-600 outline-none font-mono"/>
+              <button onclick="navigator.clipboard?.writeText('${refLink}').then(()=>{this.textContent='✓';setTimeout(()=>this.textContent='Link',1500)})"
+                class="px-2 py-1 rounded text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100">Link</button>
+            </div>
+
+            <!-- Progress bar -->
+            <div>
+              <div class="flex justify-between items-center mb-1.5">
+                <span class="text-xs font-semibold" style="color:${tierBadgeColor}">${tierName}</span>
+                <span class="text-xs text-gray-400">${data.referral_count} referala</span>
+              </div>
+              <div class="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+                <div class="h-full rounded-full transition-all" style="width:${data.progress}%;background:linear-gradient(90deg,#f59e0b,#ef4444)"></div>
+              </div>
+              <p class="text-xs text-gray-400 mt-1.5">${nextInfo}</p>
+            </div>
+
+            <!-- Tiers preview -->
+            <div class="flex gap-2 flex-wrap">
+              ${(data.tiers || []).map(t => {
+                const unlocked = data.referral_count >= t.required_referrals;
+                return `<div class="text-center px-3 py-2 rounded-xl border ${unlocked ? 'border-amber-200 bg-amber-50' : 'border-gray-100 bg-gray-50'}" style="min-width:80px">
+                  <div class="text-xs font-bold ${unlocked ? 'text-amber-600' : 'text-gray-400'}">${t.name}</div>
+                  <div class="text-[10px] ${unlocked ? 'text-amber-500' : 'text-gray-300'}">${t.required_referrals} ref</div>
+                  <div class="text-[10px] font-semibold ${unlocked ? 'text-green-600' : 'text-gray-300'}">${t.reward_type === 'percent' ? t.reward_value + '%' : '€' + t.reward_value}</div>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>`;
+      } catch { body.innerHTML = '<p class="text-sm text-gray-400 italic">Greška pri učitavanju.</p>'; }
+    }
+
+    async function loadMyCoupons() {
+      const body = document.getElementById('my-coupons-body');
+      if (!body) return;
+      const API = (typeof KEYIFY_CONFIG !== 'undefined') ? KEYIFY_CONFIG.API_BASE : '/api';
+      const token = localStorage.getItem('keyify_token') || localStorage.getItem('kfy_token');
+      if (!token) { body.innerHTML = '<p class="text-sm text-gray-400 italic">Prijavite se za pregled kupona.</p>'; return; }
+      try {
+        const res = await fetch(`${API}/user/coupons`, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!res.ok) { body.innerHTML = '<p class="text-sm text-gray-400 italic">Nemate promo kodove.</p>'; return; }
+        const coupons = await res.json();
+        if (!coupons.length) { body.innerHTML = '<p class="text-sm text-gray-400 italic">Nemate promo kodove.</p>'; return; }
+        body.innerHTML = coupons.map(c => {
+          const promo = c.promo_codes || {};
+          const discount = promo.discount_type === 'percent' ? `${promo.discount_value}%` : `€${parseFloat(promo.discount_value || 0).toFixed(2)}`;
+          const used = c.is_used || (promo.usage_limit && promo.used_count >= promo.usage_limit);
+          const sourceLabel = c.source === 'referral_reward' ? 'Referral' : c.source === 'manual' ? 'Poklon' : 'Bonus';
+          return `<div class="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+            <div>
+              <span class="font-mono font-bold text-sm ${used ? 'text-gray-400 line-through' : 'text-blue-600'}">${c.code}</span>
+              <span class="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full ${used ? 'bg-gray-100 text-gray-400' : 'bg-green-50 text-green-600'}">${discount} popust</span>
+              <span class="ml-1 text-xs text-gray-400">${sourceLabel}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              ${used ? '<span class="text-xs text-gray-400">Iskorišten</span>' :
+                `<button onclick="navigator.clipboard?.writeText('${c.code}').then(()=>{this.textContent='✓';setTimeout(()=>this.textContent='Kopiraj',1500)})"
+                  class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">Kopiraj</button>`}
+            </div>
+          </div>`;
+        }).join('');
+      } catch { body.innerHTML = '<p class="text-sm text-gray-400 italic">Greška pri učitavanju.</p>'; }
+    }
 
     /* ── Google account linking ── */
     (function initGoogleLink() {

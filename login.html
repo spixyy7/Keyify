@@ -643,6 +643,12 @@
                                class="form-input w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 transition-all duration-200 font-medium"/>
                     </div>
 
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5" for="reg-referral">Referral kod <span class="text-gray-400 font-normal">(opciono)</span></label>
+                        <input type="text" id="reg-referral" placeholder="npr. REF-A1B2C3D4"
+                               class="form-input w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 transition-all duration-200 font-medium font-mono uppercase"/>
+                    </div>
+
                     <div class="flex items-start gap-3 pt-1">
                         <input type="checkbox" id="terms" class="mt-0.5 w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer flex-shrink-0"/>
                         <label for="terms" class="text-sm text-gray-600 font-medium cursor-pointer leading-relaxed">
@@ -890,6 +896,14 @@
             btn.textContent = role === 'admin' ? 'ADMIN' : name.split(' ')[0];
             btn.style.color = role === 'admin' ? '#A259FF' : '#1D6AFF';
         }
+    }
+
+    /* ── Auto-fill referral code from URL ── */
+    const _urlParams = new URLSearchParams(window.location.search);
+    if (_urlParams.get('ref')) {
+      const refInput = document.getElementById('reg-referral');
+      if (refInput) refInput.value = _urlParams.get('ref');
+      setTimeout(() => switchTab('register'), 100);
     }
 
     /* ── TAB SWITCH ── */
@@ -1286,11 +1300,12 @@
     /* ── SUBMIT REGISTER ── */
     async function submitRegister(e) {
         e.preventDefault();
-        const name     = document.getElementById('reg-name').value.trim();
-        const email    = document.getElementById('reg-email').value.trim();
-        const password = document.getElementById('reg-password').value;
-        const confirm  = document.getElementById('reg-confirm').value;
-        const terms    = document.getElementById('terms').checked;
+        const name          = document.getElementById('reg-name').value.trim();
+        const email         = document.getElementById('reg-email').value.trim();
+        const password      = document.getElementById('reg-password').value;
+        const confirm       = document.getElementById('reg-confirm').value;
+        const terms         = document.getElementById('terms').checked;
+        const referral_code = (document.getElementById('reg-referral')?.value || '').trim();
 
         document.getElementById('reg-error').classList.add('hidden');
         document.getElementById('reg-success').classList.add('hidden');
@@ -1305,7 +1320,7 @@
             const res  = await fetch(`${getApiBase()}/register`, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ name, email, password }),
+                body:    JSON.stringify({ name, email, password, referral_code: referral_code || undefined }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Greška pri registraciji');

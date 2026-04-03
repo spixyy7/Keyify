@@ -477,7 +477,7 @@ function checkPermission(permName) {
  * Body: { name, email, password }
  */
 app.post('/api/register', authLimiter, async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, referral_code } = req.body;
 
   // Validation
   if (!name || !email || !password)
@@ -526,6 +526,24 @@ app.post('/api/register', authLimiter, async (req, res) => {
     ip,
     created_at: new Date().toISOString(),
   });
+
+  // Track referral if code provided
+  if (referral_code?.trim()) {
+    try {
+      const { data: refCode } = await supabase
+        .from('referral_codes')
+        .select('user_id')
+        .ilike('code', referral_code.trim())
+        .maybeSingle();
+      if (refCode && refCode.user_id !== user.id) {
+        await supabase.from('referrals').insert({
+          referrer_id: refCode.user_id,
+          referred_id: user.id,
+          status: 'registered',
+        });
+      }
+    } catch (e) { console.error('[referral-track]', e.message); }
+  }
 
   return res.status(201).json({
     message: 'Registracija uspješna! Možete se prijaviti.',
@@ -927,6 +945,7 @@ app.post('/api/products', authenticateToken, requireAdmin, (req, res, next) => {
       image_url:      finalImageUrl,
       badge:          badge || null,
       stars:          starsVal,
+      bonus_coupon_id: req.body.bonus_coupon_id || null,
       created_at:     new Date().toISOString(),
     })
     .select()
@@ -965,6 +984,7 @@ app.put('/api/products/:id', authenticateToken, requireAdmin, (req, res, next) =
   if (stars            !== undefined) updates.stars            = Math.min(5, Math.max(1, parseInt(stars) || 5));
   if (card_size        !== undefined) updates.card_size        = card_size;
   if (grid_order       !== undefined) updates.grid_order       = Number(grid_order);
+  if (req.body.bonus_coupon_id !== undefined) updates.bonus_coupon_id = req.body.bonus_coupon_id || null;
 
   // File upload takes priority; fall back to URL field; undefined = keep existing
   if (req.file) {
@@ -1799,7 +1819,7 @@ app.get('/api/admin/chat/sessions/:id/guest-info', authenticateToken, checkPermi
 
 /** POST /api/checkout/apply-promo – public endpoint, validates a code */
 app.post('/api/checkout/apply-promo', async (req, res) => {
-  const { code, subtotal } = req.body;
+  const { code, subtotal, cart_item_count } = req.body;
   if (!code) return res.status(400).json({ error: 'Unesite promo kod' });
   if (!subtotal || subtotal <= 0) return res.status(400).json({ error: 'Nevažeći iznos narudžbe' });
 
@@ -1816,6 +1836,8 @@ app.post('/api/checkout/apply-promo', async (req, res) => {
     return res.status(400).json({ error: 'Promo kod je istekao' });
   if (promoRow.usage_limit !== null && promoRow.used_count >= promoRow.usage_limit)
     return res.status(400).json({ error: 'Promo kod je dostigao limit korišćenja' });
+  if (promoRow.min_products != null && (parseInt(cart_item_count) || 0) < promoRow.min_products)
+    return res.status(400).json({ error: `Ovaj kod zahtijeva minimalno ${promoRow.min_products} proizvoda u korpi. Trenutno imate ${parseInt(cart_item_count) || 0}.` });
 
   const discount = promoRow.discount_type === 'percent'
     ? parseFloat((subtotal * promoRow.discount_value / 100).toFixed(2))
@@ -1848,7 +1870,7 @@ app.get('/api/admin/promos', authenticateToken, checkPermission('can_manage_prom
 
 /** POST /api/admin/promos */
 app.post('/api/admin/promos', authenticateToken, checkPermission('can_manage_promos'), async (req, res) => {
-  const { code, discount_type, discount_value, usage_limit, expires_at, is_active } = req.body;
+  const { code, discount_type, discount_value, usage_limit, expires_at, is_active, min_products } = req.body;
   if (!code?.trim()) return res.status(400).json({ error: 'Kod je obavezan' });
   if (!['percent', 'fixed'].includes(discount_type))
     return res.status(400).json({ error: 'Tip popusta mora biti percent ili fixed' });
@@ -1862,6 +1884,7 @@ app.post('/api/admin/promos', authenticateToken, checkPermission('can_manage_pro
     discount_type,
     discount_value: parseFloat(discount_value),
     usage_limit:    usage_limit ? parseInt(usage_limit) : null,
+    min_products:   min_products ? parseInt(min_products) : null,
     expires_at:     expires_at || null,
     is_active:      is_active !== false,
     created_by:     req.user.id,
@@ -1879,13 +1902,14 @@ app.post('/api/admin/promos', authenticateToken, checkPermission('can_manage_pro
 /** PUT /api/admin/promos/:id */
 app.put('/api/admin/promos/:id', authenticateToken, checkPermission('can_manage_promos'), async (req, res) => {
   const { id } = req.params;
-  const { discount_type, discount_value, usage_limit, expires_at, is_active } = req.body;
+  const { discount_type, discount_value, usage_limit, expires_at, is_active, min_products } = req.body;
   const updates = {};
   if (discount_type)  updates.discount_type  = discount_type;
   if (discount_value) updates.discount_value = parseFloat(discount_value);
-  if (usage_limit !== undefined) updates.usage_limit = usage_limit ? parseInt(usage_limit) : null;
-  if (expires_at !== undefined)  updates.expires_at  = expires_at || null;
-  if (is_active  !== undefined)  updates.is_active   = Boolean(is_active);
+  if (usage_limit !== undefined)  updates.usage_limit  = usage_limit ? parseInt(usage_limit) : null;
+  if (min_products !== undefined) updates.min_products = min_products ? parseInt(min_products) : null;
+  if (expires_at !== undefined)   updates.expires_at   = expires_at || null;
+  if (is_active  !== undefined)   updates.is_active    = Boolean(is_active);
 
   const { error } = await supabase.from('promo_codes').update(updates).eq('id', id);
   if (error) return res.status(500).json({ error: 'Greška pri ažuriranju' });
@@ -2515,7 +2539,10 @@ app.post('/api/checkout/confirm', async (req, res) => {
     productImageUrl = prod?.image_url || null;
   }
 
-  // 2. Save transaction record (includes license_key + buyer_email for guest retrieval)
+  // 2. Check if this payment method requires manual verification
+  const needsVerification = /^(paypal|crypto)/i.test(payment_method || '');
+
+  // Save transaction record (includes license_key + buyer_email for guest retrieval)
   const ip = getClientIP(req);
   const { data: tx, error: txErr } = await supabase
     .from('transactions')
@@ -2525,7 +2552,8 @@ app.post('/api/checkout/confirm', async (req, res) => {
       product_name:     product_name || null,
       amount:           parsedAmount,
       payment_method:   payment_method || 'manual',
-      status:           'completed',
+      status:              needsVerification ? 'pending' : 'completed',
+      verification_status: needsVerification ? 'pending' : null,
       tx_reference:     tx_reference || null,
       license_key:      licenseKey,
       buyer_email:      email,
@@ -2540,13 +2568,14 @@ app.post('/api/checkout/confirm', async (req, res) => {
   }
 
   // 3. Write AES-256-CBC encrypted audit log (non-blocking)
+  const txStatus = needsVerification ? 'pending' : 'completed';
   supabase.from('transaction_logs').insert({
     buyer_email_enc: encryptField(email),
     amount_enc:      encryptField(String(parsedAmount)),
     product_name:    product_name || null,
     payment_method:  payment_method || null,
     tx_reference:    tx_reference || tx.id,
-    status:          'completed',
+    status:          txStatus,
     logged_by:       null,
   }).then(({ error: le }) => { if (le) console.error('[tx-log]', le.message); });
 
@@ -2622,30 +2651,33 @@ app.post('/api/checkout/confirm', async (req, res) => {
 </div>
 </body></html>`;
 
+  // Only send receipt email if payment doesn't need verification
   let emailSent = false;
-  try {
-    await sendMailSafe({
-      from:    process.env.EMAIL_FROM || `"Keyify" <${process.env.EMAIL_USER}>`,
-      to:      email,
-      subject: `🔑 Keyify – Vaš ključ za ${escServerHtml(product_name || 'narudžbu')} · ${licenseKey}`,
-      html:    receiptHTML,
-    });
-    emailSent = true;
-
-  } catch (emailErr) {
-    console.error('[checkout/confirm] email error:', emailErr.message);
+  if (!needsVerification) {
+    try {
+      await sendMailSafe({
+        from:    process.env.EMAIL_FROM || `"Keyify" <${process.env.EMAIL_USER}>`,
+        to:      email,
+        subject: `🔑 Keyify – Vaš ključ za ${escServerHtml(product_name || 'narudžbu')} · ${licenseKey}`,
+        html:    receiptHTML,
+      });
+      emailSent = true;
+    } catch (emailErr) {
+      console.error('[checkout/confirm] email error:', emailErr.message);
+    }
   }
 
   return res.json({
-    ok:             true,
-    transaction_id: tx.id,
-    license_key:    licenseKey,
-    product_name:   product_name || null,
-    product_image:  productImageUrl,
-    amount:         parsedAmount,
-    order_date:     new Date().toISOString(),
-    email_sent_to:  email,
-    email_sent:     emailSent,
+    ok:                  true,
+    transaction_id:      tx.id,
+    license_key:         needsVerification ? null : licenseKey,
+    needs_verification:  needsVerification,
+    product_name:        product_name || null,
+    product_image:       productImageUrl,
+    amount:              parsedAmount,
+    order_date:          new Date().toISOString(),
+    email_sent_to:       email,
+    email_sent:          emailSent,
   });
 });
 
@@ -3097,6 +3129,684 @@ app.get('/api/admin/invoices', authenticateToken, checkPermission('can_view_invo
   }));
 
   return res.json({ invoices, total: count, page, limit });
+});
+
+/* ─────────────────────────────────────────
+   REFERRAL SYSTEM
+───────────────────────────────────────── */
+
+/** GET /api/user/referral – get user's referral info */
+app.get('/api/user/referral', authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+
+  // Get or create referral code
+  let { data: refCode } = await supabase
+    .from('referral_codes')
+    .select('code')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (!refCode) {
+    const code = 'REF-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+    const { data: newCode } = await supabase
+      .from('referral_codes')
+      .insert({ user_id: userId, code })
+      .select('code')
+      .single();
+    refCode = newCode;
+  }
+
+  // Count referrals
+  const { count: refCount } = await supabase
+    .from('referrals')
+    .select('id', { count: 'exact', head: true })
+    .eq('referrer_id', userId);
+
+  // Get tiers
+  const { data: tiers } = await supabase
+    .from('referral_tiers')
+    .select('*')
+    .order('tier_level', { ascending: true });
+
+  const count = refCount || 0;
+  let currentTier = null;
+  let nextTier = null;
+  for (const tier of (tiers || [])) {
+    if (count >= tier.required_referrals) currentTier = tier;
+    else { nextTier = tier; break; }
+  }
+
+  const progress = nextTier
+    ? Math.round((count / nextTier.required_referrals) * 100)
+    : 100;
+
+  return res.json({
+    code:          refCode?.code || null,
+    referral_count: count,
+    current_tier:  currentTier,
+    next_tier:     nextTier,
+    progress,
+    tiers:         tiers || [],
+  });
+});
+
+/** Check and award referral tier rewards */
+async function checkReferralRewards(referrerId) {
+  const { count } = await supabase
+    .from('referrals')
+    .select('id', { count: 'exact', head: true })
+    .eq('referrer_id', referrerId);
+
+  const { data: tiers } = await supabase
+    .from('referral_tiers')
+    .select('*')
+    .order('tier_level', { ascending: true });
+
+  // Check which tiers the referrer qualifies for
+  for (const tier of (tiers || [])) {
+    if ((count || 0) >= tier.required_referrals) {
+      // Check if reward already given for this tier
+      const { data: existing } = await supabase
+        .from('user_coupons')
+        .select('id')
+        .eq('user_id', referrerId)
+        .eq('source', 'referral_reward')
+        .ilike('code', `%TIER${tier.tier_level}%`)
+        .maybeSingle();
+
+      if (!existing) {
+        // Generate reward coupon
+        const code = `REF-TIER${tier.tier_level}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+        const { data: promo } = await supabase.from('promo_codes').insert({
+          code,
+          discount_type:  tier.reward_type,
+          discount_value: tier.reward_value,
+          usage_limit:    1,
+          is_active:      true,
+          created_at:     new Date().toISOString(),
+        }).select('id').single();
+
+        if (promo) {
+          const { data: referrer } = await supabase.from('users').select('email').eq('id', referrerId).maybeSingle();
+          await supabase.from('user_coupons').insert({
+            user_id:       referrerId,
+            buyer_email:   referrer?.email || '',
+            promo_code_id: promo.id,
+            code,
+            source:        'referral_reward',
+          });
+
+          // Email the reward
+          if (referrer?.email) {
+            const discountLabel = tier.reward_type === 'percent' ? `${tier.reward_value}%` : `€${tier.reward_value}`;
+            sendMailSafe({
+              from:    process.env.EMAIL_FROM || `"Keyify" <${process.env.EMAIL_USER}>`,
+              to:      referrer.email,
+              subject: `🎉 Keyify – Čestitamo! Otključali ste nivo "${tier.name}" · ${discountLabel} popust`,
+              html: `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:20px 0;background:#f4f6f9;font-family:'Segoe UI',Arial,sans-serif">
+<div style="max-width:520px;margin:0 auto">
+  <div style="background:linear-gradient(135deg,#f59e0b,#ef4444);border-radius:18px 18px 0 0;padding:32px;text-align:center">
+    <div style="font-size:40px;margin-bottom:8px">🏆</div>
+    <h1 style="color:#fff;margin:0;font-size:22px;font-weight:800">Nivo "${tier.name}" otključan!</h1>
+  </div>
+  <div style="background:#fff;border:1px solid #e5e7eb;padding:28px 36px;text-align:center">
+    <p style="font-size:14px;color:#374151;margin:0 0 20px">Pozvali ste ${count} prijatelja i otključali nagradu:</p>
+    <div style="background:linear-gradient(135deg,#f0f4ff,#faf5ff);border:2px solid #f59e0b;border-radius:14px;padding:20px;margin-bottom:16px">
+      <div style="font-size:24px;font-weight:800;color:#f59e0b;font-family:'Courier New',monospace">${code}</div>
+      <div style="font-size:14px;color:#22c55e;font-weight:700;margin-top:6px">${discountLabel} popust</div>
+    </div>
+  </div>
+  <div style="background:#f9fafb;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 18px 18px;padding:16px;text-align:center">
+    <p style="margin:0;font-size:11px;color:#d1d5db">© ${new Date().getFullYear()} Keyify</p>
+  </div>
+</div></body></html>`,
+            }).catch(() => {});
+          }
+        }
+      }
+    }
+  }
+}
+
+/** GET /api/admin/referral/tiers */
+app.get('/api/admin/referral/tiers', authenticateToken, checkPermission('can_manage_referrals'), async (req, res) => {
+  const { data } = await supabase.from('referral_tiers').select('*').order('tier_level', { ascending: true });
+  return res.json(data || []);
+});
+
+/** POST /api/admin/referral/tiers */
+app.post('/api/admin/referral/tiers', authenticateToken, checkPermission('can_manage_referrals'), async (req, res) => {
+  const { tier_level, name, required_referrals, reward_type, reward_value } = req.body;
+  if (!name || !tier_level || !required_referrals || !reward_type || !reward_value)
+    return res.status(400).json({ error: 'Sva polja su obavezna' });
+  const { data, error } = await supabase.from('referral_tiers').insert({
+    tier_level: parseInt(tier_level), name, required_referrals: parseInt(required_referrals),
+    reward_type, reward_value: parseFloat(reward_value),
+  }).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  return res.status(201).json(data);
+});
+
+/** PUT /api/admin/referral/tiers/:id */
+app.put('/api/admin/referral/tiers/:id', authenticateToken, checkPermission('can_manage_referrals'), async (req, res) => {
+  const updates = {};
+  if (req.body.name !== undefined)               updates.name = req.body.name;
+  if (req.body.required_referrals !== undefined)  updates.required_referrals = parseInt(req.body.required_referrals);
+  if (req.body.reward_type !== undefined)         updates.reward_type = req.body.reward_type;
+  if (req.body.reward_value !== undefined)        updates.reward_value = parseFloat(req.body.reward_value);
+  const { error } = await supabase.from('referral_tiers').update(updates).eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json({ ok: true });
+});
+
+/** DELETE /api/admin/referral/tiers/:id */
+app.delete('/api/admin/referral/tiers/:id', authenticateToken, checkPermission('can_manage_referrals'), async (req, res) => {
+  const { error } = await supabase.from('referral_tiers').delete().eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json({ ok: true });
+});
+
+/** GET /api/admin/referral/stats */
+app.get('/api/admin/referral/stats', authenticateToken, checkPermission('can_manage_referrals'), async (req, res) => {
+  const { count: totalReferrals } = await supabase.from('referrals').select('id', { count: 'exact', head: true });
+  const { count: totalReferrers } = await supabase.from('referral_codes').select('id', { count: 'exact', head: true });
+  const { count: rewardsIssued } = await supabase.from('user_coupons').select('id', { count: 'exact', head: true }).eq('source', 'referral_reward');
+  return res.json({ total_referrals: totalReferrals || 0, total_referrers: totalReferrers || 0, rewards_issued: rewardsIssued || 0 });
+});
+
+/* ─────────────────────────────────────────
+   REVIEWS & FEEDBACK
+───────────────────────────────────────── */
+
+const reviewAvatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits:  { fileSize: 2 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Dozvoljeni tipovi: PNG, JPG'));
+  },
+}).single('avatar');
+
+/** GET /api/products/:id/reviews – public, visible reviews */
+app.get('/api/products/:id/reviews', async (req, res) => {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('id, product_id, reviewer_name, reviewer_avatar, rating, text, image_url, is_verified_purchase, created_at')
+    .eq('product_id', req.params.id)
+    .eq('is_visible', true)
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: 'Greška' });
+
+  // Calculate average + distribution
+  const ratings = (data || []).map(r => r.rating);
+  const avg = ratings.length ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : 0;
+  const dist = [0, 0, 0, 0, 0];
+  ratings.forEach(r => dist[r - 1]++);
+
+  return res.json({ reviews: data || [], average: Math.round(avg * 10) / 10, count: ratings.length, distribution: dist });
+});
+
+/** POST /api/products/:id/reviews – user submits review */
+app.post('/api/products/:id/reviews', authenticateToken, async (req, res) => {
+  const { rating, text } = req.body;
+  const productId = req.params.id;
+
+  if (!rating || rating < 1 || rating > 5)
+    return res.status(400).json({ error: 'Ocjena mora biti između 1 i 5' });
+
+  // Check if user already reviewed this product
+  const { data: existing } = await supabase
+    .from('reviews')
+    .select('id')
+    .eq('product_id', productId)
+    .eq('user_id', req.user.id)
+    .maybeSingle();
+  if (existing) return res.status(400).json({ error: 'Već ste ostavili recenziju za ovaj proizvod' });
+
+  // Check if user has a completed transaction for verified badge
+  const { data: txMatch } = await supabase
+    .from('transactions')
+    .select('id')
+    .eq('product_id', productId)
+    .eq('user_id', req.user.id)
+    .eq('status', 'completed')
+    .limit(1)
+    .maybeSingle();
+
+  const { data: user } = await supabase.from('users').select('name').eq('id', req.user.id).maybeSingle();
+
+  const { data: review, error } = await supabase.from('reviews').insert({
+    product_id:          productId,
+    user_id:             req.user.id,
+    transaction_id:      txMatch?.id || null,
+    reviewer_name:       user?.name || req.user.email?.split('@')[0] || 'Korisnik',
+    rating:              parseInt(rating),
+    text:                text || null,
+    is_verified_purchase: !!txMatch,
+  }).select('id').single();
+
+  if (error) return res.status(500).json({ error: 'Greška pri slanju recenzije' });
+  return res.status(201).json({ ok: true, review_id: review.id });
+});
+
+/** GET /api/admin/reviews – all reviews (admin) */
+app.get('/api/admin/reviews', authenticateToken, checkPermission('can_manage_reviews'), async (req, res) => {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('*, products:product_id(name_sr, name_en)')
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json(data || []);
+});
+
+/** POST /api/admin/reviews – admin creates review (social proof) */
+app.post('/api/admin/reviews', authenticateToken, checkPermission('can_manage_reviews'), (req, res) => {
+  reviewAvatarUpload(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+
+    const { product_id, reviewer_name, rating, text, is_verified_purchase } = req.body;
+    if (!product_id || !reviewer_name || !rating)
+      return res.status(400).json({ error: 'Proizvod, ime i ocjena su obavezni' });
+
+    let avatarUrl = null;
+    if (req.file) {
+      const ext = (req.file.originalname.split('.').pop() || 'png').toLowerCase();
+      const filePath = `review-avatars/${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('review-avatars')
+        .upload(filePath, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from('review-avatars').getPublicUrl(filePath);
+        avatarUrl = urlData?.publicUrl || null;
+      }
+    }
+
+    const { data, error: dbErr } = await supabase.from('reviews').insert({
+      product_id,
+      reviewer_name,
+      reviewer_avatar:     avatarUrl,
+      rating:              parseInt(rating),
+      text:                text || null,
+      is_admin_created:    true,
+      is_verified_purchase: is_verified_purchase === 'true' || is_verified_purchase === true,
+    }).select('id').single();
+
+    if (dbErr) return res.status(500).json({ error: 'Greška pri kreiranju recenzije' });
+    return res.status(201).json({ ok: true, review_id: data.id });
+  });
+});
+
+/** PUT /api/admin/reviews/:id – edit review */
+app.put('/api/admin/reviews/:id', authenticateToken, checkPermission('can_manage_reviews'), async (req, res) => {
+  const { reviewer_name, rating, text, is_visible } = req.body;
+  const updates = {};
+  if (reviewer_name !== undefined) updates.reviewer_name = reviewer_name;
+  if (rating !== undefined)        updates.rating = parseInt(rating);
+  if (text !== undefined)          updates.text = text;
+  if (is_visible !== undefined)    updates.is_visible = Boolean(is_visible);
+
+  const { error } = await supabase.from('reviews').update(updates).eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json({ ok: true });
+});
+
+/** DELETE /api/admin/reviews/:id */
+app.delete('/api/admin/reviews/:id', authenticateToken, checkPermission('can_manage_reviews'), async (req, res) => {
+  const { error } = await supabase.from('reviews').delete().eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json({ ok: true });
+});
+
+/** PATCH /api/admin/reviews/:id/visibility */
+app.patch('/api/admin/reviews/:id/visibility', authenticateToken, checkPermission('can_manage_reviews'), async (req, res) => {
+  const { is_visible } = req.body;
+  const { error } = await supabase.from('reviews').update({ is_visible: Boolean(is_visible) }).eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json({ ok: true });
+});
+
+/* ─────────────────────────────────────────
+   BONUS COUPON AUTOMATION
+───────────────────────────────────────── */
+
+async function generateBonusCoupon(productId, buyerEmail, userId) {
+  if (!productId) return null;
+  const { data: prod } = await supabase
+    .from('products')
+    .select('bonus_coupon_id, name_sr')
+    .eq('id', productId)
+    .maybeSingle();
+  if (!prod || !prod.bonus_coupon_id) return null;
+
+  // Fetch template promo code
+  const { data: template } = await supabase
+    .from('promo_codes')
+    .select('*')
+    .eq('id', prod.bonus_coupon_id)
+    .maybeSingle();
+  if (!template) return null;
+
+  // Generate unique code
+  const bonusCode = 'BONUS-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+
+  // Create single-use promo code
+  const { data: newPromo } = await supabase.from('promo_codes').insert({
+    code:           bonusCode,
+    discount_type:  template.discount_type,
+    discount_value: template.discount_value,
+    usage_limit:    1,
+    is_active:      true,
+    created_by:     null,
+    created_at:     new Date().toISOString(),
+  }).select('id').single();
+
+  if (!newPromo) return null;
+
+  // Record in user_coupons
+  await supabase.from('user_coupons').insert({
+    user_id:       userId || null,
+    buyer_email:   buyerEmail,
+    promo_code_id: newPromo.id,
+    code:          bonusCode,
+    source:        'purchase_bonus',
+  });
+
+  // Send bonus coupon email
+  const discountLabel = template.discount_type === 'percent'
+    ? `${template.discount_value}%`
+    : `€${parseFloat(template.discount_value).toFixed(2)}`;
+  try {
+    await sendMailSafe({
+      from:    process.env.EMAIL_FROM || `"Keyify" <${process.env.EMAIL_USER}>`,
+      to:      buyerEmail,
+      subject: `🎁 Keyify – Bonus kupon za vašu kupovinu! ${discountLabel} popust`,
+      html: `<!DOCTYPE html>
+<html lang="bs"><head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:20px 0;background:#f4f6f9;font-family:'Segoe UI',Arial,sans-serif">
+<div style="max-width:520px;margin:0 auto">
+  <div style="background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:18px 18px 0 0;padding:32px 36px 28px;text-align:center">
+    <div style="font-size:40px;margin-bottom:8px">🎁</div>
+    <h1 style="color:#fff;margin:0;font-size:22px;font-weight:800">Bonus kupon!</h1>
+    <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:14px">Hvala na kupovini ${escServerHtml(prod.name_sr || '')}</p>
+  </div>
+  <div style="background:#fff;border:1px solid #e5e7eb;padding:28px 36px;text-align:center">
+    <p style="font-size:14px;color:#374151;margin:0 0 20px">Evo vašeg ekskluzivnog bonus kupona:</p>
+    <div style="background:linear-gradient(135deg,#f0f4ff,#faf5ff);border:2px solid #A259FF;border-radius:14px;padding:20px;margin-bottom:20px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#7c3aed;margin-bottom:8px">Promo kod</div>
+      <div style="font-size:24px;font-weight:800;letter-spacing:4px;color:#1D6AFF;font-family:'Courier New',monospace">${escServerHtml(bonusCode)}</div>
+      <div style="font-size:13px;color:#22c55e;font-weight:700;margin-top:8px">${discountLabel} popust</div>
+    </div>
+    <p style="font-size:12px;color:#9ca3af;margin:0">Koristite ovaj kod na blagajni za vašu sljedeću kupovinu!</p>
+  </div>
+  <div style="background:#f9fafb;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 18px 18px;padding:16px 36px;text-align:center">
+    <p style="margin:0;font-size:11px;color:#d1d5db">© ${new Date().getFullYear()} Keyify</p>
+  </div>
+</div></body></html>`,
+    });
+  } catch (e) { console.error('[bonus-coupon] email error:', e.message); }
+
+  return bonusCode;
+}
+
+/** GET /api/user/coupons – returns user's earned bonus coupons */
+app.get('/api/user/coupons', authenticateToken, async (req, res) => {
+  const { data, error } = await supabase
+    .from('user_coupons')
+    .select('*, promo_codes:promo_code_id(code, discount_type, discount_value, is_active, used_count, usage_limit)')
+    .eq('user_id', req.user.id)
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: 'Greška' });
+  return res.json(data || []);
+});
+
+/** GET /api/guest/coupons – returns coupons by email (rate-limited) */
+app.get('/api/guest/coupons', async (req, res) => {
+  const email = (req.query.email || '').trim().toLowerCase();
+  if (!email) return res.status(400).json({ error: 'Email je obavezan' });
+  const { data } = await supabase
+    .from('user_coupons')
+    .select('code, source, is_used, created_at, promo_codes:promo_code_id(discount_type, discount_value)')
+    .eq('buyer_email', email)
+    .order('created_at', { ascending: false });
+  return res.json(data || []);
+});
+
+/* ─────────────────────────────────────────
+   PAYMENT VERIFICATION
+───────────────────────────────────────── */
+
+const verifyUpload = multer({
+  storage: multer.memoryStorage(),
+  limits:  { fileSize: 5 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Dozvoljeni tipovi: PNG, JPG, WEBP'));
+  },
+}).single('screenshot');
+
+/** POST /api/verification/submit – user submits payment proof */
+app.post('/api/verification/submit', (req, res) => {
+  verifyUpload(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+
+    const { transaction_id, payment_type, paypal_email, tx_hash, network, amount } = req.body;
+    if (!transaction_id) return res.status(400).json({ error: 'ID transakcije je obavezan' });
+    if (!['paypal', 'crypto'].includes(payment_type))
+      return res.status(400).json({ error: 'Tip plaćanja mora biti paypal ili crypto' });
+
+    // Verify transaction exists and is pending
+    const { data: txRow } = await supabase
+      .from('transactions')
+      .select('id, buyer_email, user_id, verification_status')
+      .eq('id', transaction_id)
+      .maybeSingle();
+
+    if (!txRow) return res.status(404).json({ error: 'Transakcija nije pronađena' });
+    if (txRow.verification_status === 'approved')
+      return res.status(400).json({ error: 'Ova transakcija je već odobrena' });
+
+    // Upload screenshot to Supabase Storage if provided
+    let screenshotUrl = null;
+    if (req.file) {
+      const ext = (req.file.originalname.split('.').pop() || 'png').toLowerCase();
+      const filePath = `verifications/${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('verification-screenshots')
+        .upload(filePath, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from('verification-screenshots').getPublicUrl(filePath);
+        screenshotUrl = urlData?.publicUrl || null;
+      }
+    }
+
+    // Identify user
+    let userId = null;
+    const authHeader = req.headers['authorization'];
+    const jwtToken = authHeader && authHeader.split(' ')[1];
+    if (jwtToken) {
+      try { userId = jwt.verify(jwtToken, process.env.JWT_SECRET).id; } catch {}
+    }
+
+    const { data: pv, error: pvErr } = await supabase
+      .from('payment_verifications')
+      .insert({
+        transaction_id,
+        user_id:        userId || txRow.user_id || null,
+        buyer_email:    txRow.buyer_email,
+        payment_type,
+        screenshot_url: screenshotUrl,
+        paypal_email:   paypal_email || null,
+        tx_hash:        tx_hash || null,
+        network:        network || null,
+        amount:         amount ? parseFloat(amount) : null,
+      })
+      .select('id')
+      .single();
+
+    if (pvErr) {
+      console.error('[verification/submit]', pvErr.message);
+      return res.status(500).json({ error: 'Greška pri slanju verifikacije' });
+    }
+
+    return res.json({ ok: true, verification_id: pv.id, message: 'Dokaz uplate je poslan na provjeru' });
+  });
+});
+
+/** GET /api/admin/verifications – list all payment verifications */
+app.get('/api/admin/verifications', authenticateToken, checkPermission('can_verify_payments'), async (req, res) => {
+  const status = req.query.status || null;
+  let query = supabase
+    .from('payment_verifications')
+    .select('*, transactions(id, product_name, amount, payment_method, license_key, buyer_email)')
+    .order('created_at', { ascending: false });
+
+  if (status) query = query.eq('status', status);
+
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: 'Greška pri učitavanju verifikacija' });
+  return res.json(data || []);
+});
+
+/** GET /api/admin/verifications/pending-count */
+app.get('/api/admin/verifications/pending-count', authenticateToken, requireAdmin, async (req, res) => {
+  const { count } = await supabase
+    .from('payment_verifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pending');
+  return res.json({ count: count || 0 });
+});
+
+/** PUT /api/admin/verifications/:id/approve – approve payment */
+app.put('/api/admin/verifications/:id/approve', authenticateToken, checkPermission('can_verify_payments'), async (req, res) => {
+  const { id } = req.params;
+  const { admin_notes } = req.body;
+
+  // Get verification + transaction
+  const { data: pv } = await supabase
+    .from('payment_verifications')
+    .select('*, transactions(id, buyer_email, product_name, license_key, amount, user_id, product_id)')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (!pv) return res.status(404).json({ error: 'Verifikacija nije pronađena' });
+  if (pv.status !== 'pending') return res.status(400).json({ error: 'Verifikacija je već obrađena' });
+
+  // Update verification
+  await supabase.from('payment_verifications').update({
+    status:      'approved',
+    admin_notes: admin_notes || null,
+    reviewed_by: req.user.id,
+    reviewed_at: new Date().toISOString(),
+  }).eq('id', id);
+
+  // Update transaction
+  await supabase.from('transactions').update({
+    status:              'completed',
+    verification_status: 'approved',
+  }).eq('id', pv.transaction_id);
+
+  // Send license key email
+  const tx = pv.transactions;
+  if (tx && tx.license_key && tx.buyer_email) {
+    const orderDate = new Date().toLocaleDateString('bs-BA', { year: 'numeric', month: 'long', day: 'numeric' });
+    try {
+      await sendMailSafe({
+        from:    process.env.EMAIL_FROM || `"Keyify" <${process.env.EMAIL_USER}>`,
+        to:      tx.buyer_email,
+        subject: `🔑 Keyify – Uplata potvrđena · Vaš ključ za ${escServerHtml(tx.product_name || 'narudžbu')}`,
+        html: `<!DOCTYPE html>
+<html lang="bs"><head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:20px 0;background:#f4f6f9;font-family:'Segoe UI',Arial,sans-serif">
+<div style="max-width:520px;margin:0 auto">
+  <div style="background:linear-gradient(135deg,#1D6AFF 0%,#A259FF 100%);border-radius:18px 18px 0 0;padding:32px 36px 28px;text-align:center">
+    <div style="display:inline-block;background:rgba(255,255,255,0.15);border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px;margin-bottom:12px">✅</div>
+    <h1 style="color:#fff;margin:0;font-size:24px;font-weight:800">Uplata potvrđena!</h1>
+    <p style="color:rgba(255,255,255,0.80);margin:6px 0 0;font-size:14px">Vaša narudžba je verificirana i odobrena.</p>
+  </div>
+  <div style="background:#fff;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;padding:28px 36px">
+    <div style="background:linear-gradient(135deg,#f0f4ff 0%,#faf5ff 100%);border:2px solid #A259FF;border-radius:14px;padding:22px;text-align:center;margin-bottom:24px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#7c3aed;margin-bottom:10px">Licencni ključ</div>
+      <div style="font-size:22px;font-weight:800;letter-spacing:5px;color:#1D6AFF;font-family:'Courier New',monospace;word-break:break-all">${escServerHtml(tx.license_key)}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;color:#374151">
+      <tr><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;color:#6b7280">Proizvod</td><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;text-align:right;font-weight:600">${escServerHtml(tx.product_name || 'Digitalni proizvod')}</td></tr>
+      <tr><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;color:#6b7280">Iznos</td><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;text-align:right;font-weight:700;color:#1D6AFF">€ ${parseFloat(tx.amount).toFixed(2)}</td></tr>
+      <tr><td style="padding:10px 0;color:#6b7280">Datum odobrenja</td><td style="padding:10px 0;text-align:right">${orderDate}</td></tr>
+    </table>
+  </div>
+  <div style="background:#f9fafb;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 18px 18px;padding:20px 36px;text-align:center">
+    <p style="margin:0;font-size:11px;color:#d1d5db">© ${new Date().getFullYear()} Keyify · Automatski generiran email</p>
+  </div>
+</div></body></html>`,
+      });
+    } catch (e) { console.error('[verify/approve] email error:', e.message); }
+  }
+
+  // Generate bonus coupon if product has one configured
+  if (tx.product_id) {
+    generateBonusCoupon(tx.product_id, tx.buyer_email, tx.user_id).catch(e => console.error('[bonus-coupon]', e.message));
+  }
+
+  return res.json({ ok: true, message: 'Uplata odobrena, ključ poslan na email' });
+});
+
+/** PUT /api/admin/verifications/:id/reject – reject payment */
+app.put('/api/admin/verifications/:id/reject', authenticateToken, checkPermission('can_verify_payments'), async (req, res) => {
+  const { id } = req.params;
+  const { admin_notes } = req.body;
+
+  const { data: pv } = await supabase
+    .from('payment_verifications')
+    .select('*, transactions(id, buyer_email, product_name)')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (!pv) return res.status(404).json({ error: 'Verifikacija nije pronađena' });
+  if (pv.status !== 'pending') return res.status(400).json({ error: 'Verifikacija je već obrađena' });
+
+  await supabase.from('payment_verifications').update({
+    status:      'rejected',
+    admin_notes: admin_notes || null,
+    reviewed_by: req.user.id,
+    reviewed_at: new Date().toISOString(),
+  }).eq('id', id);
+
+  await supabase.from('transactions').update({
+    status:              'failed',
+    verification_status: 'rejected',
+  }).eq('id', pv.transaction_id);
+
+  // Send rejection email
+  const tx = pv.transactions;
+  if (tx && tx.buyer_email) {
+    try {
+      await sendMailSafe({
+        from:    process.env.EMAIL_FROM || `"Keyify" <${process.env.EMAIL_USER}>`,
+        to:      tx.buyer_email,
+        subject: `Keyify – Uplata nije potvrđena za ${escServerHtml(tx.product_name || 'narudžbu')}`,
+        html: `<!DOCTYPE html>
+<html lang="bs"><head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:20px 0;background:#f4f6f9;font-family:'Segoe UI',Arial,sans-serif">
+<div style="max-width:520px;margin:0 auto">
+  <div style="background:linear-gradient(135deg,#ef4444,#dc2626);border-radius:18px 18px 0 0;padding:32px 36px 28px;text-align:center">
+    <h1 style="color:#fff;margin:0;font-size:22px;font-weight:800">Uplata nije potvrđena</h1>
+    <p style="color:rgba(255,255,255,0.80);margin:8px 0 0;font-size:14px">Nismo uspjeli potvrditi vašu uplatu.</p>
+  </div>
+  <div style="background:#fff;border:1px solid #e5e7eb;padding:28px 36px">
+    <p style="font-size:14px;color:#374151;margin:0 0 16px">Nažalost, vaša uplata za <strong>${escServerHtml(tx.product_name || 'narudžbu')}</strong> nije mogla biti potvrđena.</p>
+    ${admin_notes ? `<p style="font-size:13px;color:#6b7280;margin:0 0 16px"><strong>Razlog:</strong> ${escServerHtml(admin_notes)}</p>` : ''}
+    <p style="font-size:13px;color:#6b7280;margin:0">Kontaktirajte nas putem Instagrama <a href="https://www.instagram.com/keyifyshop/" style="color:#1D6AFF">@keyifyshop</a> ili putem emaila za pomoć.</p>
+  </div>
+  <div style="background:#f9fafb;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 18px 18px;padding:16px 36px;text-align:center">
+    <p style="margin:0;font-size:11px;color:#d1d5db">© ${new Date().getFullYear()} Keyify</p>
+  </div>
+</div></body></html>`,
+      });
+    } catch (e) { console.error('[verify/reject] email error:', e.message); }
+  }
+
+  return res.json({ ok: true, message: 'Uplata odbijena, korisnik obaviješten' });
 });
 
 /* ─────────────────────────────────────────

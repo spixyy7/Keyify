@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Keyify – Verifikacija uplate</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { display: ['Poppins','sans-serif'], body: ['Inter','sans-serif'] },
+          colors: { brand: { blue: '#1D6AFF', purple: '#A259FF' } },
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; }
+    h1,h2,h3,.font-display { font-family: 'Poppins', sans-serif; }
+
+    :root {
+      --vp-bg: #f4f6fb; --vp-card-bg: #ffffff; --vp-card-border: #e5e7eb;
+      --vp-text: #111827; --vp-muted: #6b7280; --vp-input-bg: #f9fafb;
+      --vp-input-border: #e5e7eb;
+    }
+    [data-theme="dark"] {
+      --vp-bg: #020617; --vp-card-bg: rgba(15,18,40,0.85); --vp-card-border: rgba(255,255,255,0.08);
+      --vp-text: #f1f5f9; --vp-muted: #94a3b8; --vp-input-bg: rgba(255,255,255,0.05);
+      --vp-input-border: rgba(255,255,255,0.1);
+    }
+
+    body { background: var(--vp-bg); color: var(--vp-text); transition: background .3s, color .3s; }
+
+    .vp-card {
+      background: var(--vp-card-bg); border: 1px solid var(--vp-card-border);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    }
+    .vp-input {
+      width: 100%; padding: 10px 14px; border-radius: 10px; font-size: 14px;
+      background: var(--vp-input-bg); border: 1px solid var(--vp-input-border);
+      color: var(--vp-text); outline: none; transition: border-color .15s;
+    }
+    .vp-input:focus { border-color: #1D6AFF; }
+    .vp-input::placeholder { color: var(--vp-muted); }
+    .vp-muted { color: var(--vp-muted); }
+    .vp-label { display: block; font-size: 12px; font-weight: 600; color: var(--vp-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .04em; }
+
+    /* Tab switcher */
+    .vp-tab { padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; border: 1px solid var(--vp-card-border); background: transparent; color: var(--vp-muted); transition: all .15s; }
+    .vp-tab.active { background: linear-gradient(135deg, #1D6AFF, #A259FF); color: #fff; border-color: transparent; }
+    .vp-tab:hover:not(.active) { border-color: #1D6AFF; color: #1D6AFF; }
+
+    /* File drop zone */
+    .vp-dropzone {
+      border: 2px dashed var(--vp-input-border); border-radius: 12px; padding: 32px 20px;
+      text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .vp-dropzone:hover, .vp-dropzone.dragover { border-color: #1D6AFF; background: rgba(29,106,255,0.05); }
+    .vp-dropzone.has-file { border-color: #22c55e; background: rgba(34,197,94,0.05); }
+
+    /* Instagram card */
+    .vp-ig-card { position: relative; }
+    .vp-ig-card::before {
+      content: ''; position: absolute; inset: -2px; border-radius: 18px;
+      background: linear-gradient(135deg, #E1306C, #F77737, #FCAF45, #E1306C); z-index: -1;
+    }
+    .vp-ig-btn {
+      display: inline-flex; align-items: center; gap: 8px; padding: 10px 24px;
+      border-radius: 10px; font-weight: 700; font-size: 13px; color: #fff;
+      border: none; cursor: pointer; text-decoration: none;
+      background: linear-gradient(135deg, #E1306C, #C13584, #833AB4);
+      transition: transform .15s, box-shadow .15s;
+    }
+    .vp-ig-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(225,48,108,0.4); }
+
+    .vp-order-id-box {
+      background: linear-gradient(135deg,rgba(29,106,255,0.08),rgba(162,89,255,0.08));
+      border: 1px solid rgba(162,89,255,0.3); border-radius: 10px;
+      padding: 10px 16px; display: inline-flex; align-items: center; gap: 8px;
+    }
+    .vp-copy-btn {
+      font-size: 10px; padding: 3px 8px; border-radius: 6px; cursor: pointer;
+      background: rgba(29,106,255,0.12); border: 1px solid rgba(29,106,255,0.3);
+      color: #1D6AFF; font-weight: 700; letter-spacing: .04em; transition: all .15s;
+    }
+    .vp-copy-btn:hover { background: rgba(29,106,255,0.22); }
+
+    @keyframes fadeSlideUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+    .vp-animate { animation: fadeSlideUp .6s ease both; }
+    .vp-delay-1 { animation-delay:.1s; }
+    .vp-delay-2 { animation-delay:.2s; }
+
+    /* Success state */
+    .vp-success-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <div id="kf-navbar-root"></div>
+
+  <main class="flex-1 flex items-center justify-center px-4 py-12">
+    <div class="w-full max-w-lg">
+
+      <!-- Heading -->
+      <div class="text-center mb-8 vp-animate">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4"
+             style="background:linear-gradient(135deg,#1D6AFF 0%,#A259FF 100%)">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 12l2 2 4-4"/><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <h1 class="text-2xl font-bold font-display mb-1" style="color:var(--vp-text)">Verifikacija uplate</h1>
+        <p class="vp-muted text-sm">Pošaljite dokaz uplate kako bismo potvrdili vašu narudžbu.</p>
+      </div>
+
+      <!-- Main card -->
+      <div class="vp-card rounded-2xl shadow-xl vp-animate vp-delay-1">
+        <div class="p-7">
+
+          <!-- Tabs -->
+          <div class="flex gap-3 mb-6">
+            <button class="vp-tab active" onclick="switchTab('paypal')" id="tab-paypal">
+              <span class="flex items-center gap-2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.076 21.337H2.47a.641.641 0 01-.633-.74L4.944 2.5A.77.77 0 015.703 1.9h5.834c2.627 0 4.467.69 5.326 1.99.403.612.612 1.29.66 2.06.05.815-.05 1.79-.305 2.962l-.012.062v.052c-.587 3.04-2.427 4.705-5.465 4.952h-.004c-.34.028-.69.042-1.055.042H9.13a.95.95 0 00-.938.803l-.87 5.515z"/></svg>
+                PayPal
+              </span>
+            </button>
+            <button class="vp-tab" onclick="switchTab('crypto')" id="tab-crypto">
+              <span class="flex items-center gap-2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5"/></svg>
+                Kripto
+              </span>
+            </button>
+          </div>
+
+          <!-- PayPal Form -->
+          <div id="form-paypal">
+            <div class="space-y-4">
+              <div>
+                <label class="vp-label">Screenshot uplate *</label>
+                <div class="vp-dropzone" id="dropzone" onclick="document.getElementById('screenshot-input').click()"
+                     ondragover="event.preventDefault();this.classList.add('dragover')"
+                     ondragleave="this.classList.remove('dragover')"
+                     ondrop="event.preventDefault();this.classList.remove('dragover');handleDrop(event)">
+                  <input type="file" id="screenshot-input" accept="image/*" style="display:none" onchange="handleFile(this.files[0])"/>
+                  <svg class="mx-auto mb-2 w-8 h-8" style="color:var(--vp-muted)" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13"/></svg>
+                  <p class="text-sm font-medium" id="dropzone-text" style="color:var(--vp-muted)">Kliknite ili prevucite screenshot ovdje</p>
+                  <p class="text-xs mt-1" style="color:var(--vp-muted)">PNG, JPG · Max 5 MB</p>
+                </div>
+              </div>
+              <div>
+                <label class="vp-label">PayPal email adresa</label>
+                <input type="email" class="vp-input" id="paypal-email" placeholder="korisnik@example.com"/>
+              </div>
+              <div>
+                <label class="vp-label">Iznos uplate (€)</label>
+                <input type="number" step="0.01" class="vp-input" id="paypal-amount" placeholder="0.00"/>
+              </div>
+            </div>
+          </div>
+
+          <!-- Crypto Form -->
+          <div id="form-crypto" style="display:none">
+            <div class="space-y-4">
+              <div>
+                <label class="vp-label">Transaction Hash (TX ID) *</label>
+                <input type="text" class="vp-input" id="crypto-txhash" placeholder="0x1a2b3c..."/>
+              </div>
+              <div>
+                <label class="vp-label">Mreža</label>
+                <select class="vp-input" id="crypto-network">
+                  <option value="BTC">Bitcoin (BTC)</option>
+                  <option value="ETH">Ethereum (ETH)</option>
+                  <option value="USDT">Tether (USDT)</option>
+                </select>
+              </div>
+              <div>
+                <label class="vp-label">Iznos uplate (€)</label>
+                <input type="number" step="0.01" class="vp-input" id="crypto-amount" placeholder="0.00"/>
+              </div>
+            </div>
+          </div>
+
+          <!-- Error message -->
+          <div id="vp-error" style="display:none" class="mt-4 p-3 rounded-lg text-sm font-medium" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444"></div>
+
+          <!-- Submit button -->
+          <button id="vp-submit-btn" onclick="submitVerification()"
+                  class="w-full mt-6 py-3 rounded-xl text-white font-bold text-sm transition-all hover:opacity-90 active:scale-[0.98]"
+                  style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
+            Pošalji dokaz uplate
+          </button>
+        </div>
+      </div>
+
+      <!-- Instagram CTA -->
+      <div class="vp-card vp-ig-card rounded-2xl shadow-xl mt-5 vp-animate vp-delay-2">
+        <div class="p-6 text-center">
+          <div class="inline-flex items-center justify-center w-12 h-12 rounded-full mb-3"
+               style="background:linear-gradient(135deg,#E1306C,#C13584,#833AB4)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+            </svg>
+          </div>
+          <h3 class="font-display font-bold text-base mb-1" style="color:var(--vp-text)">Ili pošaljite na Instagram</h3>
+          <p class="vp-muted text-xs mb-4">Pošaljite screenshot uplate na naš Instagram sa vašim ID narudžbe.</p>
+
+          <div class="mb-4 flex justify-center">
+            <div class="vp-order-id-box">
+              <span class="vp-muted text-xs font-semibold">ID:</span>
+              <span id="vp-order-id" class="text-sm font-bold font-mono" style="color:#1D6AFF">—</span>
+              <button class="vp-copy-btn" onclick="copyId()">KOPIRAJ</button>
+            </div>
+          </div>
+
+          <a href="https://www.instagram.com/keyifyshop/" target="_blank" rel="noopener" class="vp-ig-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+            </svg>
+            @keyifyshop
+          </a>
+
+          <p class="text-xs vp-muted mt-3">⭐ Zapratite nas za ekskluzivne promo kodove i popuste!</p>
+        </div>
+      </div>
+
+      <!-- Back -->
+      <div class="text-center mt-5 vp-animate vp-delay-2">
+        <a href="index.html" class="text-sm font-medium" style="color:#1D6AFF">← Povratak u prodavnicu</a>
+      </div>
+    </div>
+  </main>
+
+  <!-- Success overlay -->
+  <div id="vp-success" class="vp-success-overlay" style="display:none">
+    <div class="vp-card rounded-2xl shadow-2xl p-8 text-center max-w-sm mx-4">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4"
+           style="background:linear-gradient(135deg,#22c55e,#16a34a)">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <h2 class="font-display font-bold text-xl mb-2" style="color:var(--vp-text)">Dokaz poslan!</h2>
+      <p class="vp-muted text-sm mb-5">Vaša uplata je poslana na provjeru. Obavijestit ćemo vas putem emaila čim bude odobrena.</p>
+      <a href="purchases.html" class="inline-block px-6 py-2.5 rounded-xl text-white text-sm font-bold" style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">Moje narudžbe</a>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="keyify.js"></script>
+  <script>
+  (function() {
+    'use strict';
+
+    let currentTab = 'paypal';
+    let selectedFile = null;
+
+    // Read order from sessionStorage or URL
+    let order = {};
+    try { order = JSON.parse(sessionStorage.getItem('kfy_last_order') || '{}'); } catch {}
+    const params = new URLSearchParams(location.search);
+    const txId = params.get('tx') || order.transaction_id || '';
+
+    if (txId) document.getElementById('vp-order-id').textContent = txId;
+
+    // Pre-fill amount from order
+    if (order.amount) {
+      document.getElementById('paypal-amount').value = parseFloat(order.amount).toFixed(2);
+      document.getElementById('crypto-amount').value = parseFloat(order.amount).toFixed(2);
+    }
+
+    window.switchTab = function(tab) {
+      currentTab = tab;
+      document.getElementById('tab-paypal').classList.toggle('active', tab === 'paypal');
+      document.getElementById('tab-crypto').classList.toggle('active', tab === 'crypto');
+      document.getElementById('form-paypal').style.display = tab === 'paypal' ? '' : 'none';
+      document.getElementById('form-crypto').style.display = tab === 'crypto' ? '' : 'none';
+    };
+
+    window.handleFile = function(file) {
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) { showError('Fajl je prevelik (max 5 MB)'); return; }
+      selectedFile = file;
+      document.getElementById('dropzone').classList.add('has-file');
+      document.getElementById('dropzone-text').textContent = file.name;
+    };
+
+    window.handleDrop = function(e) {
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    };
+
+    window.copyId = function() {
+      const id = document.getElementById('vp-order-id').textContent;
+      if (!id || id === '—') return;
+      navigator.clipboard?.writeText(id).then(() => {
+        const btn = document.getElementById('vp-order-id').parentElement.querySelector('.vp-copy-btn');
+        btn.textContent = '✓';
+        setTimeout(() => btn.textContent = 'KOPIRAJ', 1500);
+      });
+    };
+
+    function showError(msg) {
+      const el = document.getElementById('vp-error');
+      el.textContent = msg;
+      el.style.display = 'block';
+      el.style.background = 'rgba(239,68,68,0.1)';
+      el.style.border = '1px solid rgba(239,68,68,0.3)';
+      el.style.color = '#ef4444';
+    }
+
+    window.submitVerification = async function() {
+      const errEl = document.getElementById('vp-error');
+      errEl.style.display = 'none';
+
+      if (!txId) { showError('ID transakcije nije pronađen. Vratite se na checkout.'); return; }
+
+      const btn = document.getElementById('vp-submit-btn');
+      btn.disabled = true;
+      btn.textContent = 'Slanje...';
+
+      const fd = new FormData();
+      fd.append('transaction_id', txId);
+      fd.append('payment_type', currentTab);
+
+      if (currentTab === 'paypal') {
+        if (!selectedFile) { showError('Priložite screenshot uplate'); btn.disabled = false; btn.textContent = 'Pošalji dokaz uplate'; return; }
+        fd.append('screenshot', selectedFile);
+        fd.append('paypal_email', document.getElementById('paypal-email').value.trim());
+        fd.append('amount', document.getElementById('paypal-amount').value);
+      } else {
+        const hash = document.getElementById('crypto-txhash').value.trim();
+        if (!hash) { showError('Unesite Transaction Hash'); btn.disabled = false; btn.textContent = 'Pošalji dokaz uplate'; return; }
+        fd.append('tx_hash', hash);
+        fd.append('network', document.getElementById('crypto-network').value);
+        fd.append('amount', document.getElementById('crypto-amount').value);
+      }
+
+      const headers = {};
+      const token = localStorage.getItem('kfy_token');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      try {
+        const resp = await fetch(`${window.KFY_CONFIG?.API_BASE || ''}/api/verification/submit`, {
+          method: 'POST', headers, body: fd,
+        });
+        const data = await resp.json();
+        if (!resp.ok) { showError(data.error || 'Greška'); btn.disabled = false; btn.textContent = 'Pošalji dokaz uplate'; return; }
+        document.getElementById('vp-success').style.display = 'flex';
+      } catch (e) {
+        showError('Mrežna greška. Pokušajte ponovo.');
+        btn.disabled = false;
+        btn.textContent = 'Pošalji dokaz uplate';
+      }
+    };
+  })();
+  </script>
+</body>
+</html>
