@@ -616,6 +616,7 @@ app.post('/api/login', authLimiter, async (req, res) => {
       role:        user.role,
       name:        user.name,
       email:       user.email,
+      avatar_url:  user.avatar_url || null,
       permissions: user.permissions || {},
       trusted:     true,
     });
@@ -683,7 +684,7 @@ app.post('/api/verify', authLimiter, async (req, res) => {
 
   const { data: user } = await supabase
     .from('users')
-    .select('id, name, email, role, permissions, otp_code, otp_expires')
+    .select('id, name, email, role, permissions, otp_code, otp_expires, avatar_url')
     .eq('id', user_id)
     .maybeSingle();
 
@@ -737,6 +738,7 @@ app.post('/api/verify', authLimiter, async (req, res) => {
     role:        user.role,
     name:        user.name,
     email:       user.email,
+    avatar_url:  user.avatar_url || null,
     permissions: user.permissions || {},
   });
 });
@@ -753,7 +755,7 @@ app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) =>
   const [usersRes, txRes, logsRes] = await Promise.all([
     supabase
       .from('users')
-      .select('id, name, email, role, rank, permissions, registered_ip, created_at, is_verified')
+      .select('id, name, email, role, rank, permissions, registered_ip, created_at, is_verified, avatar_url')
       .order('created_at', { ascending: false }),
 
     supabase
@@ -1176,6 +1178,40 @@ app.put('/api/user/settings', authenticateToken, async (req, res) => {
   return res.json({ message: 'Podešavanja sačuvana' });
 });
 
+/** PUT /api/user/avatar – upload profile picture */
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 3 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Dozvoljene su samo slike'));
+  },
+}).single('avatar');
+
+app.put('/api/user/avatar', authenticateToken, (req, res, next) => {
+  avatarUpload(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    next();
+  });
+}, async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Slika nije poslana' });
+
+  const ext = (req.file.originalname.split('.').pop() || 'jpg').toLowerCase();
+  const filePath = `avatars/${req.user.id}-${Date.now()}.${ext}`;
+
+  const { error: upErr } = await supabase.storage
+    .from('avatars')
+    .upload(filePath, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
+  if (upErr) return res.status(500).json({ error: 'Greška pri uploadu slike' });
+
+  const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+  const avatar_url = urlData?.publicUrl || null;
+
+  await supabase.from('users').update({ avatar_url }).eq('id', req.user.id);
+
+  return res.json({ avatar_url });
+});
+
 /* ─────────────────────────────────────────
    PUBLIC: Checkout settings
    Returns only the fields the checkout page needs (no sensitive admin data).
@@ -1522,7 +1558,7 @@ app.get('/api/admin/chat/sessions', authenticateToken, checkPermission('can_mana
 
   // Try full select with join; progressively strip missing columns on failure
   const attempts = [
-    { cols: 'id, user_id, guest_email, status, created_at, last_message_at, last_message_preview, users!chat_sessions_user_id_fkey(name, email)', orderCol: 'last_message_at' },
+    { cols: 'id, user_id, guest_email, status, created_at, last_message_at, last_message_preview, users!chat_sessions_user_id_fkey(name, email, avatar_url)', orderCol: 'last_message_at' },
     { cols: 'id, user_id, guest_email, status, created_at, last_message_at, last_message_preview', orderCol: 'last_message_at' },
     { cols: 'id, user_id, guest_email, status, created_at', orderCol: 'created_at' },
   ];
@@ -2815,7 +2851,7 @@ app.get('/api/admin/transactions', authenticateToken, checkPermission('can_view_
 
   let query = supabase
     .from('transactions')
-    .select('id, user_id, product_name, amount, payment_method, status, tx_reference, license_key, buyer_email, ip_address_enc, created_at, users(name, email)', { count: 'exact' })
+    .select('id, user_id, product_name, amount, payment_method, status, tx_reference, license_key, buyer_email, ip_address_enc, created_at, users(name, email, avatar_url), payment_verifications(paypal_email, tx_hash, network)', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -2828,19 +2864,28 @@ app.get('/api/admin/transactions', authenticateToken, checkPermission('can_view_
     return res.status(500).json({ error: 'Greška pri dohvatanju transakcija' });
   }
 
-  const transactions = (data || []).map(row => ({
-    id:             row.id,
-    customer_name:  row.users?.name  || null,
-    customer_email: row.buyer_email  || row.users?.email || null,
-    product_name:   row.product_name,
-    amount:         row.amount,
-    payment_method: row.payment_method,
-    status:         row.status,
-    tx_reference:   row.tx_reference,
-    license_key:    row.license_key,
-    ip_address:     row.ip_address_enc ? decryptField(row.ip_address_enc) : null,
-    created_at:     row.created_at,
-  }));
+  const transactions = (data || []).map(row => {
+    const pv = Array.isArray(row.payment_verifications) ? row.payment_verifications[0] : row.payment_verifications;
+    let payer_account = null;
+    if (pv?.paypal_email) payer_account = pv.paypal_email;
+    else if (pv?.tx_hash) payer_account = (pv.network ? pv.network + ': ' : '') + pv.tx_hash;
+
+    return {
+      id:             row.id,
+      customer_name:  row.users?.name  || null,
+      customer_email: row.buyer_email  || row.users?.email || null,
+      avatar_url:     row.users?.avatar_url || null,
+      product_name:   row.product_name,
+      amount:         row.amount,
+      payment_method: row.payment_method,
+      status:         row.status,
+      tx_reference:   row.tx_reference,
+      license_key:    row.license_key,
+      ip_address:     row.ip_address_enc ? decryptField(row.ip_address_enc) : null,
+      payer_account,
+      created_at:     row.created_at,
+    };
+  });
 
   return res.json({ transactions, total: count, page, limit });
 });
@@ -3408,13 +3453,14 @@ app.post('/api/products/:id/reviews', authenticateToken, async (req, res) => {
   if (!txMatch)
     return res.status(403).json({ error: 'Možete ostaviti recenziju samo nakon što admin potvrdi vašu kupovinu ovog proizvoda.' });
 
-  const { data: user } = await supabase.from('users').select('name').eq('id', req.user.id).maybeSingle();
+  const { data: user } = await supabase.from('users').select('name, avatar_url').eq('id', req.user.id).maybeSingle();
 
   const { data: review, error } = await supabase.from('reviews').insert({
     product_id:          productId,
     user_id:             req.user.id,
     transaction_id:      txMatch?.id || null,
     reviewer_name:       user?.name || req.user.email?.split('@')[0] || 'Korisnik',
+    reviewer_avatar:     user?.avatar_url || null,
     rating:              parseInt(rating),
     text:                text || null,
     is_verified_purchase: !!txMatch,
@@ -3692,7 +3738,7 @@ app.get('/api/admin/verifications', authenticateToken, checkPermission('can_veri
   const status = req.query.status || null;
   let query = supabase
     .from('payment_verifications')
-    .select('*, transactions(id, product_name, amount, payment_method, license_key, buyer_email)')
+    .select('*, transactions(id, product_name, amount, payment_method, license_key, buyer_email), users(name, avatar_url)')
     .order('created_at', { ascending: false });
 
   if (status) query = query.eq('status', status);

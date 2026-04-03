@@ -827,6 +827,7 @@
             localStorage.setItem('keyify_role',  params.get('role')  || 'user');
             localStorage.setItem('keyify_email', params.get('email') || '');
             localStorage.setItem('keyify_id',    params.get('id')    || '');
+            localStorage.setItem('keyify_avatar', params.get('avatar_url') || '');
             const role = params.get('role');
             window.location.href = role === 'admin' ? 'admin.html' : 'index.html';
             return;
@@ -1036,6 +1037,7 @@
         localStorage.setItem('keyify_role',        data.role);
         localStorage.setItem('keyify_name',        data.name);
         localStorage.setItem('keyify_email',       data.email);
+        localStorage.setItem('keyify_avatar',      data.avatar_url || '');
         localStorage.setItem('keyify_permissions', JSON.stringify(data.permissions || {}));
     }
 

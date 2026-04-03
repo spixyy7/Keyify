@@ -860,7 +860,7 @@ const KEYIFY = (() => {
      ACCOUNT NAVBAR (dynamic after login)
   ───────────────────────────────────────────────────────── */
   function _logout() {
-    ['keyify_token','keyify_name','keyify_role','keyify_email','keyify_id','keyify_permissions'].forEach(k => localStorage.removeItem(k));
+    ['keyify_token','keyify_name','keyify_role','keyify_email','keyify_id','keyify_permissions','keyify_avatar'].forEach(k => localStorage.removeItem(k));
     window.location.href = 'index.html';
   }
 
@@ -907,12 +907,16 @@ const KEYIFY = (() => {
     const btn = document.createElement('button');
     btn.id = 'kf-dd-trigger';
     btn.style.cssText = 'display:inline-flex;align-items:center;gap:7px;padding:4px 10px 4px 4px;border:1px solid rgba(29,106,255,0.2);border-radius:12px;background:rgba(29,106,255,0.05);cursor:pointer;font-family:inherit;transition:all .15s;';
+    const avatarUrl = localStorage.getItem('keyify_avatar') || '';
     const avatarBadge = isSupportAgent
       ? `<span id="kf-nav-dot" style="display:none;position:absolute;top:-3px;right:-3px;width:14px;height:14px;border-radius:50%;background:#ef4444;color:#fff;font-size:8px;font-weight:700;align-items:center;justify-content:center;border:2px solid #fff;z-index:1"></span>`
       : '';
+    const avatarContent = avatarUrl
+      ? `<img src="${escHtml(avatarUrl)}" alt="" style="width:26px;height:26px;border-radius:8px;object-fit:cover"/>`
+      : `<span style="width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;background:linear-gradient(135deg,#1D6AFF,#A259FF)">${initials}</span>`;
     btn.innerHTML = `
       <span style="position:relative;display:inline-flex;flex-shrink:0">
-        <span style="width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;background:linear-gradient(135deg,#1D6AFF,#A259FF)">${initials}</span>
+        ${avatarContent}
         ${avatarBadge}
       </span>
       <span style="font-size:13px;font-weight:600;color:#1D6AFF;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${firstName}</span>
