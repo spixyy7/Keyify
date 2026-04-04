@@ -3794,6 +3794,7 @@ app.get('/api/admin/receipt/:id', authenticateToken, requireAdmin, async (req, r
   const esc        = escServerHtml;
   const returnToRaw = typeof req.query.return_to === 'string' ? req.query.return_to.trim() : '';
   const returnTo = returnToRaw && !/^javascript:/i.test(returnToRaw) ? returnToRaw : '/admin.html';
+  const returnHref = esc(returnTo || '/admin.html?section=invoices&receipt_return=1');
 
   const html = `<!DOCTYPE html>
 <html lang="bs">
@@ -3838,10 +3839,10 @@ app.get('/api/admin/receipt/:id', authenticateToken, requireAdmin, async (req, r
             padding:10px 22px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">
       🖨️ Štampaj / Spremi PDF
     </button>
-    <button onclick="goBackToAdmin()" style="background:#f3f4f6;color:#374151;border:none;border-radius:10px;
+    <a href="${returnHref}" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;background:#f3f4f6;color:#374151;border:none;border-radius:10px;
             padding:10px 22px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">
       Nazad na transakcije
-    </button>
+    </a>
   </div>
 
   <div class="card">
@@ -3897,42 +3898,6 @@ app.get('/api/admin/receipt/:id', authenticateToken, requireAdmin, async (req, r
       © ${new Date().getFullYear()} Keyify · Račun generiran ${new Date().toLocaleString('sr-RS')}
     </div>
   </div>
-  <script>
-    const returnTo = ${JSON.stringify(returnTo)};
-    function resolveAdminReturnUrl() {
-      const fallback = new URL('/admin.html?section=invoices&receipt_return=1', window.location.origin).toString();
-      let candidate = '';
-
-      try {
-        candidate = String(returnTo || '').trim();
-      } catch (error) {}
-
-      if (!candidate || candidate === 'null' || candidate === 'undefined') {
-        try {
-          candidate = String(localStorage.getItem('keyify_admin_return_url') || '').trim();
-        } catch (error) {}
-      }
-
-      if (!candidate || candidate === 'null' || candidate === 'undefined') {
-        return fallback;
-      }
-
-      try {
-        return new URL(candidate, window.location.origin).toString();
-      } catch (error) {
-        return fallback;
-      }
-    }
-
-    function goBackToAdmin() {
-      const target = resolveAdminReturnUrl();
-      try {
-        localStorage.setItem('kf_admin_goto', 'invoices');
-        localStorage.setItem('keyify_admin_return_url', target);
-      } catch (error) {}
-      window.location.replace(target);
-    }
-  </script>
 </body>
 </html>`;
 
