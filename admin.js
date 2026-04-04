@@ -50,6 +50,9 @@
     const returnUrl = new URL(window.location.href);
     returnUrl.searchParams.set('section', 'invoices');
     returnUrl.searchParams.set('receipt_return', '1');
+    try {
+      localStorage.setItem('keyify_admin_return_url', returnUrl.toString());
+    } catch {}
     const returnTo = encodeURIComponent(returnUrl.toString());
     const receiptUrl = `${API_BASE.replace('/api', '')}/api/admin/receipt/${encodeURIComponent(transactionId)}?ts=${Date.now()}&return_to=${returnTo}`;
     try {
@@ -91,6 +94,12 @@
       overlay.classList.remove('visible');
       overlay.setAttribute('aria-hidden', 'true');
     }
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('receipt_return') === '1') {
+        localStorage.removeItem('keyify_admin_return_url');
+      }
+    } catch {}
   }
 
   function normalizeCategory(value) {

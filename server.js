@@ -3899,11 +3899,38 @@ app.get('/api/admin/receipt/:id', authenticateToken, requireAdmin, async (req, r
   </div>
   <script>
     const returnTo = ${JSON.stringify(returnTo)};
+    function resolveAdminReturnUrl() {
+      const fallback = new URL('/admin.html?section=invoices&receipt_return=1', window.location.origin).toString();
+      let candidate = '';
+
+      try {
+        candidate = String(returnTo || '').trim();
+      } catch (error) {}
+
+      if (!candidate || candidate === 'null' || candidate === 'undefined') {
+        try {
+          candidate = String(localStorage.getItem('keyify_admin_return_url') || '').trim();
+        } catch (error) {}
+      }
+
+      if (!candidate || candidate === 'null' || candidate === 'undefined') {
+        return fallback;
+      }
+
+      try {
+        return new URL(candidate, window.location.origin).toString();
+      } catch (error) {
+        return fallback;
+      }
+    }
+
     function goBackToAdmin() {
+      const target = resolveAdminReturnUrl();
       try {
         localStorage.setItem('kf_admin_goto', 'invoices');
+        localStorage.setItem('keyify_admin_return_url', target);
       } catch (error) {}
-      window.location.replace(returnTo || '/admin.html');
+      window.location.replace(target);
     }
   </script>
 </body>

@@ -1866,6 +1866,9 @@
     const returnUrl = new URL(window.location.href);
     returnUrl.searchParams.set('section', 'invoices');
     returnUrl.searchParams.set('receipt_return', '1');
+    try {
+      localStorage.setItem('keyify_admin_return_url', returnUrl.toString());
+    } catch {}
     const returnTo = encodeURIComponent(returnUrl.toString());
     const receiptUrl = `${API_BASE.replace('/api','')}/api/admin/receipt/${encodeURIComponent(transactionId)}?ts=${Date.now()}&return_to=${returnTo}`;
     try {
@@ -3684,9 +3687,17 @@
   const _adminGoto = localStorage.getItem('kf_admin_goto');
   const _adminParams = new URLSearchParams(window.location.search);
   const _querySection = _adminParams.get('section');
+  const _receiptReturn = _adminParams.get('receipt_return') === '1';
   const _initialSection = _querySection || _adminGoto;
   if (_adminGoto) localStorage.removeItem('kf_admin_goto');
   if (_initialSection) showSection(_initialSection);
+  if (_receiptReturn) {
+    try { localStorage.removeItem('keyify_admin_return_url'); } catch {}
+    _adminParams.delete('receipt_return');
+    const _cleanQuery = _adminParams.toString();
+    const _cleanUrl = `${window.location.pathname}${_cleanQuery ? `?${_cleanQuery}` : ''}${window.location.hash || ''}`;
+    window.history.replaceState({}, '', _cleanUrl);
+  }
   resetReceiptReturnState();
   window.addEventListener('pageshow', () => {
     resetReceiptReturnState();
