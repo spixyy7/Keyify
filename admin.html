@@ -184,6 +184,9 @@
       inset: 0;
       z-index: 12050;
     }
+    .admin-product-loader {
+      z-index: 13060;
+    }
     .admin-pane-loader {
       position: absolute;
       inset: 0;
@@ -1764,6 +1767,13 @@
   </div>
 </div>
 
+<div id="product-editor-loader" class="admin-loading-overlay admin-product-loader" aria-hidden="true">
+  <div class="admin-loading-shell">
+    <div class="admin-loading-spinner"></div>
+    <div id="product-editor-loader-text" class="admin-loading-text">Učitavanje editora proizvoda...</div>
+  </div>
+</div>
+
 <!-- ── TOAST ──────────────────────────────────────────────────── -->
 <div id="admin-page-loader" class="admin-loading-overlay" aria-hidden="true">
   <div class="admin-loading-shell">
@@ -1931,20 +1941,31 @@
     setLoadingOverlay('admin-page-loader', 'admin-page-loader-text', visible, text);
   }
 
+  function setProductEditorLoader(visible, text = 'Učitavanje editora proizvoda...') {
+    setLoadingOverlay('product-editor-loader', 'product-editor-loader-text', visible, text);
+  }
+
   function setInboxPaneLoader(visible, text = 'Učitavanje razgovora...') {
     setLoadingOverlay('chat-inbox-loader', 'chat-inbox-loader-text', visible, text);
   }
 
   function resetReceiptReturnState() {
     setAdminPageLoader(false);
+    setProductEditorLoader(false);
     const overlay = document.getElementById('admin-page-loader');
     if (overlay) {
       overlay.classList.remove('visible');
       overlay.setAttribute('aria-hidden', 'true');
     }
+    const productOverlay = document.getElementById('product-editor-loader');
+    if (productOverlay) {
+      productOverlay.classList.remove('visible');
+      productOverlay.setAttribute('aria-hidden', 'true');
+    }
   }
 
   window.setAdminPageLoader = setAdminPageLoader;
+  window.setProductEditorLoader = setProductEditorLoader;
   window.setInboxPaneLoader = setInboxPaneLoader;
 
   /* ── SECTION SWITCH ── */
@@ -2316,8 +2337,8 @@
   /* ── PRODUCT MODAL ── */
   async function openProductModal(product) {
     const loaderStartedAt = Date.now();
-    setAdminPageLoader(true, 'Učitavanje editora proizvoda...');
-    await waitForAdminLoaderPaint(90);
+    setProductEditorLoader(true, 'Učitavanje editora proizvoda...');
+    await waitForAdminLoaderPaint(180);
     try {
       // Fetch full product data (with variants + features) if editing
       if (product?.id) {
@@ -2367,11 +2388,11 @@
       }
       document.getElementById('modal-overlay').classList.add('open');
     } finally {
-      const remainingDelay = Math.max(0, 220 - (Date.now() - loaderStartedAt));
+      const remainingDelay = Math.max(0, 360 - (Date.now() - loaderStartedAt));
       if (remainingDelay) {
         await waitForAdminLoaderPaint(remainingDelay);
       }
-      setAdminPageLoader(false);
+      setProductEditorLoader(false);
     }
   }
 
@@ -2469,7 +2490,8 @@
     const submitBtn = document.querySelector('#product-form button[type="submit"]');
     const origText  = submitBtn?.textContent;
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Čuvanje...'; }
-    setAdminPageLoader(true, loaderLabel);
+    setProductEditorLoader(true, loaderLabel);
+    await waitForAdminLoaderPaint(140);
 
     let fetchOpts;
     if (hasFile) {
@@ -2494,7 +2516,7 @@
       console.error('[saveProduct] Error:', err);
       showToast(err.message || 'Greška pri čuvanju proizvoda', 'error');
     } finally {
-      setAdminPageLoader(false);
+      setProductEditorLoader(false);
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = origText; }
     }
   }
