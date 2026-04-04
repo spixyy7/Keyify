@@ -30,6 +30,50 @@ const { google }  = require('googleapis');
 const { createClient } = require('@supabase/supabase-js');
 const Stripe           = require('stripe');
 
+function normalizeOrigin(origin) {
+  try {
+    return new URL(origin).origin.replace(/\/$/, '');
+  } catch {
+    return String(origin || '').trim().replace(/\/$/, '');
+  }
+}
+
+function parseOriginList(...values) {
+  return [...new Set(
+    values
+      .filter(Boolean)
+      .flatMap((value) => String(value).split(/[,\r\n]+/))
+      .map((value) => normalizeOrigin(value))
+      .filter(Boolean)
+  )];
+}
+
+const configuredCorsOrigins = parseOriginList(
+  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URLS,
+  process.env.CORS_ALLOWED_ORIGINS
+);
+
+function isAllowedCorsOrigin(origin) {
+  if (!origin || origin === 'null') return true;
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) return true;
+
+  const normalizedOrigin = normalizeOrigin(origin);
+  if (configuredCorsOrigins.includes(normalizedOrigin)) return true;
+
+  try {
+    const { hostname, protocol } = new URL(normalizedOrigin);
+    if (protocol !== 'https:') return false;
+
+    if (/\.vercel\.app$/i.test(hostname)) {
+      const allowVercelPreviews = (process.env.ALLOW_VERCEL_PREVIEWS || 'true').toLowerCase();
+      if (allowVercelPreviews !== 'false') return true;
+    }
+  } catch {}
+
+  return false;
+}
+
 /* ─────────────────────────────────────────
    Supabase client (service-role key – never expose to frontend)
 ───────────────────────────────────────── */
@@ -45,17 +89,14 @@ const app = express();
 
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow: no origin, file://, any localhost/127.0.0.1 port, or matching FRONTEND_URL
-    if (!origin || origin === 'null') return callback(null, true);
-    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return callback(null, true);
-    const frontendUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
-    if (frontendUrl && origin === frontendUrl) return callback(null, true);
-    if (!process.env.FRONTEND_URL) return callback(null, true);
+    if (isAllowedCorsOrigin(origin)) return callback(null, true);
+    if (!configuredCorsOrigins.length) return callback(null, true);
     console.log('[CORS blocked] origin:', origin);
     callback(new Error('Not allowed by CORS'));
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 204,
 }));
 
 /* ─────────────────────────────────────────
@@ -190,15 +231,32 @@ const oAuth2Client = new google.auth.OAuth2(
 );
 
 // Postavljamo Refresh Token koji ne ističe
-oAuth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
+oAuth2Client.setCredentials({ refresh_token: process.env.GMAIL_REFRESH_TOKEN || process.env.GOOGLE_REFRESH_TOKEN });
 
 // 2. Funkcija koja striktno koristi Google API
 let _smtpTransport = null;
 async function _getSmtpTransport() {
+  if (_smtpTransport) return _smtpTransport;
+
   try {
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      _smtpTransport = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        }
+      });
+      return _smtpTransport;
+    }
+
+    const refreshToken = process.env.GMAIL_REFRESH_TOKEN || process.env.GOOGLE_REFRESH_TOKEN;
+    if (!refreshToken) {
+      throw new Error('Gmail refresh token nije konfigurisan');
+    }
+
     // Svaki put kada šalješ mejl, Google API generiše nov, svež token
     const accessToken = await oAuth2Client.getAccessToken();
-
     _smtpTransport = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -206,11 +264,10 @@ async function _getSmtpTransport() {
         user: process.env.EMAIL_USER,
         clientId: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        refreshToken: process.env.GOOGLE_REFRESH_TOKEN,
+        refreshToken,
         accessToken: accessToken.token
       }
     });
-
     return _smtpTransport;
   } catch (error) {
     console.error("Greška pri povezivanju sa Google API:", error);
@@ -230,13 +287,18 @@ async function _getSmtpTransport() {
 
 /** Exchange refresh token → short-lived access token */
 async function getGmailAccessToken() {
+  const refreshToken = process.env.GMAIL_REFRESH_TOKEN || process.env.GOOGLE_REFRESH_TOKEN;
+  if (!refreshToken) {
+    throw new Error('Missing Gmail refresh token');
+  }
+
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       client_id:     process.env.GOOGLE_CLIENT_ID,
       client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      refresh_token: process.env.GMAIL_REFRESH_TOKEN,
+      refresh_token: refreshToken,
       grant_type:    'refresh_token',
     }).toString(),
   });
@@ -281,7 +343,33 @@ async function _sendViaGmailApi({ from, to, subject, html }) {
  * Requires: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, EMAIL_USER
  */
 async function sendMailSafe({ from, to, subject, html }) {
-  await _sendViaGmailApi({ from, to, subject, html });
+  try {
+    await _sendViaGmailApi({ from, to, subject, html });
+    return;
+  } catch (gmailErr) {
+    const message = gmailErr?.message || '';
+    const tokenExpired = /invalid_grant|expired|revoked/i.test(message);
+
+    console.error('Email send failed:', message, gmailErr);
+
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      try {
+        const transport = await _getSmtpTransport();
+        await transport.sendMail({ from, to, subject, html });
+        console.warn('[mail] Gmail API failed, SMTP fallback used successfully.');
+        return;
+      } catch (smtpErr) {
+        console.error('[mail] SMTP fallback failed:', smtpErr.message);
+        throw new Error(`Mail delivery failed. Gmail API error: ${message}. SMTP fallback error: ${smtpErr.message}`);
+      }
+    }
+
+    if (tokenExpired) {
+      throw new Error('Gmail refresh token je istekao ili opozvan. Obnovite GMAIL_REFRESH_TOKEN preko /api/auth/gmail-setup ili podesite EMAIL_PASS za SMTP fallback.');
+    }
+
+    throw gmailErr;
+  }
 }
 
 /* ─────────────────────────────────────────
