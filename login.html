@@ -905,6 +905,8 @@
       const refInput = document.getElementById('reg-referral');
       if (refInput) refInput.value = _urlParams.get('ref');
       setTimeout(() => switchTab('register'), 100);
+    } else if (_urlParams.get('register') === '1') {
+      setTimeout(() => switchTab('register'), 100);
     }
 
     /* ── TAB SWITCH ── */

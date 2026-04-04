@@ -60,6 +60,10 @@
       window.setProductEditorLoader(visible, text);
       return;
     }
+    if (typeof window.setProductModalLoading === 'function') {
+      window.setProductModalLoading(visible, text);
+      return;
+    }
     if (typeof window.setAdminPageLoader === 'function') {
       window.setAdminPageLoader(visible, text);
     }
@@ -437,6 +441,9 @@
       const remainingDelay = Math.max(0, 560 - (Date.now() - loaderStartedAt));
       if (remainingDelay) {
         await waitForAdminLoaderPaint(remainingDelay);
+      }
+      if (typeof window.setProductModalLoading === 'function') {
+        window.setProductModalLoading(false);
       }
       toggleProductEditorLoader(false);
     }

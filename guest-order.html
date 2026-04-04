@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Keyify - Guest Porudžbina</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet"/>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['Poppins', 'sans-serif'],
+            body: ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background: radial-gradient(circle at top, #eef4ff 0%, #f8fafc 42%, #ffffff 100%); }
+    h1, h2, h3, .font-display { font-family: 'Poppins', sans-serif; }
+    .glass-card {
+      background: rgba(255,255,255,0.82);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 24px 60px rgba(15,23,42,0.08);
+    }
+  </style>
+</head>
+<body class="text-slate-900">
+  <main class="min-h-screen px-4 py-10 sm:px-6">
+    <div class="mx-auto max-w-5xl">
+      <div class="mb-8 flex items-center justify-between gap-4">
+        <a href="index.html" class="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-blue-600">
+          <span class="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-violet-500 text-white shadow-lg">K</span>
+          Keyify
+        </a>
+        <a href="login.html?register=1" class="inline-flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:border-blue-200 hover:text-blue-600">
+          Prijavi se / Registruj se
+        </a>
+      </div>
+
+      <div class="mb-8 max-w-3xl">
+        <div class="mb-3 inline-flex items-center rounded-full border border-blue-100 bg-white/80 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-blue-600 shadow-sm">
+          Guest Tracking
+        </div>
+        <h1 class="font-display text-4xl font-extrabold tracking-tight text-slate-950 sm:text-5xl">Prati svoju porudžbinu bez naloga</h1>
+        <p class="mt-4 max-w-2xl text-base leading-7 text-slate-600">
+          Tvoj gost link je vezan za ovu kupovinu. Ovdje vidiš status, dokaz uplate i isporuku čim admin potvrdi porudžbinu.
+        </p>
+      </div>
+
+      <div id="guest-order-loader" class="glass-card mb-8 rounded-[28px] border border-white/80 px-6 py-12 text-center">
+        <div class="mx-auto mb-4 h-14 w-14 animate-spin rounded-full border-[3px] border-slate-200 border-t-slate-600"></div>
+        <div class="text-sm font-semibold text-slate-600">Učitavanje porudžbine...</div>
+      </div>
+
+      <div id="guest-order-error" class="hidden glass-card mb-8 rounded-[28px] border border-red-100 px-6 py-8">
+        <div class="text-lg font-bold text-red-600">Greška pri učitavanju</div>
+        <p id="guest-order-error-text" class="mt-2 text-sm leading-6 text-slate-600"></p>
+      </div>
+
+      <section id="guest-order-content" class="hidden space-y-8">
+        <div class="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
+          <article class="glass-card overflow-hidden rounded-[32px] border border-white/80">
+            <div class="relative min-h-[320px] bg-slate-900">
+              <img id="guest-order-image" src="" alt="" class="hidden h-full w-full object-cover"/>
+              <div id="guest-order-image-fallback" class="flex min-h-[320px] items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 text-7xl font-display font-bold text-white/90">K</div>
+              <div class="absolute left-6 top-6 inline-flex items-center rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.18em]" id="guest-order-status-badge"></div>
+              <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent px-6 pb-6 pt-20 text-white">
+                <div class="text-xs font-semibold uppercase tracking-[0.18em] text-white/65">Porudžbina</div>
+                <h2 id="guest-order-product-name" class="mt-2 font-display text-3xl font-bold tracking-tight"></h2>
+                <div class="mt-5 flex flex-wrap gap-3 text-sm font-semibold text-white/85">
+                  <span id="guest-order-date-pill" class="rounded-full bg-white/10 px-4 py-2 backdrop-blur">—</span>
+                  <span id="guest-order-method-pill" class="rounded-full bg-white/10 px-4 py-2 backdrop-blur">—</span>
+                  <span id="guest-order-id-pill" class="rounded-full bg-white/10 px-4 py-2 font-mono text-xs backdrop-blur">—</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <aside class="space-y-6">
+            <div class="glass-card rounded-[28px] border border-white/80 p-6">
+              <div class="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Status</div>
+              <h3 id="guest-order-status-title" class="mt-3 font-display text-2xl font-bold text-slate-950"></h3>
+              <p id="guest-order-status-copy" class="mt-3 text-sm leading-7 text-slate-600"></p>
+              <div id="guest-order-proof-box" class="mt-5 rounded-2xl border border-amber-100 bg-amber-50/80 px-4 py-4 text-sm text-amber-900"></div>
+            </div>
+
+            <div class="glass-card rounded-[28px] border border-white/80 p-6">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <div class="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Vaša isporuka</div>
+                  <div class="mt-2 text-sm font-semibold text-slate-500">Ovaj box se puni tek kada admin potvrdi porudžbinu.</div>
+                </div>
+                <button id="guest-order-copy-btn" type="button" class="hidden rounded-2xl border border-blue-100 bg-blue-50 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-blue-600 hover:bg-blue-100">
+                  Kopiraj
+                </button>
+              </div>
+              <div id="guest-order-delivery" class="mt-5 rounded-3xl border border-slate-200 bg-white/90 px-5 py-5 text-sm leading-7 text-slate-700">
+                Čeka se potvrda admina. Isporuka će se pojaviti ovdje čim porudžbina pređe u završeno stanje.
+              </div>
+            </div>
+
+            <div class="glass-card rounded-[28px] border border-white/80 p-6">
+              <div class="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Kupac</div>
+              <div id="guest-order-email" class="mt-3 text-base font-semibold text-slate-900"></div>
+              <div id="guest-order-amount" class="mt-4 inline-flex items-center rounded-2xl bg-slate-950 px-4 py-3 text-lg font-bold text-white shadow-lg"></div>
+            </div>
+          </aside>
+        </div>
+
+        <section class="glass-card rounded-[32px] border border-blue-100 bg-gradient-to-br from-blue-50/90 via-white to-violet-50/90 p-6 sm:p-8">
+          <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div class="max-w-2xl">
+              <div class="inline-flex rounded-full bg-white px-4 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-blue-600 shadow-sm">
+                Sačuvaj kupovine
+              </div>
+              <h3 class="mt-4 font-display text-3xl font-bold tracking-tight text-slate-950">Pretvori ovu gost porudžbinu u pravi Keyify nalog</h3>
+              <p class="mt-3 text-sm leading-7 text-slate-600">
+                Sačuvaj ovu i sve buduće porudžbine. Tvoj email je već unet, dodaj lozinku ispod i jednim klikom kreiraj stalni Keyify nalog.
+              </p>
+            </div>
+            <div class="rounded-3xl border border-white/80 bg-white/80 px-5 py-4 text-sm font-semibold text-slate-700 shadow-sm">
+              Email: <span id="guest-convert-email" class="text-slate-950"></span>
+            </div>
+          </div>
+
+          <div class="mt-6 grid gap-4 lg:grid-cols-[1fr_auto]">
+            <div>
+              <label for="guest-convert-password" class="mb-2 block text-sm font-semibold text-slate-700">Postavi lozinku za novi nalog</label>
+              <input id="guest-convert-password" type="password" minlength="8" placeholder="Najmanje 8 karaktera"
+                     class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"/>
+              <p id="guest-convert-msg" class="mt-2 text-sm text-slate-500"></p>
+            </div>
+            <button id="guest-convert-btn" type="button"
+                    class="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-blue-600 to-violet-500 px-6 py-3.5 text-sm font-bold text-white shadow-lg transition hover:opacity-95">
+              Pretvori u nalog
+            </button>
+          </div>
+        </section>
+      </section>
+    </div>
+  </main>
+
+  <script src="config.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      const API_BASE = window.KEYIFY_CONFIG?.API_BASE || 'http://localhost:3001/api';
+      const params = new URLSearchParams(window.location.search);
+      const token = (params.get('token') || '').trim();
+
+      const loader = document.getElementById('guest-order-loader');
+      const errorBox = document.getElementById('guest-order-error');
+      const errorText = document.getElementById('guest-order-error-text');
+      const content = document.getElementById('guest-order-content');
+      const convertBtn = document.getElementById('guest-convert-btn');
+      const convertMsg = document.getElementById('guest-convert-msg');
+      const convertPasswordInput = document.getElementById('guest-convert-password');
+      const convertPasswordLabel = document.querySelector('label[for="guest-convert-password"]');
+
+      let currentOrder = null;
+      let guestAccountReady = false;
+
+      function formatAmount(value) {
+        return `€ ${Number(value || 0).toFixed(2)}`;
+      }
+
+      function formatDate(value) {
+        if (!value) return '—';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '—';
+        return date.toLocaleString('sr-RS', { dateStyle: 'long', timeStyle: 'short' });
+      }
+
+      function statusMeta(status, proofUploaded) {
+        if (status === 'completed') {
+          return {
+            badge: 'bg-emerald-500/90 text-white',
+            title: 'Porudžbina je završena',
+            copy: 'Isporuka je spremna. Otvorite box ispod i preuzmite pristup, ključ ili instrukcije.',
+            proof: 'Admin je potvrdio uplatu i finalizovao isporuku.',
+          };
+        }
+        if (proofUploaded) {
+          return {
+            badge: 'bg-amber-400/90 text-slate-950',
+            title: 'Uplata se proverava',
+            copy: 'Dokaz uplate je uspešno poslat. Sistem čeka da admin pregleda porudžbinu i odobri isporuku.',
+            proof: 'Dokaz uplate je evidentiran. Čeka se potvrda admina ⏳',
+          };
+        }
+        return {
+          badge: 'bg-slate-950/85 text-white',
+          title: 'Na čekanju',
+          copy: 'Porudžbina je kreirana, ali dokaz uplate još nije vezan ili nije finalno potvrđen.',
+          proof: 'Ako ste već platili, otvorite link iz emaila i pošaljite dokaz uplate radi brže obrade.',
+        };
+      }
+
+      function escapeHtml(value) {
+        return String(value == null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function deliveryToHtml(value) {
+        return escapeHtml(value || '').replace(/\n/g, '<br>');
+      }
+
+      function getStoredAuthToken() {
+        return (
+          localStorage.getItem('keyify_token') ||
+          localStorage.getItem('kfy_token') ||
+          sessionStorage.getItem('keyify_token') ||
+          sessionStorage.getItem('kfy_token') ||
+          ''
+        ).trim();
+      }
+
+      function getStoredAuthEmail() {
+        return (
+          localStorage.getItem('keyify_email') ||
+          sessionStorage.getItem('keyify_email') ||
+          ''
+        ).trim().toLowerCase();
+      }
+
+      function persistAuthSession(payload) {
+        if (!payload?.token) return;
+        const user = payload.user || {};
+        const normalizedEmail = String(user.email || '').trim().toLowerCase();
+
+        localStorage.setItem('keyify_token', payload.token);
+        localStorage.setItem('kfy_token', payload.token);
+        sessionStorage.setItem('keyify_token', payload.token);
+        sessionStorage.setItem('kfy_token', payload.token);
+
+        localStorage.setItem('keyify_name', user.name || '');
+        localStorage.setItem('keyify_email', normalizedEmail);
+        localStorage.setItem('keyify_role', user.role || 'user');
+        localStorage.setItem('keyify_avatar', user.avatar_url || '');
+
+        sessionStorage.setItem('keyify_name', user.name || '');
+        sessionStorage.setItem('keyify_email', normalizedEmail);
+        sessionStorage.setItem('keyify_role', user.role || 'user');
+        sessionStorage.setItem('keyify_avatar', user.avatar_url || '');
+      }
+
+      function setConvertButtonDefault() {
+        guestAccountReady = false;
+        convertBtn.disabled = false;
+        convertBtn.textContent = 'Pretvori u nalog';
+        convertPasswordInput.disabled = false;
+        convertPasswordInput.placeholder = 'Najmanje 8 karaktera';
+        if (convertPasswordLabel) {
+          convertPasswordLabel.textContent = 'Postavi lozinku za novi nalog';
+        }
+      }
+
+      function setSignedInState(message) {
+        guestAccountReady = true;
+        convertPasswordInput.value = '';
+        convertPasswordInput.disabled = true;
+        convertPasswordInput.placeholder = 'Nalog za ovaj email je već povezan';
+        if (convertPasswordLabel) {
+          convertPasswordLabel.textContent = 'Keyify nalog je aktivan za ovu porudžbinu';
+        }
+        convertBtn.disabled = false;
+        convertBtn.textContent = 'Moje narudžbine';
+        convertMsg.textContent = message;
+        convertMsg.className = 'mt-2 text-sm text-emerald-600';
+      }
+
+      function showError(message) {
+        loader.classList.add('hidden');
+        content.classList.add('hidden');
+        errorBox.classList.remove('hidden');
+        errorText.textContent = message;
+      }
+
+      function renderOrder(order) {
+        loader.classList.add('hidden');
+        errorBox.classList.add('hidden');
+        content.classList.remove('hidden');
+
+        const meta = statusMeta(order.status, order.proof_uploaded);
+        const image = document.getElementById('guest-order-image');
+        const imageFallback = document.getElementById('guest-order-image-fallback');
+        const fallbackLetter = (order.product_name || 'K').trim().charAt(0).toUpperCase() || 'K';
+
+        document.getElementById('guest-order-product-name').textContent = order.product_name || 'Digitalni proizvod';
+        document.getElementById('guest-order-status-badge').className = `absolute left-6 top-6 inline-flex items-center rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] ${meta.badge}`;
+        document.getElementById('guest-order-status-badge').textContent = order.status === 'completed' ? 'Završeno' : (order.proof_uploaded ? 'U obradi' : 'Na čekanju');
+        document.getElementById('guest-order-status-title').textContent = meta.title;
+        document.getElementById('guest-order-status-copy').textContent = meta.copy;
+        document.getElementById('guest-order-proof-box').textContent = meta.proof;
+        document.getElementById('guest-order-date-pill').textContent = formatDate(order.created_at);
+        document.getElementById('guest-order-method-pill').textContent = (order.payment_method || 'manual').toUpperCase();
+        document.getElementById('guest-order-id-pill').textContent = order.transaction_id || order.id || '—';
+        document.getElementById('guest-order-email').textContent = order.buyer_email || '—';
+        document.getElementById('guest-order-amount').textContent = formatAmount(order.amount);
+        setConvertButtonDefault();
+        document.getElementById('guest-convert-email').textContent = order.buyer_email || '—';
+
+        if (order.product_image) {
+          image.src = order.product_image;
+          image.alt = order.product_name || 'Proizvod';
+          image.classList.remove('hidden');
+          imageFallback.classList.add('hidden');
+        } else {
+          image.classList.add('hidden');
+          imageFallback.classList.remove('hidden');
+          imageFallback.textContent = fallbackLetter;
+        }
+
+        const deliveryBox = document.getElementById('guest-order-delivery');
+        const copyBtn = document.getElementById('guest-order-copy-btn');
+        if (order.status === 'completed' && order.delivery_payload) {
+          deliveryBox.innerHTML = deliveryToHtml(order.delivery_payload);
+          deliveryBox.className = 'mt-5 rounded-3xl border border-emerald-100 bg-emerald-50/80 px-5 py-5 text-sm leading-7 text-slate-700';
+          copyBtn.classList.remove('hidden');
+          copyBtn.onclick = async function () {
+            try {
+              await navigator.clipboard.writeText(order.delivery_payload);
+              copyBtn.textContent = 'Kopirano';
+              window.setTimeout(() => { copyBtn.textContent = 'Kopiraj'; }, 1400);
+            } catch {}
+          };
+        } else {
+          deliveryBox.textContent = 'Čeka se potvrda admina. Isporuka će se pojaviti ovdje čim porudžbina pređe u završeno stanje.';
+          deliveryBox.className = 'mt-5 rounded-3xl border border-slate-200 bg-white/90 px-5 py-5 text-sm leading-7 text-slate-700';
+          copyBtn.classList.add('hidden');
+        }
+      }
+
+      async function tryAutoResume(order) {
+        const buyerEmail = String(order?.buyer_email || '').trim().toLowerCase();
+        if (!buyerEmail) return;
+
+        const storedEmail = getStoredAuthEmail();
+        const storedToken = getStoredAuthToken();
+        if (storedToken && storedEmail && storedEmail === buyerEmail) {
+          setSignedInState('Nalog za ovaj email je već prijavljen na ovom uređaju. Ova porudžbina je povezana sa vašim nalogom.');
+          return;
+        }
+
+        if (!order?.account_exists || storedToken) {
+          return;
+        }
+
+        convertBtn.disabled = true;
+        convertBtn.textContent = 'Prijava...';
+        convertPasswordInput.disabled = true;
+        convertMsg.textContent = 'Pronađen je postojeći nalog za ovaj email. Povezujemo porudžbinu i prijavljujemo vas...';
+        convertMsg.className = 'mt-2 text-sm text-blue-600';
+
+        try {
+          const response = await fetch(`${API_BASE}/auth/guest-resume`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token }),
+          });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.error || 'Automatska prijava nije uspjela.');
+
+          persistAuthSession(payload);
+          setSignedInState(
+            payload.existing_account
+              ? 'Nalog sa ovim emailom već postoji. Automatski ste prijavljeni i možete otvoriti sve narudžbine.'
+              : 'Nalog je kreiran i ova porudžbina je odmah povezana sa vašim Keyify profilom.'
+          );
+          return;
+          setSignedInState('Nalog sa ovim emailom već postoji. Automatski ste prijavljeni i ova porudžbina je povezana sa vašim nalogom.');
+        } catch (error) {
+          setConvertButtonDefault();
+          convertMsg.textContent = error.message || 'Automatska prijava nije uspjela.';
+          convertMsg.className = 'mt-2 text-sm text-red-600';
+        }
+      }
+
+      async function loadGuestOrder() {
+        if (!token) {
+          showError('Guest token nedostaje u URL-u.');
+          return;
+        }
+
+        try {
+          const response = await fetch(`${API_BASE}/orders/guest/${encodeURIComponent(token)}`);
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.error || 'Porudžbina nije dostupna.');
+          currentOrder = payload;
+          renderOrder(payload);
+          await tryAutoResume(payload);
+        } catch (error) {
+          showError(error.message || 'Greška pri učitavanju porudžbine.');
+        }
+      }
+
+      async function convertGuest() {
+        if (guestAccountReady) {
+          window.location.href = 'purchases.html';
+          return;
+        }
+
+        const password = document.getElementById('guest-convert-password').value.trim();
+        if (password.length < 8) {
+          convertMsg.textContent = 'Lozinka mora imati najmanje 8 karaktera.';
+          convertMsg.className = 'mt-2 text-sm text-red-600';
+          return;
+        }
+
+        convertBtn.disabled = true;
+        convertBtn.textContent = 'Kreiranje naloga...';
+        convertMsg.textContent = '';
+
+        try {
+          const response = await fetch(`${API_BASE}/auth/convert-guest`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, password }),
+          });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.error || 'Greška pri konverziji naloga.');
+
+          persistAuthSession(payload);
+
+          convertMsg.textContent = 'Nalog je kreiran. Preusmjeravamo vas na istoriju narudžbina...';
+          convertMsg.className = 'mt-2 text-sm text-emerald-600';
+          window.setTimeout(() => {
+            window.location.href = 'purchases.html';
+          }, 900);
+        } catch (error) {
+          convertMsg.textContent = error.message || 'Greška pri konverziji naloga.';
+          convertMsg.className = 'mt-2 text-sm text-red-600';
+          convertBtn.disabled = false;
+          convertPasswordInput.disabled = false;
+          convertBtn.textContent = 'Pretvori u nalog';
+        }
+      }
+
+      convertBtn.addEventListener('click', convertGuest);
+      loadGuestOrder();
+    })();
+  </script>
+</body>
+</html>

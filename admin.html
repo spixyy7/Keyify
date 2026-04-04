@@ -131,14 +131,32 @@
       z-index: 9999; display: none; align-items: center; justify-content: center;
     }
     #modal-overlay.open { display: flex; }
+    #modal-overlay.loading #modal-box {
+      opacity: 0;
+      transform: scale(0.98);
+      pointer-events: none;
+    }
     #modal-box {
       background: #13132a; border: 1px solid rgba(255,255,255,0.1);
       border-radius: 20px; padding: 32px; width: 100%; max-width: 540px;
       max-height: 90vh; overflow-y: auto; position: relative; z-index: 10000;
+      transition: opacity 0.18s ease, transform 0.18s ease;
     }
     #modal-box { user-select: none; -webkit-user-select: none; }
     #modal-box input, #modal-box textarea, #modal-box select {
       user-select: text !important; -webkit-user-select: text !important;
+    }
+    #modal-loading-state {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10020;
+      pointer-events: none;
+    }
+    #modal-overlay.loading #modal-loading-state {
+      display: flex;
     }
 
     /* User detail modal tabs */
@@ -1373,6 +1391,12 @@
 
 <!-- ── PRODUCT MODAL ─────────────────────────────────────────── -->
 <div id="modal-overlay">
+  <div id="modal-loading-state">
+    <div class="admin-loading-shell">
+      <div class="admin-loading-spinner"></div>
+      <div id="modal-loading-text" class="admin-loading-text">Učitavanje editora proizvoda...</div>
+    </div>
+  </div>
   <div id="modal-box">
     <div class="flex items-center justify-between mb-6">
       <h3 class="font-display font-bold text-white text-lg" id="modal-title">Novi proizvod</h3>
@@ -1945,6 +1969,19 @@
     setLoadingOverlay('product-editor-loader', 'product-editor-loader-text', visible, text);
   }
 
+  function setProductModalLoading(visible, text = 'Učitavanje editora proizvoda...') {
+    const overlay = document.getElementById('modal-overlay');
+    const label = document.getElementById('modal-loading-text');
+    if (!overlay) return;
+    if (label && text) label.textContent = text;
+    if (visible) {
+      overlay.classList.add('open');
+      overlay.classList.add('loading');
+      return;
+    }
+    overlay.classList.remove('loading');
+  }
+
   function setInboxPaneLoader(visible, text = 'Učitavanje razgovora...') {
     setLoadingOverlay('chat-inbox-loader', 'chat-inbox-loader-text', visible, text);
   }
@@ -1952,6 +1989,7 @@
   function resetReceiptReturnState() {
     setAdminPageLoader(false);
     setProductEditorLoader(false);
+    setProductModalLoading(false);
     const overlay = document.getElementById('admin-page-loader');
     if (overlay) {
       overlay.classList.remove('visible');
@@ -1966,6 +2004,7 @@
 
   window.setAdminPageLoader = setAdminPageLoader;
   window.setProductEditorLoader = setProductEditorLoader;
+  window.setProductModalLoading = setProductModalLoading;
   window.setInboxPaneLoader = setInboxPaneLoader;
 
   /* ── SECTION SWITCH ── */
@@ -2392,6 +2431,7 @@
       if (remainingDelay) {
         await waitForAdminLoaderPaint(remainingDelay);
       }
+      setProductModalLoading(false);
       setProductEditorLoader(false);
     }
   }
@@ -2414,6 +2454,7 @@
   }
 
   function closeModal() {
+    setProductModalLoading(false);
     document.getElementById('modal-overlay').classList.remove('open');
     editingProduct = null;
   }
@@ -2490,7 +2531,7 @@
     const submitBtn = document.querySelector('#product-form button[type="submit"]');
     const origText  = submitBtn?.textContent;
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Čuvanje...'; }
-    setProductEditorLoader(true, loaderLabel);
+    setProductModalLoading(true, loaderLabel);
     await waitForAdminLoaderPaint(220);
 
     let fetchOpts;
@@ -2517,7 +2558,7 @@
       showToast(err.message || 'Greška pri čuvanju proizvoda', 'error');
     } finally {
       await waitForAdminLoaderPaint(320);
-      setProductEditorLoader(false);
+      setProductModalLoading(false);
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = origText; }
     }
   }

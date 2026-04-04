@@ -548,6 +548,251 @@ function deliveryPayloadToEmailHtml(payload) {
   return safe.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#1D6AFF;text-decoration:none">$1</a>');
 }
 
+function getFrontendBaseUrl(req) {
+  const preferred = String(process.env.FRONTEND_URL || configuredCorsOrigins[0] || '').trim().replace(/\/$/, '');
+  if (preferred) return preferred;
+
+  const origin = String(req?.headers?.origin || '').trim().replace(/\/$/, '');
+  if (origin) return origin;
+
+  return 'http://localhost:63342/Keyify';
+}
+
+function buildFrontendPageUrl(req, page, params = {}) {
+  const base = getFrontendBaseUrl(req);
+  const url = new URL(page, base.endsWith('/') ? base : `${base}/`);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.set(key, String(value));
+    }
+  });
+  return url.toString();
+}
+
+async function insertOrderRecord(orderPayload) {
+  const attempts = buildOptionalColumnAttempts(
+    orderPayload,
+    ['transaction_id', 'user_id', 'guest_token', 'product_id', 'product_image', 'delivery_payload', 'proof_uploaded', 'updated_at']
+  );
+
+  let data = null;
+  let error = null;
+  for (const attempt of attempts) {
+    const result = await supabase
+      .from('orders')
+      .insert(attempt)
+      .select('id, guest_token')
+      .single();
+    data = result.data;
+    error = result.error;
+    if (!error) return data;
+    if (!isMissingSchemaError(error)) break;
+  }
+
+  if (error) {
+    console.warn('[orders] insert skipped:', error.message);
+  }
+
+  return null;
+}
+
+async function updateOrderByTransactionId(transactionId, updates) {
+  if (!transactionId) return;
+  const attempts = buildOptionalColumnAttempts(
+    { ...updates, updated_at: new Date().toISOString() },
+    ['delivery_payload', 'proof_uploaded', 'updated_at']
+  );
+
+  for (const attempt of attempts) {
+    const { error } = await supabase
+      .from('orders')
+      .update(attempt)
+      .eq('transaction_id', transactionId);
+    if (!error) return;
+    if (!isMissingSchemaError(error)) {
+      console.warn('[orders] update skipped:', error.message);
+      return;
+    }
+  }
+}
+
+async function getOrderByTransactionId(transactionId) {
+  if (!transactionId) return null;
+
+  const selectAttempts = [
+    'id, guest_token, buyer_email, user_id, status, delivery_payload, proof_uploaded, transaction_id',
+    'id, guest_token, buyer_email, user_id, status, delivery_payload, transaction_id',
+    'id, guest_token, buyer_email, user_id, status, transaction_id',
+  ];
+
+  for (const select of selectAttempts) {
+    const { data, error } = await supabase
+      .from('orders')
+      .select(select)
+      .eq('transaction_id', transactionId)
+      .maybeSingle();
+    if (!error) return data || null;
+    if (!isMissingSchemaError(error)) {
+      console.warn('[orders] lookup skipped:', error.message);
+      return null;
+    }
+  }
+
+  return null;
+}
+
+async function relinkGuestPurchasesToUser(email, userId) {
+  if (!email || !userId) return;
+
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const orderUpdateAttempts = buildOptionalColumnAttempts(
+    { user_id: userId, updated_at: new Date().toISOString() },
+    ['updated_at']
+  );
+
+  for (const attempt of orderUpdateAttempts) {
+    const { error } = await supabase
+      .from('orders')
+      .update(attempt)
+      .eq('buyer_email', normalizedEmail)
+      .is('user_id', null);
+    if (!error) break;
+    if (!isMissingSchemaError(error)) {
+      console.warn('[guest/relink] orders warning:', error.message);
+      break;
+    }
+  }
+
+  const { error: txRelinkError } = await supabase
+    .from('transactions')
+    .update({ user_id: userId })
+    .eq('buyer_email', normalizedEmail)
+    .is('user_id', null);
+  if (txRelinkError && !isMissingSchemaError(txRelinkError)) {
+    console.warn('[guest/relink] transactions warning:', txRelinkError.message);
+  }
+}
+
+function buildGuestAuthPayload(user, req, extra = {}) {
+  const authToken = issueJWT(user, req);
+  return {
+    ok: true,
+    token: authToken,
+    user: sanitizeUser({
+      ...user,
+      role: user.role || 'user',
+      permissions: user.permissions || {},
+    }),
+    ...extra,
+  };
+}
+
+function renderOrderCreatedEmail({
+  buyerEmail,
+  productName,
+  orderId,
+  amount,
+  productImageUrl,
+  isGuest,
+  ctaUrl,
+  isPendingOrder,
+}) {
+  const title = isPendingOrder ? 'Narudžba je evidentirana' : 'Narudžba je uspješno kreirana';
+  const ctaLabel = isGuest ? 'Prati status porudžbine' : 'Prati svoju porudžbinu';
+  const safeProductName = escServerHtml(productName || 'Digitalni proizvod');
+  const imgBlock = productImageUrl
+    ? `<div style="text-align:center;padding:12px 0 4px"><img src="${escServerHtml(productImageUrl)}" alt="${safeProductName}" style="max-width:220px;max-height:120px;object-fit:contain;border-radius:14px"/></div>`
+    : '';
+
+  return `<!DOCTYPE html>
+<html lang="bs"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+<body style="margin:0;padding:24px 12px;background:#f8fafc;font-family:Inter,Arial,sans-serif;color:#0f172a">
+  <div style="max-width:560px;margin:0 auto">
+    <div style="background:linear-gradient(135deg,#1D6AFF,#A259FF);border-radius:24px 24px 0 0;padding:28px 32px;color:#fff">
+      <div style="font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.8">Keyify Checkout</div>
+      <h1 style="margin:10px 0 6px;font-size:28px;line-height:1.1">${title}</h1>
+      <p style="margin:0;font-size:14px;opacity:.86">Narudžba za ${safeProductName} je sačuvana pod ID ${escServerHtml(orderId)}.</p>
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 24px 24px;padding:28px 32px">
+      ${imgBlock}
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:18px;padding:18px 20px;margin:18px 0 22px">
+        <div style="display:flex;justify-content:space-between;gap:16px;font-size:14px;margin-bottom:10px">
+          <span style="color:#64748b">Proizvod</span>
+          <strong style="text-align:right">${safeProductName}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:16px;font-size:14px;margin-bottom:10px">
+          <span style="color:#64748b">Kupac</span>
+          <strong style="text-align:right">${escServerHtml(buyerEmail)}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:16px;font-size:14px">
+          <span style="color:#64748b">Iznos</span>
+          <strong style="text-align:right">€ ${Number(amount || 0).toFixed(2)}</strong>
+        </div>
+      </div>
+      <p style="margin:0 0 22px;font-size:14px;line-height:1.7;color:#475569">${isGuest ? 'Vaš gost link je jedinstven i dovoljan za praćenje statusa ove kupovine.' : 'Sve promjene statusa i isporuke biće vidljive na vašoj Keyify stranici za narudžbine.'}</p>
+      <div style="text-align:center">
+        <a href="${escServerHtml(ctaUrl)}" style="display:inline-block;padding:14px 28px;border-radius:14px;background:linear-gradient(135deg,#1D6AFF,#A259FF);color:#fff;text-decoration:none;font-weight:700">${ctaLabel}</a>
+      </div>
+    </div>
+  </div>
+</body></html>`;
+}
+
+function renderOrderReadyEmail({
+  buyerEmail,
+  productName,
+  orderId,
+  amount,
+  productImageUrl,
+  deliveryPayload,
+  ctaUrl,
+}) {
+  const safeProductName = escServerHtml(productName || 'Digitalni proizvod');
+  const imgBlock = productImageUrl
+    ? `<div style="text-align:center;padding:12px 0 4px"><img src="${escServerHtml(productImageUrl)}" alt="${safeProductName}" style="max-width:220px;max-height:120px;object-fit:contain;border-radius:14px"/></div>`
+    : '';
+
+  return `<!DOCTYPE html>
+<html lang="bs"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+<body style="margin:0;padding:24px 12px;background:#0f172a;font-family:Inter,Arial,sans-serif;color:#e2e8f0">
+  <div style="max-width:560px;margin:0 auto">
+    <div style="background:linear-gradient(135deg,#1D6AFF,#22c55e);border-radius:24px 24px 0 0;padding:28px 32px;color:#fff">
+      <div style="font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.8">Keyify Delivery</div>
+      <h1 style="margin:10px 0 6px;font-size:28px;line-height:1.1">Vaš proizvod je spreman</h1>
+      <p style="margin:0;font-size:14px;opacity:.86">Isporuka za ${safeProductName} je sada dostupna.</p>
+    </div>
+    <div style="background:#111827;border:1px solid rgba(255,255,255,0.08);border-top:none;border-radius:0 0 24px 24px;padding:28px 32px">
+      ${imgBlock}
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:18px 20px;margin:18px 0 22px">
+        <div style="display:flex;justify-content:space-between;gap:16px;font-size:14px;margin-bottom:10px">
+          <span style="color:#94a3b8">Proizvod</span>
+          <strong style="text-align:right;color:#fff">${safeProductName}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:16px;font-size:14px;margin-bottom:10px">
+          <span style="color:#94a3b8">Kupac</span>
+          <strong style="text-align:right;color:#fff">${escServerHtml(buyerEmail)}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:16px;font-size:14px;margin-bottom:10px">
+          <span style="color:#94a3b8">Iznos</span>
+          <strong style="text-align:right;color:#22c55e">€ ${Number(amount || 0).toFixed(2)}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:16px;font-size:14px">
+          <span style="color:#94a3b8">ID</span>
+          <strong style="text-align:right;color:#cbd5e1;font-family:monospace;font-size:12px">${escServerHtml(orderId || '—')}</strong>
+        </div>
+      </div>
+      ${deliveryPayload ? `<div style="background:linear-gradient(135deg,#f0fdf4,#ecfeff);border:1px solid rgba(34,197,94,0.22);border-radius:18px;padding:18px 20px;margin:0 0 22px;color:#0f172a">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#16a34a;margin-bottom:10px">Vaša isporuka</div>
+        <div style="font-size:14px;line-height:1.7;color:#334155">${deliveryPayloadToEmailHtml(deliveryPayload)}</div>
+      </div>` : ''}
+      <div style="text-align:center">
+        <a href="${escServerHtml(ctaUrl)}" style="display:inline-block;padding:14px 28px;border-radius:14px;background:linear-gradient(135deg,#1D6AFF,#A259FF);color:#fff;text-decoration:none;font-weight:700">Preuzmi pristup / ključ</a>
+      </div>
+    </div>
+  </div>
+</body></html>`;
+}
+
 /* ─────────────────────────────────────────
    Password history helpers
    Prevents reuse of the last 5 passwords.
@@ -684,7 +929,7 @@ app.post('/api/register', authLimiter, async (req, res) => {
   // Check duplicate
   const { data: existing } = await supabase
     .from('users')
-    .select('id')
+    .select('id, name, email, role, permissions, avatar_url')
     .eq('email', email.toLowerCase())
     .maybeSingle();
 
@@ -776,7 +1021,7 @@ app.post('/api/login', authLimiter, async (req, res) => {
 
   const { data: trustedRows } = await supabase
     .from('trusted_devices')
-    .select('id')
+    .select('id, name, email, role, permissions, avatar_url')
     .eq('user_id', user.id)
     .eq('ip', ip)
     .eq('ua_hash', ua)
@@ -3287,8 +3532,8 @@ app.get('/api/admin/transaction-logs', authenticateToken, requireAdmin, async (r
 ───────────────────────────────────────── */
 
 /** POST /api/checkout/confirm – confirm payment, send receipt, log encrypted entry */
-app.post('/api/checkout/confirm', async (req, res) => {
-  const { buyer_email, guest_email, buyer_inputs, product_id, product_name, amount, payment_method, tx_reference } = req.body;
+const confirmCheckoutHandler = async (req, res) => {
+  const { buyer_email, buyer_name, guest_email, buyer_inputs, product_id, product_name, amount, payment_method, tx_reference } = req.body;
 
   // Identify buyer
   let userId = null;
@@ -3311,6 +3556,11 @@ app.post('/api/checkout/confirm', async (req, res) => {
     return res.status(400).json({ error: 'Nevažeći iznos' });
 
   const parsedAmount = parseFloat(amount);
+  const resolvedBuyerName = String(buyer_name || '').trim() || email.split('@')[0];
+  const isGuestOrder = !userId;
+  const guestToken = isGuestOrder ? crypto.randomUUID() : null;
+  const purchasesUrl = buildFrontendPageUrl(req, 'purchases.html');
+  const guestOrderUrl = guestToken ? buildFrontendPageUrl(req, 'guest-order.html', { token: guestToken }) : null;
 
   // 1. Generate license key first (needed for insert + email)
   const licenseKey = 'KFY-' + [
@@ -3448,6 +3698,21 @@ app.post('/api/checkout/confirm', async (req, res) => {
     logged_by:       null,
   }).then(({ error: le }) => { if (le) console.error('[tx-log]', le.message); });
 
+  const orderRecord = await insertOrderRecord({
+    transaction_id: tx.id,
+    user_id: userId,
+    buyer_email: email,
+    guest_token: guestToken,
+    product_id: product_id || null,
+    product_name: product_name || null,
+    product_image: productImageUrl,
+    amount: parsedAmount,
+    payment_method: payment_method || 'manual',
+    status: txStatus,
+    delivery_payload: deliveryPayload,
+    proof_uploaded: false,
+  });
+
   // 4. Build premium receipt email
   const imgBlock = productImageUrl
     ? `<div style="text-align:center;padding:20px 32px 0">
@@ -3530,24 +3795,35 @@ app.post('/api/checkout/confirm', async (req, res) => {
 
   // Only send receipt email once the order is fully completed
   let emailSent = false;
-  if (!isPendingOrder) {
-    try {
-      await sendMailSafe({
-        from:    process.env.EMAIL_FROM || `"Keyify" <${process.env.EMAIL_USER}>`,
-        to:      email,
-        subject: `🔑 Keyify – Vaš ključ za ${escServerHtml(product_name || 'narudžbu')} · ${licenseKey}`,
-        subject: `Keyify - Isporuka za ${escServerHtml(product_name || 'narudzbu')}`,
-        html:    receiptHTML,
-      });
-      emailSent = true;
-    } catch (emailErr) {
-      console.error('[checkout/confirm] email error:', emailErr.message);
-    }
+  const trackingUrl = guestOrderUrl || purchasesUrl;
+  try {
+    await sendMailSafe({
+      from: process.env.EMAIL_FROM || `"Keyify" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: isGuestOrder
+        ? `Keyify - Pracenje gost porudzbine #${tx.id}`
+        : `Keyify - Pracenje porudzbine #${tx.id}`,
+      html: renderOrderCreatedEmail({
+        buyerEmail: email,
+        productName: product_name,
+        orderId: tx.id,
+        amount: parsedAmount,
+        productImageUrl,
+        isGuest: isGuestOrder,
+        ctaUrl: trackingUrl,
+        isPendingOrder,
+      }),
+    });
+    emailSent = true;
+  } catch (emailErr) {
+    console.error('[checkout/confirm] email error:', emailErr.message);
   }
 
   return res.json({
     ok:                  true,
+    order_id:            tx.id,
     transaction_id:      tx.id,
+    buyer_name:          resolvedBuyerName,
     license_key:         isPendingOrder ? null : licenseKey,
     needs_verification:  needsVerification,
     requires_manual_delivery: requiresManualDelivery,
@@ -3560,6 +3836,285 @@ app.post('/api/checkout/confirm', async (req, res) => {
     order_date:          new Date().toISOString(),
     email_sent_to:       email,
     email_sent:          emailSent,
+    guest_token:         guestToken || orderRecord?.guest_token || null,
+    guest_order_url:     guestOrderUrl,
+    tracking_url:        trackingUrl,
+  });
+};
+
+app.post('/api/checkout/confirm', confirmCheckoutHandler);
+app.post('/api/orders', confirmCheckoutHandler);
+
+app.get('/api/orders/guest/:token', async (req, res) => {
+  const token = String(req.params.token || '').trim();
+  if (!/^[0-9a-fA-F-]{32,40}$/.test(token)) {
+    return res.status(400).json({ error: 'Neispravan guest token.' });
+  }
+
+  const orderSelectAttempts = [
+    'id, transaction_id, user_id, buyer_email, guest_token, product_id, product_name, product_image, amount, payment_method, status, delivery_payload, proof_uploaded, created_at, updated_at',
+    'id, transaction_id, user_id, buyer_email, guest_token, product_id, product_name, product_image, amount, payment_method, status, delivery_payload, created_at',
+    'id, transaction_id, user_id, buyer_email, guest_token, product_id, product_name, amount, payment_method, status, created_at',
+  ];
+
+  let order = null;
+  let orderError = null;
+  for (const select of orderSelectAttempts) {
+    const result = await supabase
+      .from('orders')
+      .select(select)
+      .eq('guest_token', token)
+      .maybeSingle();
+    order = result.data;
+    orderError = result.error;
+    if (!orderError) break;
+    if (!isMissingSchemaError(orderError)) break;
+  }
+
+  if (orderError) {
+    console.error('[orders/guest] query error:', orderError.message);
+    if (isMissingSchemaError(orderError)) {
+      return res.status(500).json({ error: 'Guest tracking nije dostupan dok orders guest migracija ne bude puštena.' });
+    }
+    return res.status(500).json({ error: 'Greška pri učitavanju porudžbine.' });
+  }
+
+  if (!order) {
+    return res.status(404).json({ error: 'Porudžbina nije pronađena.' });
+  }
+
+  let tx = null;
+  if (order.transaction_id) {
+    const txSelectAttempts = [
+      'id, product_id, product_name, product_image, amount, payment_method, status, verification_status, license_key, buyer_email, delivery_payload, proof_uploaded, created_at',
+      'id, product_id, product_name, product_image, amount, payment_method, status, verification_status, license_key, buyer_email, delivery_payload, created_at',
+      'id, product_id, product_name, amount, payment_method, status, license_key, buyer_email, created_at',
+    ];
+
+    for (const select of txSelectAttempts) {
+      const result = await supabase
+        .from('transactions')
+        .select(select)
+        .eq('id', order.transaction_id)
+        .maybeSingle();
+      tx = result.data;
+      if (!result.error) break;
+      if (!isMissingSchemaError(result.error)) {
+        console.warn('[orders/guest] tx lookup failed:', result.error.message);
+        tx = null;
+        break;
+      }
+    }
+  }
+
+  const normalizedBuyerEmail = String(order.buyer_email || tx?.buyer_email || '').trim().toLowerCase();
+  let existingUser = null;
+  if (normalizedBuyerEmail) {
+    const { data } = await supabase
+      .from('users')
+      .select('id, name, email, role, permissions, avatar_url')
+      .eq('email', normalizedBuyerEmail)
+      .maybeSingle();
+    existingUser = data || null;
+  }
+
+  return res.json({
+    id: order.id,
+    transaction_id: order.transaction_id || tx?.id || null,
+    guest_token: order.guest_token || token,
+    user_id: order.user_id || tx?.user_id || null,
+    buyer_email: order.buyer_email || tx?.buyer_email || null,
+    product_id: order.product_id || tx?.product_id || null,
+    product_name: tx?.product_name || order.product_name || 'Digitalni proizvod',
+    product_image: tx?.product_image || order.product_image || null,
+    amount: Number(tx?.amount ?? order.amount ?? 0),
+    payment_method: tx?.payment_method || order.payment_method || 'manual',
+    status: tx?.status || order.status || 'pending',
+    verification_status: tx?.verification_status || null,
+    proof_uploaded: order.proof_uploaded === true || tx?.proof_uploaded === true,
+    delivery_payload: tx?.delivery_payload || order.delivery_payload || tx?.license_key || null,
+    created_at: order.created_at || tx?.created_at || null,
+    updated_at: order.updated_at || null,
+    is_guest: true,
+    account_exists: !!existingUser,
+    account_linked: !!(existingUser && (order.user_id || tx?.user_id)),
+  });
+});
+
+app.post('/api/auth/guest-resume', authLimiter, async (req, res) => {
+  const token = String(req.body?.token || '').trim();
+  if (!token) return res.status(400).json({ error: 'Guest token je obavezan.' });
+
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select('id, buyer_email, guest_token')
+    .eq('guest_token', token)
+    .maybeSingle();
+
+  if (orderError) {
+    console.error('[guest-resume] order lookup error:', orderError.message);
+    return res.status(500).json({ error: 'Greška pri obradi gost porudžbine.' });
+  }
+
+  if (!order?.buyer_email) {
+    return res.status(404).json({ error: 'Gost porudžbina nije pronađena.' });
+  }
+
+  const normalizedEmail = String(order.buyer_email).trim().toLowerCase();
+  const { data: existingUser, error: userError } = await supabase
+    .from('users')
+    .select('id, name, email, role, permissions, avatar_url')
+    .eq('email', normalizedEmail)
+    .maybeSingle();
+
+  if (userError) {
+    console.error('[guest-resume] user lookup error:', userError.message);
+    return res.status(500).json({ error: 'Greška pri prijavi korisnika.' });
+  }
+
+  if (!existingUser) {
+    return res.status(404).json({ error: 'Za ovu porudžbinu još ne postoji nalog.' });
+  }
+
+  await relinkGuestPurchasesToUser(normalizedEmail, existingUser.id);
+
+  await supabase.from('audit_logs').insert({
+    user_id: existingUser.id,
+    action: 'resume_guest_account',
+    ip: getClientIP(req),
+    created_at: new Date().toISOString(),
+  }).then(() => {}).catch(() => {});
+
+  return res.json(buildGuestAuthPayload(existingUser, req, {
+    auto_logged_in: true,
+    existing_account: true,
+  }));
+});
+
+app.post('/api/auth/convert-guest', authLimiter, async (req, res) => {
+  const token = String(req.body?.token || '').trim();
+  const password = String(req.body?.password || '');
+
+  if (!token) return res.status(400).json({ error: 'Guest token je obavezan.' });
+  if (password.length < 8) return res.status(400).json({ error: 'Lozinka mora imati najmanje 8 karaktera.' });
+
+  const orderSelectAttempts = [
+    'id, buyer_email, guest_token',
+    'id, buyer_email',
+  ];
+
+  let order = null;
+  let orderError = null;
+  for (const select of orderSelectAttempts) {
+    const result = await supabase
+      .from('orders')
+      .select(select)
+      .eq('guest_token', token)
+      .maybeSingle();
+    order = result.data;
+    orderError = result.error;
+    if (!orderError) break;
+    if (!isMissingSchemaError(orderError)) break;
+  }
+
+  if (orderError) {
+    console.error('[convert-guest] order lookup error:', orderError.message);
+    if (isMissingSchemaError(orderError)) {
+      return res.status(500).json({ error: 'Guest konverzija nije dostupna dok orders guest migracija ne bude puštena.' });
+    }
+    return res.status(500).json({ error: 'Greška pri obradi gost porudžbine.' });
+  }
+
+  if (!order?.buyer_email) {
+    return res.status(404).json({ error: 'Gost porudžbina nije pronađena.' });
+  }
+
+  const normalizedEmail = String(order.buyer_email).trim().toLowerCase();
+  const { data: existingUser } = await supabase
+    .from('users')
+    .select('id')
+    .eq('email', normalizedEmail)
+    .maybeSingle();
+
+  if (existingUser) {
+    await relinkGuestPurchasesToUser(normalizedEmail, existingUser.id);
+    await supabase.from('audit_logs').insert({
+      user_id: existingUser.id,
+      action: 'convert_guest_account_existing',
+      ip: getClientIP(req),
+      created_at: new Date().toISOString(),
+    }).then(() => {}).catch(() => {});
+    return res.json(buildGuestAuthPayload(existingUser, req, {
+      auto_logged_in: true,
+      existing_account: true,
+    }));
+    return res.status(409).json({ error: 'Nalog sa ovim emailom već postoji. Molimo prijavite se.' });
+  }
+
+  const password_hash = await bcrypt.hash(password, 12);
+  const ip = getClientIP(req);
+  const { data: createdUser, error: createError } = await supabase
+    .from('users')
+    .insert({
+      name: normalizedEmail.split('@')[0],
+      email: normalizedEmail,
+      password_hash,
+      role: 'user',
+      permissions: {},
+      is_verified: true,
+      registered_ip: ip,
+      created_at: new Date().toISOString(),
+    })
+    .select('id, name, email, role, permissions')
+    .single();
+
+  if (createError) {
+    console.error('[convert-guest] create user error:', createError.message);
+    return res.status(500).json({ error: 'Greška pri kreiranju naloga.' });
+  }
+
+  const updateOrdersAttempts = buildOptionalColumnAttempts(
+    { user_id: createdUser.id, updated_at: new Date().toISOString() },
+    ['updated_at']
+  );
+  for (const attempt of updateOrdersAttempts) {
+    const { error } = await supabase
+      .from('orders')
+      .update(attempt)
+      .eq('buyer_email', normalizedEmail)
+      .is('user_id', null);
+    if (!error) break;
+    if (!isMissingSchemaError(error)) {
+      console.warn('[convert-guest] orders relink warning:', error.message);
+      break;
+    }
+  }
+
+  const { error: txRelinkError } = await supabase
+    .from('transactions')
+    .update({ user_id: createdUser.id })
+    .eq('buyer_email', normalizedEmail)
+    .is('user_id', null);
+  if (txRelinkError && !isMissingSchemaError(txRelinkError)) {
+    console.warn('[convert-guest] transactions relink warning:', txRelinkError.message);
+  }
+
+  await supabase.from('audit_logs').insert({
+    user_id: createdUser.id,
+    action: 'convert_guest_account',
+    ip,
+    created_at: new Date().toISOString(),
+  }).then(() => {}).catch(() => {});
+
+  const authToken = issueJWT(createdUser, req);
+  return res.json({
+    ok: true,
+    token: authToken,
+    user: sanitizeUser({
+      ...createdUser,
+      role: createdUser.role || 'user',
+      permissions: createdUser.permissions || {},
+    }),
   });
 });
 
@@ -4678,6 +5233,11 @@ app.post('/api/verification/submit', (req, res) => {
       console.error('[verification/submit] transaction update error:', txUpdateErr.message);
     }
 
+    await updateOrderByTransactionId(transaction_id, {
+      status: 'pending',
+      proof_uploaded: true,
+    });
+
     return res.json({ ok: true, verification_id: pv.id, message: 'Dokaz uplate je poslan na provjeru' });
   });
 });
@@ -4836,8 +5396,19 @@ app.put('/api/admin/verifications/:id/approve', authenticateToken, checkPermissi
     }
   }
 
+  await updateOrderByTransactionId(pv.transaction_id, {
+    status: 'completed',
+    delivery_payload: finalDeliveryPayload,
+    proof_uploaded: true,
+  });
+
   // Send premium delivery email
   if (tx && tx.buyer_email) {
+    const orderMeta = await getOrderByTransactionId(pv.transaction_id);
+    const isGuest = !tx.user_id && !!orderMeta?.guest_token;
+    const ctaUrl = isGuest
+      ? buildFrontendPageUrl(req, 'guest-order.html', { token: orderMeta.guest_token })
+      : buildFrontendPageUrl(req, 'purchases.html');
 
     const orderDate = new Date().toLocaleDateString('bs-BA', { year: 'numeric', month: 'long', day: 'numeric' });
     const buyerName = tx.buyer_email.split('@')[0];
@@ -4859,8 +5430,30 @@ app.put('/api/admin/verifications/:id/approve', authenticateToken, checkPermissi
           <div style="font-size:11px;color:#9ca3af;margin-top:8px">Čuvajte ovaj ključ na sigurnom · nije ponovljiv</div>
         </div>`
       : '';
+    const readyEmailHtml = renderOrderReadyEmail({
+      buyerEmail: tx.buyer_email,
+      productName: tx.product_name,
+      orderId: tx.id,
+      amount: tx.amount,
+      productImageUrl: productMeta?.image_url || null,
+      deliveryPayload: finalDeliveryPayload,
+      ctaUrl,
+    });
+    let deliveryEmailSent = false;
 
     try {
+      await sendMailSafe({
+        from: process.env.EMAIL_FROM || `"Keyify" <${process.env.EMAIL_USER}>`,
+        to: tx.buyer_email,
+        subject: `Keyify - Vas proizvod je spreman: ${escServerHtml(tx.product_name || 'narudzba')}`,
+        html: readyEmailHtml,
+      });
+      deliveryEmailSent = true;
+    } catch (e) {
+      console.error('[verify/approve] primary ready email error:', e.message);
+    }
+
+    if (!deliveryEmailSent) try {
       await sendMailSafe({
         from:    process.env.EMAIL_FROM || `"Keyify" <${process.env.EMAIL_USER}>`,
         to:      tx.buyer_email,
@@ -4979,6 +5572,10 @@ app.put('/api/admin/verifications/:id/reject', authenticateToken, checkPermissio
     status:              'failed',
     verification_status: 'rejected',
   }).eq('id', pv.transaction_id);
+
+  await updateOrderByTransactionId(pv.transaction_id, {
+    status: 'failed',
+  });
 
   // Send rejection email
   const tx = pv.transactions;

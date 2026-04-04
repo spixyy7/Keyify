@@ -270,6 +270,8 @@
     try { order = JSON.parse(sessionStorage.getItem('kfy_last_order') || '{}'); } catch {}
     const params = new URLSearchParams(location.search);
     const txId = params.get('tx') || order.transaction_id || '';
+    const guestToken = params.get('guest_token') || order.guest_token || '';
+    const guestOrderUrl = guestToken ? `guest-order.html?token=${encodeURIComponent(guestToken)}` : '';
     const shouldRedirectToChat = params.get('chat') === '1';
 
     if (txId) document.getElementById('vp-order-id').textContent = txId;
@@ -363,6 +365,13 @@
         const successOverlay = document.getElementById('vp-success');
         const successCopy = document.getElementById('vp-success-copy');
         const successLink = document.getElementById('vp-success-link');
+        if (guestOrderUrl) {
+          successLink.href = guestOrderUrl;
+          successLink.textContent = 'Prati status porudžbine';
+        } else {
+          successLink.href = 'purchases.html';
+          successLink.textContent = 'Moje narudžbe';
+        }
 
         if (shouldRedirectToChat) {
           sessionStorage.setItem('kfy_open_chat_on_load', '1');

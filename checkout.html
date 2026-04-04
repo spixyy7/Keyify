@@ -149,8 +149,25 @@
                 style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">1</span>
           Kontakt informacije
         </h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
+        <div id="guest-register-cta" class="hidden mb-5 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 via-indigo-50 to-white p-4">
+          <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-white flex-shrink-0"
+                 style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17 8h2a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8a2 2 0 012-2h2m10 0V6a4 4 0 10-8 0v2m8 0H7"/>
+              </svg>
+            </div>
+            <div class="min-w-0">
+              <div class="text-sm font-bold text-gray-900 mb-1">Želiš ekskluzivne popuste i istoriju porudžbina?</div>
+              <p class="text-sm text-gray-600 leading-6">
+                <a href="login.html?register=1" class="font-semibold text-blue-600 hover:text-blue-700">Kreiraj nalog za 10 sekundi</a>
+                i sačuvaj ovu kupovinu i sve buduće porudžbine na jednom mestu.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div id="checkout-contact-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div id="buyer-name-field">
             <label class="block text-sm font-semibold text-gray-700 mb-1.5" data-i18n="checkout.yourName">Vaše ime</label>
             <input type="text" id="buyer-name"
                    class="form-input w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 font-medium"
@@ -324,8 +341,52 @@
   let appliedPromo    = null;   // { code, discount_amount, new_total }
   let checkoutProductConfig = { required_user_inputs: 'none', redirect_to_chat: false, product_id: null };
 
+  function getCheckoutAuthToken() {
+    return localStorage.getItem('keyify_token') || localStorage.getItem('kf_token') || '';
+  }
+
+  function getCheckoutIdentity() {
+    const emailEl = document.getElementById('buyer-email');
+    const nameEl = document.getElementById('buyer-name');
+    const storedEmail = localStorage.getItem('keyify_email') || '';
+    const storedName = localStorage.getItem('keyify_name') || '';
+    const email = (emailEl?.value || storedEmail || '').trim().toLowerCase();
+    const rawName = (nameEl?.value || storedName || '').trim();
+    return {
+      isLoggedIn: !!getCheckoutAuthToken(),
+      email,
+      name: rawName || (email ? email.split('@')[0] : ''),
+    };
+  }
+
+  function syncCheckoutIdentityUI() {
+    const cta = document.getElementById('guest-register-cta');
+    const nameWrap = document.getElementById('buyer-name-field');
+    const grid = document.getElementById('checkout-contact-grid');
+    const emailEl = document.getElementById('buyer-email');
+    const nameEl = document.getElementById('buyer-name');
+    const token = getCheckoutAuthToken();
+    const storedEmail = localStorage.getItem('keyify_email') || '';
+    const storedName = localStorage.getItem('keyify_name') || '';
+
+    if (emailEl && storedEmail && !emailEl.value.trim()) emailEl.value = storedEmail;
+    if (nameEl && storedName && !nameEl.value.trim()) nameEl.value = storedName;
+
+    if (token) {
+      cta?.classList.add('hidden');
+      nameWrap?.classList.remove('hidden');
+      if (grid) grid.className = 'grid grid-cols-1 sm:grid-cols-2 gap-4';
+      return;
+    }
+
+    cta?.classList.remove('hidden');
+    nameWrap?.classList.add('hidden');
+    if (grid) grid.className = 'grid grid-cols-1 gap-4';
+  }
+
   /* ── INIT ── */
   document.addEventListener('DOMContentLoaded', async () => {
+    syncCheckoutIdentityUI();
     renderOrderSummary();
     await hydrateCheckoutProductConfig();
     await loadPaymentMethods();
@@ -490,6 +551,10 @@
       required_user_inputs: result.required_user_inputs || checkoutProductConfig.required_user_inputs,
       redirect_to_chat: !!result.redirect_to_chat,
       requires_manual_delivery: !!result.requires_manual_delivery,
+      guest_token: result.guest_token || null,
+      guest_order_url: result.guest_order_url || null,
+      tracking_url: result.tracking_url || null,
+      buyer_name: result.buyer_name || '',
       cart_items: cart.map(i => ({ name: i.name || i.title, qty: i.qty || 1, price: i.price })),
     }));
   }
@@ -497,12 +562,18 @@
   function routeAfterCheckout(result) {
     if (result.needs_verification) {
       const chatSuffix = result.redirect_to_chat ? '&chat=1' : '';
-      window.location.href = `verify-payment.html?tx=${encodeURIComponent(result.transaction_id)}${chatSuffix}`;
+      const guestSuffix = result.guest_token ? `&guest_token=${encodeURIComponent(result.guest_token)}` : '';
+      window.location.href = `verify-payment.html?tx=${encodeURIComponent(result.transaction_id)}${chatSuffix}${guestSuffix}`;
       return;
     }
 
     if (result.redirect_to_chat) {
       goToChatAfterCheckout(result.transaction_id);
+      return;
+    }
+
+    if (result.guest_order_url) {
+      window.location.href = result.guest_order_url;
       return;
     }
 
@@ -814,13 +885,14 @@
       onApprove: async (data, actions) => {
         const details = await actions.order.capture();
         // Auto-confirm order on backend
-        const name  = document.getElementById('buyer-name').value.trim();
-        const email = document.getElementById('buyer-email').value.trim();
-        if (!name || !email) { alert('Unesite ime i email prije potvrde.'); return; }
+        const identity = getCheckoutIdentity();
+        const email = identity.email;
+        const name = identity.name;
+        if (!email) { alert('Unesite email prije potvrde.'); shakeField('buyer-email'); return; }
         const buyerInputs = collectCheckoutExtraInputs();
         if (buyerInputs === null) return;
 
-        const token = localStorage.getItem('keyify_token') || localStorage.getItem('kf_token') || null;
+        const token = getCheckoutAuthToken() || null;
         const firstItem = cart[0] || {};
         try {
           const res = await fetch(`${API_BASE}/checkout/confirm`, {
@@ -854,10 +926,10 @@
 
   /* ── PLACE ORDER ── */
   async function placeOrder() {
-    const name  = document.getElementById('buyer-name').value.trim();
-    const email = document.getElementById('buyer-email').value.trim();
+    const identity = getCheckoutIdentity();
+    const name  = identity.name;
+    const email = identity.email;
 
-    if (!name)  { shakeField('buyer-name');  alert('Unesite vaše ime.'); return; }
     if (!email) { shakeField('buyer-email'); alert('Unesite email adresu.'); return; }
     if (!/\S+@\S+\.\S+/.test(email)) { shakeField('buyer-email'); alert('Nevažeća email adresa.'); return; }
     if (!selectedMethod) { alert('Izaberite način plaćanja.'); return; }
@@ -887,7 +959,7 @@
     const firstItem = cart[0] || {};
 
     try {
-      const token = localStorage.getItem('keyify_token') || localStorage.getItem('kf_token') || null;
+      const token = getCheckoutAuthToken() || null;
       const res = await fetch(`${API_BASE}/checkout/confirm`, {
         method:  'POST',
         headers: {
@@ -896,6 +968,7 @@
         },
         body: JSON.stringify({
           buyer_email:    email,
+          buyer_name:     name,
           product_id:     firstItem.id     || null,
           product_name:   cart.map(i => i.name || i.title).filter(Boolean).join(', ') || 'Digitalni proizvod',
           amount:         total,
@@ -1050,7 +1123,8 @@
     const amountCents = Math.round(total * 100);
     const firstItem  = cart[0] || {};
     const productName = cart.map(i => i.name || i.title).filter(Boolean).join(', ') || 'Digitalni proizvod';
-    const token      = localStorage.getItem('keyify_token') || null;
+    const token      = getCheckoutAuthToken() || null;
+    const identity   = getCheckoutIdentity();
     const buyerInputs = collectCheckoutExtraInputs();
     if (buyerInputs === null) {
       if (btn) { btn.disabled = false; btn.textContent = 'Potvrdi narudÅ¾bu'; }
@@ -1103,6 +1177,7 @@
         },
         body: JSON.stringify({
           buyer_email:    email,
+          buyer_name:     identity.name,
           product_id:     firstItem.id || null,
           product_name:   productName,
           amount:         total,
