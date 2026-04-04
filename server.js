@@ -3836,9 +3836,9 @@ app.get('/api/admin/receipt/:id', authenticateToken, requireAdmin, async (req, r
             padding:10px 22px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">
       🖨️ Štampaj / Spremi PDF
     </button>
-    <button onclick="window.close()" style="background:#f3f4f6;color:#374151;border:none;border-radius:10px;
+    <button onclick="goBackToAdmin()" style="background:#f3f4f6;color:#374151;border:none;border-radius:10px;
             padding:10px 22px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">
-      Zatvori
+      Nazad na transakcije
     </button>
   </div>
 
@@ -3895,6 +3895,23 @@ app.get('/api/admin/receipt/:id', authenticateToken, requireAdmin, async (req, r
       © ${new Date().getFullYear()} Keyify · Račun generiran ${new Date().toLocaleString('sr-RS')}
     </div>
   </div>
+  <script>
+    function goBackToAdmin() {
+      try {
+        localStorage.setItem('kf_admin_goto', 'invoices');
+        const returnUrl = sessionStorage.getItem('keyify_admin_return_url');
+        if (window.history.length > 1) {
+          window.history.back();
+          return;
+        }
+        if (returnUrl) {
+          window.location.href = returnUrl;
+          return;
+        }
+      } catch (error) {}
+      window.location.href = '/admin.html';
+    }
+  </script>
 </body>
 </html>`;
 

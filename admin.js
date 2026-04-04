@@ -48,6 +48,10 @@
     if (!transactionId) return;
 
     const receiptUrl = `${API_BASE.replace('/api', '')}/api/admin/receipt/${encodeURIComponent(transactionId)}`;
+    try {
+      sessionStorage.setItem('keyify_admin_return_url', window.location.href);
+      localStorage.setItem('kf_admin_goto', 'invoices');
+    } catch {}
     if (typeof window.setAdminPageLoader === 'function') {
       window.setAdminPageLoader(true, 'Ucitavanje racuna...');
     }
