@@ -814,6 +814,11 @@
         </div>
         <img class="kve-draft-img-thumb" alt="preview"/>
       </div>
+      <div class="kve-draft-variants-zone" style="margin-top:8px">
+        <div style="font-size:11px;font-weight:700;color:#a0a0c0;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Paketi / Varijante (opciono)</div>
+        <div class="kve-draft-variants-list" style="display:flex;flex-direction:column;gap:4px"></div>
+        <button type="button" class="kve-draft-add-variant" style="margin-top:4px;font-size:11px;font-weight:600;color:#1D6AFF;background:rgba(29,106,255,0.1);border:none;border-radius:6px;padding:4px 10px;cursor:pointer">+ Dodaj paket</button>
+      </div>
       <div class="kve-draft-actions">
         <button class="kve-draft-save">✓ Sačuvaj</button>
         <button class="kve-draft-cancel">✕ Otkaži</button>
@@ -864,7 +869,37 @@
       }
     });
 
+    /* ── Variant repeater wiring ── */
+    const variantList = wrap.querySelector('.kve-draft-variants-list');
+    const addVarBtn = wrap.querySelector('.kve-draft-add-variant');
+    addVarBtn.addEventListener('click', () => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:4px;align-items:center';
+      row.innerHTML = `
+        <input type="text" class="kve-vr-label" placeholder="Label (npr. 1 mjesec)" style="flex:1;font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);color:#fff;outline:none"/>
+        <input type="number" class="kve-vr-price" placeholder="Cijena €" step="0.01" style="width:80px;font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);color:#fff;outline:none"/>
+        <button type="button" style="width:22px;height:22px;border:none;background:rgba(220,38,38,0.2);color:#f87171;border-radius:6px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center" onclick="this.parentElement.remove()">×</button>`;
+      variantList.appendChild(row);
+    });
+
     setTimeout(() => wrap.querySelector('.kve-draft-name').focus(), 50);
+  }
+
+  function collectDraftVariants(wrap) {
+    const rows = wrap.querySelectorAll('.kve-draft-variants-list > div');
+    return Array.from(rows).map(r => ({
+      label: r.querySelector('.kve-vr-label')?.value?.trim() || '',
+      price: r.querySelector('.kve-vr-price')?.value || '',
+    })).filter(v => v.label && v.price);
+  }
+
+  function showKveToast(msg, type) {
+    const t = document.createElement('div');
+    t.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:999999;padding:10px 20px;border-radius:12px;font-size:13px;font-weight:700;font-family:Inter,sans-serif;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,0.3);transition:opacity .3s`;
+    t.style.background = type === 'error' ? 'linear-gradient(135deg,#dc2626,#b91c1c)' : 'linear-gradient(135deg,#1D6AFF,#A259FF)';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
   }
 
   async function submitDraftCard(wrap) {
@@ -873,6 +908,7 @@
     const price = parseFloat(wrap.querySelector('.kve-draft-price').value);
     const cat   = wrap.querySelector('.kve-draft-cat').value;
     const img   = wrap.querySelector('.kve-draft-img').value.trim();
+    const variants = collectDraftVariants(wrap);
 
     if (!name) {
       wrap.querySelector('.kve-draft-name').focus();
@@ -896,6 +932,7 @@
     };
     if (l === 'en') { body.name_en = name; body.description_en = desc; }
     else            { body.name_sr = name; body.description_sr = desc; }
+    if (variants.length) body.variants = JSON.stringify(variants);
 
     try {
       const res = await fetch(`${API}/products`, {
@@ -903,16 +940,15 @@
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error((await res.json()).error || 'Greška');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Greška ${res.status}`);
+      showKveToast('Proizvod uspješno dodan!');
       wrap.remove();
-      if (window.KEYIFY && typeof window.KEYIFY.loadProducts === 'function') {
-        window.KEYIFY.loadProducts();
-      } else {
-        window.location.reload();
-      }
+      setTimeout(() => window.location.reload(), 800);
     } catch (err) {
-      saveBtn.textContent = `✗ ${err.message}`; saveBtn.disabled = false;
-      setTimeout(() => { saveBtn.textContent = '✓ Sačuvaj'; }, 3000);
+      console.error('[KVE] submitDraftCard error:', err);
+      showKveToast(err.message || 'Greška pri kreiranju proizvoda', 'error');
+      saveBtn.textContent = '✓ Sačuvaj'; saveBtn.disabled = false;
     }
   }
 

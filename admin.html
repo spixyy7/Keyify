@@ -2148,8 +2148,16 @@
     if (product?.id) {
       try {
         const r = await fetch(`${API_BASE}/products/${product.id}`, { headers: authHeaders() });
-        if (r.ok) product = await r.json();
-      } catch {}
+        if (r.ok) {
+          product = await r.json();
+        } else {
+          console.error('[openProductModal] Fetch error:', r.status);
+          showToast('Greška pri učitavanju detalja proizvoda', 'error');
+        }
+      } catch (err) {
+        console.error('[openProductModal] Error:', err);
+        showToast('Greška pri učitavanju proizvoda', 'error');
+      }
     }
     editingProduct = product;
     document.getElementById('modal-title').textContent = product ? 'Uredi proizvod' : 'Novi proizvod';
