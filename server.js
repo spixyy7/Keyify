@@ -4032,7 +4032,7 @@ app.post('/api/auth/convert-guest', authLimiter, async (req, res) => {
   const normalizedEmail = String(order.buyer_email).trim().toLowerCase();
   const { data: existingUser } = await supabase
     .from('users')
-    .select('id')
+    .select('id, name, email, role, permissions, avatar_url')
     .eq('email', normalizedEmail)
     .maybeSingle();
 

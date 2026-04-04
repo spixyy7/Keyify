@@ -259,6 +259,8 @@
         convertBtn.textContent = 'Pretvori u nalog';
         convertPasswordInput.disabled = false;
         convertPasswordInput.placeholder = 'Najmanje 8 karaktera';
+        convertMsg.textContent = '';
+        convertMsg.className = 'mt-2 text-sm text-slate-500';
         if (convertPasswordLabel) {
           convertPasswordLabel.textContent = 'Postavi lozinku za novi nalog';
         }
@@ -368,6 +370,14 @@
             body: JSON.stringify({ token }),
           });
           const payload = await response.json();
+          if (!response.ok) throw new Error(payload.error || 'Greška pri konverziji naloga.');
+          persistAuthSession(payload);
+          setSignedInState(
+            payload.existing_account
+              ? 'Nalog sa ovim emailom već postoji. Automatski ste prijavljeni i možete otvoriti sve narudžbine.'
+              : 'Nalog je kreiran i ova porudžbina je odmah povezana sa vašim Keyify profilom.'
+          );
+          return;
           if (!response.ok) throw new Error(payload.error || 'Automatska prijava nije uspjela.');
 
           persistAuthSession(payload);
