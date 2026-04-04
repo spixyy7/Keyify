@@ -47,7 +47,10 @@
   window.openAdminReceipt = async function openAdminReceipt(transactionId) {
     if (!transactionId) return;
 
-    const returnTo = encodeURIComponent(window.location.href);
+    const returnUrl = new URL(window.location.href);
+    returnUrl.searchParams.set('section', 'invoices');
+    returnUrl.searchParams.set('receipt_return', '1');
+    const returnTo = encodeURIComponent(returnUrl.toString());
     const receiptUrl = `${API_BASE.replace('/api', '')}/api/admin/receipt/${encodeURIComponent(transactionId)}?ts=${Date.now()}&return_to=${returnTo}`;
     try {
       localStorage.setItem('kf_admin_goto', 'invoices');
@@ -68,10 +71,9 @@
         throw new Error(html || 'Greska pri otvaranju racuna');
       }
 
-      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-      const objectUrl = URL.createObjectURL(blob);
-      window.location.replace(objectUrl);
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+      document.open();
+      document.write(html);
+      document.close();
     } catch (error) {
       if (typeof window.setAdminPageLoader === 'function') {
         window.setAdminPageLoader(false);
@@ -83,6 +85,11 @@
   function resetReceiptReturnState() {
     if (typeof window.setAdminPageLoader === 'function') {
       window.setAdminPageLoader(false);
+    }
+    const overlay = document.getElementById('admin-page-loader');
+    if (overlay) {
+      overlay.classList.remove('visible');
+      overlay.setAttribute('aria-hidden', 'true');
     }
   }
 
