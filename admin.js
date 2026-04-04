@@ -48,13 +48,6 @@
     if (!transactionId) return;
 
     const receiptUrl = `${API_BASE.replace('/api', '')}/api/admin/receipt/${encodeURIComponent(transactionId)}`;
-    const popup = window.open('', '_blank', 'noopener');
-    const useSameTabFallback = !popup;
-
-    if (!useSameTabFallback) {
-      popup.document.write('<!doctype html><title>UcItavanje racuna...</title><body style="font-family:Inter,Arial,sans-serif;padding:24px;background:#f8fafc;color:#0f172a">UcItavanje racuna...</body>');
-      popup.document.close();
-    }
 
     try {
       const response = await fetch(receiptUrl, {
@@ -64,23 +57,20 @@
       const html = await response.text();
 
       if (!response.ok) {
-        if (popup) popup.close();
         throw new Error(html || 'Greska pri otvaranju racuna');
       }
 
-      if (useSameTabFallback) {
-        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        const objectUrl = URL.createObjectURL(blob);
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const objectUrl = URL.createObjectURL(blob);
+      const popup = window.open(objectUrl, '_blank', 'noopener');
+
+      if (!popup) {
         window.location.assign(objectUrl);
         setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
         return;
       }
-
-      popup.document.open();
-      popup.document.write(html);
-      popup.document.close();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
     } catch (error) {
-      try { popup.close(); } catch {}
       showToast(error.message || 'Greska pri otvaranju racuna', 'error');
     }
   };
