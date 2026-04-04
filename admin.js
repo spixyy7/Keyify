@@ -49,6 +49,7 @@
 
     const receiptUrl = `${API_BASE.replace('/api', '')}/api/admin/receipt/${encodeURIComponent(transactionId)}?ts=${Date.now()}`;
     try {
+      sessionStorage.setItem('keyify_receipt_return_pending', '1');
       sessionStorage.setItem('keyify_admin_return_url', window.location.href);
       localStorage.setItem('kf_admin_goto', 'invoices');
     } catch {}
@@ -79,6 +80,16 @@
       showToast(error.message || 'Greska pri otvaranju racuna', 'error');
     }
   };
+
+  function resetReceiptReturnState() {
+    try {
+      sessionStorage.removeItem('keyify_receipt_return_pending');
+      sessionStorage.removeItem('keyify_admin_return_url');
+    } catch {}
+    if (typeof window.setAdminPageLoader === 'function') {
+      window.setAdminPageLoader(false);
+    }
+  }
 
   function normalizeCategory(value) {
     return String(value || '')
@@ -626,5 +637,10 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     loadCategories();
+    resetReceiptReturnState();
+  });
+
+  window.addEventListener('pageshow', () => {
+    resetReceiptReturnState();
   });
 })();

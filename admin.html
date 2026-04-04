@@ -1865,6 +1865,7 @@
 
     const receiptUrl = `${API_BASE.replace('/api','')}/api/admin/receipt/${encodeURIComponent(transactionId)}?ts=${Date.now()}`;
     try {
+      sessionStorage.setItem('keyify_receipt_return_pending', '1');
       sessionStorage.setItem('keyify_admin_return_url', window.location.href);
       localStorage.setItem('kf_admin_goto', 'invoices');
     } catch {}
@@ -1914,6 +1915,14 @@
 
   function setInboxPaneLoader(visible, text = 'Učitavanje razgovora...') {
     setLoadingOverlay('chat-inbox-loader', 'chat-inbox-loader-text', visible, text);
+  }
+
+  function resetReceiptReturnState() {
+    try {
+      sessionStorage.removeItem('keyify_receipt_return_pending');
+      sessionStorage.removeItem('keyify_admin_return_url');
+    } catch {}
+    setAdminPageLoader(false);
   }
 
   window.setAdminPageLoader = setAdminPageLoader;
@@ -3667,6 +3676,10 @@
   /* ── Handle kf_admin_goto (set by navbar SQL Editor link) ── */
   const _adminGoto = localStorage.getItem('kf_admin_goto');
   if (_adminGoto) { localStorage.removeItem('kf_admin_goto'); showSection(_adminGoto); }
+  resetReceiptReturnState();
+  window.addEventListener('pageshow', () => {
+    resetReceiptReturnState();
+  });
 
   /* ─────────────────────────────────────────────────────────
      REFERRAL MANAGEMENT
