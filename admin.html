@@ -1804,13 +1804,7 @@
 
       const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
       const objectUrl = URL.createObjectURL(blob);
-      const popup = window.open(objectUrl, '_blank', 'noopener');
-
-      if (!popup) {
-        window.location.assign(objectUrl);
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
-        return;
-      }
+      window.location.assign(objectUrl);
       setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
     } catch (e) {
       showToast(e.message || 'Greska pri otvaranju racuna', 'error');
@@ -4138,9 +4132,7 @@
              onmouseout="this.style.background='rgba(29,106,255,0.15)'">
              <svg style="width:12px;height:12px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                <path stroke-linecap="round" stroke-linejoin="round" d="M17 17H7V3h7l3 3v11zM13 3v4h4M9 9h6M9 13h6M9 17h4"/>
-             </svg>Račun</a>`;
-
-        const safeReceiptBtn = receiptBtn.replace('</a>', '</button>');
+             </svg>Račun</button>`;
 
         const avatarHtml = tx.avatar_url
           ? `<img src="${esc(tx.avatar_url)}" alt="" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0"/>`
@@ -4167,7 +4159,7 @@
           <td>${pmBadge(tx.payment_method)}</td>
           <td>${accountCell}</td>
           <td>${statusBadge(tx.status)}</td>
-          <td>${safeReceiptBtn}</td>
+          <td>${receiptBtn}</td>
         </tr>`;
       }).join('');
 

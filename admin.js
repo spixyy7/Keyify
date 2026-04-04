@@ -62,13 +62,7 @@
 
       const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
       const objectUrl = URL.createObjectURL(blob);
-      const popup = window.open(objectUrl, '_blank', 'noopener');
-
-      if (!popup) {
-        window.location.assign(objectUrl);
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
-        return;
-      }
+      window.location.assign(objectUrl);
       setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
     } catch (error) {
       showToast(error.message || 'Greska pri otvaranju racuna', 'error');
