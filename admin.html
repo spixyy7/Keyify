@@ -1907,6 +1907,17 @@
     setTimeout(() => t.classList.remove('show'), duration);
   }
 
+  function waitForAdminLoaderPaint(minDelay = 0) {
+    return new Promise((resolve) => {
+      const finish = () => window.setTimeout(resolve, minDelay);
+      if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(() => window.requestAnimationFrame(finish));
+        return;
+      }
+      finish();
+    });
+  }
+
   function setLoadingOverlay(overlayId, textId, visible, text) {
     const overlay = document.getElementById(overlayId);
     const label = document.getElementById(textId);
@@ -2304,7 +2315,9 @@
 
   /* ── PRODUCT MODAL ── */
   async function openProductModal(product) {
+    const loaderStartedAt = Date.now();
     setAdminPageLoader(true, 'Učitavanje editora proizvoda...');
+    await waitForAdminLoaderPaint(90);
     try {
       // Fetch full product data (with variants + features) if editing
       if (product?.id) {
@@ -2354,6 +2367,10 @@
       }
       document.getElementById('modal-overlay').classList.add('open');
     } finally {
+      const remainingDelay = Math.max(0, 220 - (Date.now() - loaderStartedAt));
+      if (remainingDelay) {
+        await waitForAdminLoaderPaint(remainingDelay);
+      }
       setAdminPageLoader(false);
     }
   }

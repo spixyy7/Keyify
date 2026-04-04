@@ -44,6 +44,17 @@
     console[type === 'error' ? 'error' : 'log'](message);
   }
 
+  function waitForAdminLoaderPaint(minDelay) {
+    return new Promise((resolve) => {
+      const finish = () => window.setTimeout(resolve, minDelay || 0);
+      if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(() => window.requestAnimationFrame(finish));
+        return;
+      }
+      finish();
+    });
+  }
+
   window.openAdminReceipt = async function openAdminReceipt(transactionId) {
     if (!transactionId) return;
 
@@ -339,9 +350,11 @@
   };
 
   window.openProductModal = async function openProductModal(product) {
+    const loaderStartedAt = Date.now();
     if (typeof window.setAdminPageLoader === 'function') {
       window.setAdminPageLoader(true, 'Ucitavanje editora proizvoda...');
     }
+    await waitForAdminLoaderPaint(90);
 
     try {
       await loadCategories();
@@ -407,6 +420,10 @@
 
       document.getElementById('modal-overlay').classList.add('open');
     } finally {
+      const remainingDelay = Math.max(0, 220 - (Date.now() - loaderStartedAt));
+      if (remainingDelay) {
+        await waitForAdminLoaderPaint(remainingDelay);
+      }
       if (typeof window.setAdminPageLoader === 'function') {
         window.setAdminPageLoader(false);
       }
