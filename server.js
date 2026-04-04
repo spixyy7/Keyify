@@ -54,6 +54,13 @@ const configuredCorsOrigins = parseOriginList(
   process.env.CORS_ALLOWED_ORIGINS
 );
 
+const isRailwayRuntime = Boolean(
+  process.env.RAILWAY_ENVIRONMENT ||
+  process.env.RAILWAY_PROJECT_ID ||
+  process.env.RAILWAY_SERVICE_ID ||
+  process.env.RAILWAY_DEPLOYMENT_ID
+);
+
 function isAllowedCorsOrigin(origin) {
   if (!origin || origin === 'null') return true;
   if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) return true;
@@ -245,7 +252,10 @@ async function _getSmtpTransport() {
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASS,
-        }
+        },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
       });
       return _smtpTransport;
     }
@@ -349,10 +359,12 @@ async function sendMailSafe({ from, to, subject, html }) {
   } catch (gmailErr) {
     const message = gmailErr?.message || '';
     const tokenExpired = /invalid_grant|expired|revoked/i.test(message);
+    const smtpFallbackEnabled = (process.env.ENABLE_SMTP_FALLBACK || '').toLowerCase() === 'true';
+    const shouldTrySmtpFallback = !!(process.env.EMAIL_USER && process.env.EMAIL_PASS && (!isRailwayRuntime || smtpFallbackEnabled));
 
     console.error('Email send failed:', message, gmailErr);
 
-    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    if (shouldTrySmtpFallback) {
       try {
         const transport = await _getSmtpTransport();
         await transport.sendMail({ from, to, subject, html });
@@ -362,6 +374,10 @@ async function sendMailSafe({ from, to, subject, html }) {
         console.error('[mail] SMTP fallback failed:', smtpErr.message);
         throw new Error(`Mail delivery failed. Gmail API error: ${message}. SMTP fallback error: ${smtpErr.message}`);
       }
+    }
+
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS && isRailwayRuntime && !smtpFallbackEnabled) {
+      console.warn('[mail] SMTP fallback skipped on Railway. Set ENABLE_SMTP_FALLBACK=true only if you know outbound SMTP is reachable.');
     }
 
     if (tokenExpired) {
@@ -2896,12 +2912,36 @@ app.post('/api/reset-password', async (req, res) => {
    then copy the printed GMAIL_REFRESH_TOKEN into your .env / Railway vars.
    Requires GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET already set.
 ───────────────────────────────────────── */
-const GMAIL_SETUP_REDIRECT = (process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`) + '/api/auth/gmail-setup/callback';
+function getRequestBaseUrl(req) {
+  const configured = (process.env.BACKEND_URL || '').trim().replace(/\/$/, '');
+  if (configured) return configured;
+
+  const forwardedProto = (req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  const protocol = forwardedProto || req.protocol || 'http';
+  const host = req.headers['x-forwarded-host'] || req.get('host');
+  return `${protocol}://${host}`.replace(/\/$/, '');
+}
+
+function getGmailSetupRedirect(req) {
+  return `${getRequestBaseUrl(req)}/api/auth/gmail-setup/callback`;
+}
+
+app.get('/api/auth/gmail-setup/debug', (req, res) => {
+  const redirectUri = getGmailSetupRedirect(req);
+  res.json({
+    backend_url_env: process.env.BACKEND_URL || null,
+    request_base_url: getRequestBaseUrl(req),
+    gmail_setup_redirect: redirectUri,
+    google_client_id_present: Boolean(process.env.GOOGLE_CLIENT_ID),
+    google_client_secret_present: Boolean(process.env.GOOGLE_CLIENT_SECRET),
+  });
+});
 
 app.get('/api/auth/gmail-setup', (req, res) => {
+  const redirectUri = getGmailSetupRedirect(req);
   const url = new URLSearchParams({
     client_id:     process.env.GOOGLE_CLIENT_ID,
-    redirect_uri:  GMAIL_SETUP_REDIRECT,
+    redirect_uri:  redirectUri,
     response_type: 'code',
     scope:         'https://www.googleapis.com/auth/gmail.send',
     access_type:   'offline',
@@ -2912,6 +2952,7 @@ app.get('/api/auth/gmail-setup', (req, res) => {
 
 app.get('/api/auth/gmail-setup/callback', async (req, res) => {
   const { code } = req.query;
+  const redirectUri = getGmailSetupRedirect(req);
   if (!code) return res.status(400).send('No code');
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -2920,7 +2961,7 @@ app.get('/api/auth/gmail-setup/callback', async (req, res) => {
       code,
       client_id:     process.env.GOOGLE_CLIENT_ID,
       client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      redirect_uri:  GMAIL_SETUP_REDIRECT,
+      redirect_uri:  redirectUri,
       grant_type:    'authorization_code',
     }).toString(),
   });
