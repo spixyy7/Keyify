@@ -172,12 +172,12 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(248, 250, 252, 0.78);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      background: rgba(255, 255, 255, 0.84);
+      backdrop-filter: blur(10px) saturate(1.05);
+      -webkit-backdrop-filter: blur(10px) saturate(1.05);
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.22s ease;
+      transition: opacity 0.24s ease;
     }
     .admin-loading-overlay {
       position: fixed;
@@ -198,26 +198,29 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 14px;
-      padding: 22px 28px;
-      border-radius: 24px;
-      background: rgba(255,255,255,0.66);
-      box-shadow: 0 24px 70px rgba(15,23,42,0.12);
-      border: 1px solid rgba(148,163,184,0.16);
+      gap: 12px;
+      padding: 18px 22px;
+      min-width: 180px;
+      border-radius: 28px;
+      background: rgba(255,255,255,0.28);
+      box-shadow: 0 24px 70px rgba(15,23,42,0.08);
+      border: 1px solid rgba(255,255,255,0.42);
     }
     .admin-loading-spinner {
-      width: 44px;
-      height: 44px;
+      width: 48px;
+      height: 48px;
       border-radius: 999px;
-      border: 3px solid rgba(71,85,105,0.18);
-      border-top-color: #475569;
-      animation: adminLoaderSpin 0.85s linear infinite;
+      border: 3px solid rgba(71,85,105,0.14);
+      border-top-color: #334155;
+      border-right-color: #94a3b8;
+      animation: adminLoaderSpin 0.82s linear infinite;
     }
     .admin-loading-text {
-      font-size: 13px;
-      font-weight: 600;
+      font-size: 14px;
+      font-weight: 700;
       color: #334155;
       letter-spacing: 0.01em;
+      text-align: center;
     }
     #chat-inbox-pane { position: relative; }
     @keyframes adminLoaderSpin {
@@ -2443,11 +2446,13 @@
     const endpoint = id ? `${API_BASE}/products/${id}` : `${API_BASE}/products`;
     const method   = id ? 'PUT' : 'POST';
     const token    = localStorage.getItem('keyify_token');
+    const loaderLabel = id ? 'Ažuriranje proizvoda...' : 'Dodavanje proizvoda...';
 
     // Disable submit button during save
     const submitBtn = document.querySelector('#product-form button[type="submit"]');
     const origText  = submitBtn?.textContent;
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Čuvanje...'; }
+    setAdminPageLoader(true, loaderLabel);
 
     let fetchOpts;
     if (hasFile) {
@@ -2467,11 +2472,12 @@
       if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
       showToast(id ? 'Proizvod ažuriran!' : 'Proizvod dodan!');
       closeModal();
-      loadProducts();
+      await loadProducts();
     } catch (err) {
       console.error('[saveProduct] Error:', err);
       showToast(err.message || 'Greška pri čuvanju proizvoda', 'error');
     } finally {
+      setAdminPageLoader(false);
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = origText; }
     }
   }

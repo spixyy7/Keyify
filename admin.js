@@ -466,10 +466,14 @@
     const method = id ? 'PUT' : 'POST';
     const submitButton = document.querySelector('#product-form button[type="submit"]');
     const originalLabel = submitButton?.textContent;
+    const loaderLabel = id ? 'Azuriranje proizvoda...' : 'Dodavanje proizvoda...';
 
     if (submitButton) {
       submitButton.disabled = true;
       submitButton.textContent = 'Čuvanje...';
+    }
+    if (typeof window.setAdminPageLoader === 'function') {
+      window.setAdminPageLoader(true, loaderLabel);
     }
 
     try {
@@ -503,6 +507,9 @@
       console.error('[admin.js] saveProduct:', error);
       showToast(error.message || 'Greška pri čuvanju proizvoda', 'error');
     } finally {
+      if (typeof window.setAdminPageLoader === 'function') {
+        window.setAdminPageLoader(false);
+      }
       if (submitButton) {
         submitButton.disabled = false;
         submitButton.textContent = originalLabel;
