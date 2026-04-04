@@ -368,7 +368,7 @@
   window.openProductModal = async function openProductModal(product) {
     const loaderStartedAt = Date.now();
     toggleProductEditorLoader(true, 'Ucitavanje editora proizvoda...');
-    await waitForAdminLoaderPaint(180);
+    await waitForAdminLoaderPaint(320);
 
     try {
       await loadCategories();
@@ -434,7 +434,7 @@
 
       document.getElementById('modal-overlay').classList.add('open');
     } finally {
-      const remainingDelay = Math.max(0, 360 - (Date.now() - loaderStartedAt));
+      const remainingDelay = Math.max(0, 560 - (Date.now() - loaderStartedAt));
       if (remainingDelay) {
         await waitForAdminLoaderPaint(remainingDelay);
       }
@@ -502,7 +502,7 @@
       submitButton.textContent = 'Čuvanje...';
     }
     toggleProductEditorLoader(true, loaderLabel);
-    await waitForAdminLoaderPaint(140);
+    await waitForAdminLoaderPaint(220);
 
     try {
       let response;
@@ -535,6 +535,7 @@
       console.error('[admin.js] saveProduct:', error);
       showToast(error.message || 'Greška pri čuvanju proizvoda', 'error');
     } finally {
+      await waitForAdminLoaderPaint(320);
       toggleProductEditorLoader(false);
       if (submitButton) {
         submitButton.disabled = false;

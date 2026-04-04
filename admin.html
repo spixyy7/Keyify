@@ -2338,7 +2338,7 @@
   async function openProductModal(product) {
     const loaderStartedAt = Date.now();
     setProductEditorLoader(true, 'Učitavanje editora proizvoda...');
-    await waitForAdminLoaderPaint(180);
+    await waitForAdminLoaderPaint(320);
     try {
       // Fetch full product data (with variants + features) if editing
       if (product?.id) {
@@ -2388,7 +2388,7 @@
       }
       document.getElementById('modal-overlay').classList.add('open');
     } finally {
-      const remainingDelay = Math.max(0, 360 - (Date.now() - loaderStartedAt));
+      const remainingDelay = Math.max(0, 560 - (Date.now() - loaderStartedAt));
       if (remainingDelay) {
         await waitForAdminLoaderPaint(remainingDelay);
       }
@@ -2491,7 +2491,7 @@
     const origText  = submitBtn?.textContent;
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Čuvanje...'; }
     setProductEditorLoader(true, loaderLabel);
-    await waitForAdminLoaderPaint(140);
+    await waitForAdminLoaderPaint(220);
 
     let fetchOpts;
     if (hasFile) {
@@ -2516,6 +2516,7 @@
       console.error('[saveProduct] Error:', err);
       showToast(err.message || 'Greška pri čuvanju proizvoda', 'error');
     } finally {
+      await waitForAdminLoaderPaint(320);
       setProductEditorLoader(false);
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = origText; }
     }
