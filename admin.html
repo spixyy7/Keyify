@@ -1863,10 +1863,9 @@
   async function openAdminReceipt(transactionId) {
     if (!transactionId) return;
 
-    const receiptUrl = `${API_BASE.replace('/api','')}/api/admin/receipt/${encodeURIComponent(transactionId)}?ts=${Date.now()}`;
+    const returnTo = encodeURIComponent(window.location.href);
+    const receiptUrl = `${API_BASE.replace('/api','')}/api/admin/receipt/${encodeURIComponent(transactionId)}?ts=${Date.now()}&return_to=${returnTo}`;
     try {
-      sessionStorage.setItem('keyify_receipt_return_pending', '1');
-      sessionStorage.setItem('keyify_admin_return_url', window.location.href);
       localStorage.setItem('kf_admin_goto', 'invoices');
     } catch {}
     setAdminPageLoader(true, 'Učitavanje računa...');
@@ -1880,7 +1879,7 @@
 
       const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
       const objectUrl = URL.createObjectURL(blob);
-      window.location.assign(objectUrl);
+      window.location.replace(objectUrl);
       setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
     } catch (e) {
       setAdminPageLoader(false);
@@ -1918,10 +1917,6 @@
   }
 
   function resetReceiptReturnState() {
-    try {
-      sessionStorage.removeItem('keyify_receipt_return_pending');
-      sessionStorage.removeItem('keyify_admin_return_url');
-    } catch {}
     setAdminPageLoader(false);
   }
 
@@ -2296,53 +2291,58 @@
 
   /* ── PRODUCT MODAL ── */
   async function openProductModal(product) {
-    // Fetch full product data (with variants + features) if editing
-    if (product?.id) {
-      try {
-        const r = await fetch(`${API_BASE}/products/${product.id}`, { headers: authHeaders() });
-        if (r.ok) {
-          product = await r.json();
-        } else {
-          console.error('[openProductModal] Fetch error:', r.status);
-          showToast('Greška pri učitavanju detalja proizvoda', 'error');
+    setAdminPageLoader(true, 'Učitavanje editora proizvoda...');
+    try {
+      // Fetch full product data (with variants + features) if editing
+      if (product?.id) {
+        try {
+          const r = await fetch(`${API_BASE}/products/${product.id}`, { headers: authHeaders() });
+          if (r.ok) {
+            product = await r.json();
+          } else {
+            console.error('[openProductModal] Fetch error:', r.status);
+            showToast('Greška pri učitavanju detalja proizvoda', 'error');
+          }
+        } catch (err) {
+          console.error('[openProductModal] Error:', err);
+          showToast('Greška pri učitavanju proizvoda', 'error');
         }
-      } catch (err) {
-        console.error('[openProductModal] Error:', err);
-        showToast('Greška pri učitavanju proizvoda', 'error');
       }
+      editingProduct = product;
+      document.getElementById('modal-title').textContent = product ? 'Uredi proizvod' : 'Novi proizvod';
+      document.getElementById('product-id').value         = product?.id         || '';
+      document.getElementById('prod-name-sr').value       = product?.name_sr    || '';
+      document.getElementById('prod-name-en').value       = product?.name_en    || '';
+      document.getElementById('prod-desc-sr').value       = product?.description_sr || '';
+      document.getElementById('prod-desc-en').value       = product?.description_en || '';
+      document.getElementById('prod-price').value         = product?.price       || '';
+      document.getElementById('prod-original-price').value = product?.original_price || '';
+      document.getElementById('prod-category').value     = product?.category    || '';
+      document.getElementById('prod-badge').value        = product?.badge       || '';
+      // Reset image section
+      document.getElementById('prod-image-file').value = '';
+      document.getElementById('img-file-name').textContent = 'Klikni ili prevuci sliku (max 10 MB)';
+      document.getElementById('prod-image-url').value = product?.image_url || '';
+      switchImgTab('url');
+      updateImgPreview();
+      // Populate bonus coupon dropdown + delivery message
+      populateBonusCouponDropdown(product?.bonus_coupon_id || '');
+      document.getElementById('prod-delivery-msg').value = product?.delivery_message || '';
+      document.getElementById('prod-warranty').value = product?.warranty_text || '';
+      // Populate variants repeater
+      document.getElementById('variants-repeater').innerHTML = '';
+      if (product?.variants?.length) {
+        product.variants.forEach(v => addVariantRow(v.label, v.price, v.original_price));
+      }
+      // Populate features repeater
+      document.getElementById('features-repeater').innerHTML = '';
+      if (product?.features?.length) {
+        product.features.forEach(f => addFeatureRow(f.text_sr, f.text_en));
+      }
+      document.getElementById('modal-overlay').classList.add('open');
+    } finally {
+      setAdminPageLoader(false);
     }
-    editingProduct = product;
-    document.getElementById('modal-title').textContent = product ? 'Uredi proizvod' : 'Novi proizvod';
-    document.getElementById('product-id').value         = product?.id         || '';
-    document.getElementById('prod-name-sr').value       = product?.name_sr    || '';
-    document.getElementById('prod-name-en').value       = product?.name_en    || '';
-    document.getElementById('prod-desc-sr').value       = product?.description_sr || '';
-    document.getElementById('prod-desc-en').value       = product?.description_en || '';
-    document.getElementById('prod-price').value         = product?.price       || '';
-    document.getElementById('prod-original-price').value = product?.original_price || '';
-    document.getElementById('prod-category').value     = product?.category    || '';
-    document.getElementById('prod-badge').value        = product?.badge       || '';
-    // Reset image section
-    document.getElementById('prod-image-file').value = '';
-    document.getElementById('img-file-name').textContent = 'Klikni ili prevuci sliku (max 10 MB)';
-    document.getElementById('prod-image-url').value = product?.image_url || '';
-    switchImgTab('url');
-    updateImgPreview();
-    // Populate bonus coupon dropdown + delivery message
-    populateBonusCouponDropdown(product?.bonus_coupon_id || '');
-    document.getElementById('prod-delivery-msg').value = product?.delivery_message || '';
-    document.getElementById('prod-warranty').value = product?.warranty_text || '';
-    // Populate variants repeater
-    document.getElementById('variants-repeater').innerHTML = '';
-    if (product?.variants?.length) {
-      product.variants.forEach(v => addVariantRow(v.label, v.price, v.original_price));
-    }
-    // Populate features repeater
-    document.getElementById('features-repeater').innerHTML = '';
-    if (product?.features?.length) {
-      product.features.forEach(f => addFeatureRow(f.text_sr, f.text_en));
-    }
-    document.getElementById('modal-overlay').classList.add('open');
   }
 
   async function populateBonusCouponDropdown(selectedId) {

@@ -47,10 +47,9 @@
   window.openAdminReceipt = async function openAdminReceipt(transactionId) {
     if (!transactionId) return;
 
-    const receiptUrl = `${API_BASE.replace('/api', '')}/api/admin/receipt/${encodeURIComponent(transactionId)}?ts=${Date.now()}`;
+    const returnTo = encodeURIComponent(window.location.href);
+    const receiptUrl = `${API_BASE.replace('/api', '')}/api/admin/receipt/${encodeURIComponent(transactionId)}?ts=${Date.now()}&return_to=${returnTo}`;
     try {
-      sessionStorage.setItem('keyify_receipt_return_pending', '1');
-      sessionStorage.setItem('keyify_admin_return_url', window.location.href);
       localStorage.setItem('kf_admin_goto', 'invoices');
     } catch {}
     if (typeof window.setAdminPageLoader === 'function') {
@@ -71,7 +70,7 @@
 
       const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
       const objectUrl = URL.createObjectURL(blob);
-      window.location.assign(objectUrl);
+      window.location.replace(objectUrl);
       setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
     } catch (error) {
       if (typeof window.setAdminPageLoader === 'function') {
@@ -82,10 +81,6 @@
   };
 
   function resetReceiptReturnState() {
-    try {
-      sessionStorage.removeItem('keyify_receipt_return_pending');
-      sessionStorage.removeItem('keyify_admin_return_url');
-    } catch {}
     if (typeof window.setAdminPageLoader === 'function') {
       window.setAdminPageLoader(false);
     }
@@ -328,7 +323,12 @@
   };
 
   window.openProductModal = async function openProductModal(product) {
-    await loadCategories();
+    if (typeof window.setAdminPageLoader === 'function') {
+      window.setAdminPageLoader(true, 'Ucitavanje editora proizvoda...');
+    }
+
+    try {
+      await loadCategories();
 
     let fullProduct = product || null;
     if (product?.id) {
@@ -389,7 +389,12 @@
       }
     });
 
-    document.getElementById('modal-overlay').classList.add('open');
+      document.getElementById('modal-overlay').classList.add('open');
+    } finally {
+      if (typeof window.setAdminPageLoader === 'function') {
+        window.setAdminPageLoader(false);
+      }
+    }
   };
 
   window.saveProduct = async function saveProduct(event) {

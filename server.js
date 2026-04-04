@@ -3792,6 +3792,8 @@ app.get('/api/admin/receipt/:id', authenticateToken, requireAdmin, async (req, r
   const date       = new Date(row.created_at).toLocaleString('sr-RS', { dateStyle:'long', timeStyle:'short' });
   const pm         = escServerHtml(row.payment_method || '—');
   const esc        = escServerHtml;
+  const returnToRaw = typeof req.query.return_to === 'string' ? req.query.return_to.trim() : '';
+  const returnTo = returnToRaw && !/^javascript:/i.test(returnToRaw) ? returnToRaw : '/admin.html';
 
   const html = `<!DOCTYPE html>
 <html lang="bs">
@@ -3896,20 +3898,12 @@ app.get('/api/admin/receipt/:id', authenticateToken, requireAdmin, async (req, r
     </div>
   </div>
   <script>
+    const returnTo = ${JSON.stringify(returnTo)};
     function goBackToAdmin() {
       try {
         localStorage.setItem('kf_admin_goto', 'invoices');
-        const returnUrl = sessionStorage.getItem('keyify_admin_return_url');
-        if (returnUrl) {
-          window.location.href = returnUrl;
-          return;
-        }
-        if (window.history.length > 1) {
-          window.history.back();
-          return;
-        }
       } catch (error) {}
-      window.location.href = '/admin.html';
+      window.location.replace(returnTo || '/admin.html');
     }
   </script>
 </body>
