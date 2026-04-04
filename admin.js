@@ -48,6 +48,9 @@
     if (!transactionId) return;
 
     const receiptUrl = `${API_BASE.replace('/api', '')}/api/admin/receipt/${encodeURIComponent(transactionId)}`;
+    if (typeof window.setAdminPageLoader === 'function') {
+      window.setAdminPageLoader(true, 'Ucitavanje racuna...');
+    }
 
     try {
       const response = await fetch(receiptUrl, {
@@ -65,6 +68,9 @@
       window.location.assign(objectUrl);
       setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
     } catch (error) {
+      if (typeof window.setAdminPageLoader === 'function') {
+        window.setAdminPageLoader(false);
+      }
       showToast(error.message || 'Greska pri otvaranju racuna', 'error');
     }
   };

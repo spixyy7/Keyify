@@ -166,6 +166,64 @@
     }
     #toast.show { transform: translateY(0); opacity: 1; }
 
+    /* Loading overlays */
+    .admin-loading-overlay,
+    .admin-pane-loader {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(248, 250, 252, 0.78);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease;
+    }
+    .admin-loading-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 12050;
+    }
+    .admin-pane-loader {
+      position: absolute;
+      inset: 0;
+      z-index: 15;
+    }
+    .admin-loading-overlay.visible,
+    .admin-pane-loader.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .admin-loading-shell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 22px 28px;
+      border-radius: 24px;
+      background: rgba(255,255,255,0.66);
+      box-shadow: 0 24px 70px rgba(15,23,42,0.12);
+      border: 1px solid rgba(148,163,184,0.16);
+    }
+    .admin-loading-spinner {
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      border: 3px solid rgba(71,85,105,0.18);
+      border-top-color: #475569;
+      animation: adminLoaderSpin 0.85s linear infinite;
+    }
+    .admin-loading-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+      letter-spacing: 0.01em;
+    }
+    #chat-inbox-pane { position: relative; }
+    @keyframes adminLoaderSpin {
+      to { transform: rotate(360deg); }
+    }
+
     /* Gradient text */
     .gradient-text {
       background: linear-gradient(135deg, #1D6AFF, #A259FF);
@@ -788,6 +846,12 @@
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+        <div id="chat-inbox-loader" class="admin-pane-loader" aria-hidden="true">
+          <div class="admin-loading-shell">
+            <div class="admin-loading-spinner"></div>
+            <div id="chat-inbox-loader-text" class="admin-loading-text">Učitavanje razgovora...</div>
           </div>
         </div>
       </div>
@@ -1698,6 +1762,12 @@
 </div>
 
 <!-- ── TOAST ──────────────────────────────────────────────────── -->
+<div id="admin-page-loader" class="admin-loading-overlay" aria-hidden="true">
+  <div class="admin-loading-shell">
+    <div class="admin-loading-spinner"></div>
+    <div id="admin-page-loader-text" class="admin-loading-text">Učitavanje...</div>
+  </div>
+</div>
 <div id="toast"></div>
 
 <!-- ── SCRIPT ─────────────────────────────────────────────────── -->
@@ -1794,6 +1864,7 @@
     if (!transactionId) return;
 
     const receiptUrl = `${API_BASE.replace('/api','')}/api/admin/receipt/${encodeURIComponent(transactionId)}`;
+    setAdminPageLoader(true, 'Učitavanje računa...');
 
     try {
       const res = await fetch(receiptUrl, { headers: authHeaders() });
@@ -1807,6 +1878,7 @@
       window.location.assign(objectUrl);
       setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
     } catch (e) {
+      setAdminPageLoader(false);
       showToast(e.message || 'Greska pri otvaranju racuna', 'error');
     }
   }
@@ -1822,6 +1894,26 @@
     const duration = type === 'error' ? 5000 : 3200;
     setTimeout(() => t.classList.remove('show'), duration);
   }
+
+  function setLoadingOverlay(overlayId, textId, visible, text) {
+    const overlay = document.getElementById(overlayId);
+    const label = document.getElementById(textId);
+    if (!overlay) return;
+    if (label && text) label.textContent = text;
+    overlay.classList.toggle('visible', !!visible);
+    overlay.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  }
+
+  function setAdminPageLoader(visible, text = 'Učitavanje...') {
+    setLoadingOverlay('admin-page-loader', 'admin-page-loader-text', visible, text);
+  }
+
+  function setInboxPaneLoader(visible, text = 'Učitavanje razgovora...') {
+    setLoadingOverlay('chat-inbox-loader', 'chat-inbox-loader-text', visible, text);
+  }
+
+  window.setAdminPageLoader = setAdminPageLoader;
+  window.setInboxPaneLoader = setInboxPaneLoader;
 
   /* ── SECTION SWITCH ── */
   function showSection(name) {
@@ -1859,9 +1951,9 @@
 
       if (name === 'support')  {
         loadTickets();
-        loadInbox();
+        loadInbox({ showLoader: true });
         // NOVO: Automatski osvežavaj listu chatova svakih 5 sekundi!
-        window._inboxQueueTimer = setInterval(() => loadInbox(), 5000);
+        window._inboxQueueTimer = setInterval(() => loadInbox({ silent: true }), 5000);
       }
       if (name === 'referrals')     loadAdminReferrals();
       if (name === 'reviews')       loadAdminReviews();
@@ -3217,16 +3309,31 @@
   let _inboxQueueTimer   = null;
   let _inboxLastMsgCount = 0;
 
+  function resetInboxView() {
+    _inboxActiveId = null;
+    _inboxLastMsgCount = 0;
+    _inboxPollStop();
+    const empty = document.getElementById('inbox-empty');
+    const chat = document.getElementById('inbox-chat');
+    if (empty) empty.style.display = 'flex';
+    if (chat) chat.style.display = 'none';
+  }
+
   function switchInboxTab(tab) {
     _inboxTab = tab;
     const activeStyle = 'flex:1;padding:8px 0;font-size:12px;font-weight:600;border:none;cursor:pointer;background:none;color:#fff;border-bottom:2px solid #1D6AFF';
     const inactiveStyle = 'flex:1;padding:8px 0;font-size:12px;font-weight:600;border:none;cursor:pointer;background:none;color:#9090b8;border-bottom:2px solid transparent';
     document.getElementById('inbox-tab-active').style.cssText = tab === 'active' ? activeStyle : inactiveStyle;
     document.getElementById('inbox-tab-closed').style.cssText = tab === 'closed' ? activeStyle : inactiveStyle;
-    loadInbox();
+    resetInboxView();
+    loadInbox({ showLoader: true });
   }
 
-  async function loadInbox() {
+  async function loadInbox(options = {}) {
+    const showLoader = !!options.showLoader;
+    if (showLoader) {
+      setInboxPaneLoader(true, _inboxTab === 'closed' ? 'Učitavanje zatvorenih chatova...' : 'Učitavanje aktivnih chatova...');
+    }
     try {
       const closed = _inboxTab === 'closed' ? 1 : 0;
       const res  = await fetch(`${API_BASE}/admin/chat/sessions?closed=${closed}`, { headers: authHeaders() });
@@ -3234,7 +3341,9 @@
       if (!res.ok) throw data;
       _inboxSessions = data;
       renderQueue();
-    } catch {}
+    } catch {} finally {
+      if (showLoader) setInboxPaneLoader(false);
+    }
   }
 
   function renderQueue() {
@@ -3899,6 +4008,68 @@
     if (overlay) overlay.style.display = 'none';
   }
 
+  function closeVerificationRejectModal() {
+    const overlay = document.getElementById('vf-reject-overlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  function openVerificationRejectModal(id) {
+    const verification = _vfById[String(id)];
+    if (!verification) {
+      alert('Detalji porudzbine nisu ucitani. Pokusajte ponovo.');
+      return;
+    }
+
+    const tx = verification.transactions || {};
+    document.getElementById('vf-reject-id').value = verification.id;
+    document.getElementById('vf-reject-title').textContent = tx.product_name || 'Porudzbina';
+    document.getElementById('vf-reject-meta').textContent = verification.buyer_email || tx.buyer_email || 'Gost';
+    document.getElementById('vf-reject-reason').value = verification.admin_notes || '';
+    document.getElementById('vf-reject-overlay').style.display = 'flex';
+  }
+
+  function rejectVerification(id) {
+    openVerificationRejectModal(id);
+  }
+
+  async function submitVerificationRejection() {
+    const id = document.getElementById('vf-reject-id').value;
+    const reason = document.getElementById('vf-reject-reason').value.trim();
+
+    if (!reason) {
+      alert('Unesite razlog odbijanja uplate.');
+      return;
+    }
+
+    const btn = document.getElementById('vf-reject-submit');
+    const prev = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Slanje...';
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/verifications/${id}/reject`, {
+        method: 'PUT',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ admin_notes: reason }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Greska pri odbijanju');
+        return;
+      }
+      closeVerificationRejectModal();
+      closeVerificationApprovalModal();
+      alert('Uplata je odbijena i razlog je poslan korisniku na email.');
+      loadVerifications(_vfCurrentFilter);
+      loadVerifyBadge();
+    } catch (e) {
+      alert('Greska pri odbijanju uplate');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  }
+
   function approveVerification(id) {
     const verification = _vfById[String(id)];
     if (!verification) {
@@ -4221,8 +4392,37 @@
         </div>
         <div class="flex gap-3 pt-2">
           <button type="button" onclick="closeVerificationApprovalModal()" class="flex-1 py-3 rounded-2xl text-sm font-semibold text-dark-200 border border-dark-600 hover:border-dark-400 transition-colors">Otkazi</button>
+          <button type="button" onclick="openVerificationRejectModal(document.getElementById('vf-approve-id').value)" class="flex-1 py-3 rounded-2xl text-sm font-semibold text-white hover:opacity-90 transition-all" style="background:linear-gradient(135deg,#ef4444,#dc2626)">Odbij uplatu</button>
           <button type="button" id="vf-approve-submit" onclick="submitVerificationApproval()" class="flex-1 py-3 rounded-2xl text-sm font-semibold text-white hover:opacity-90 transition-all" style="background:linear-gradient(135deg,#1D6AFF,#22c55e)">Potvrdi i isporuci</button>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="vf-reject-overlay" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.82);backdrop-filter:blur(16px);z-index:270;align-items:center;justify-content:center;padding:24px">
+  <div class="glass rounded-[28px] w-full max-w-xl overflow-hidden" style="border:1px solid rgba(255,255,255,0.12);box-shadow:0 40px 120px rgba(0,0,0,0.45)">
+    <div class="flex items-center justify-between px-7 py-5" style="border-bottom:1px solid rgba(255,255,255,0.08);background:linear-gradient(135deg,rgba(239,68,68,0.18),rgba(220,38,38,0.10))">
+      <div>
+        <div class="text-[11px] uppercase tracking-[0.18em] text-red-300 font-semibold">Payment Rejection</div>
+        <h3 id="vf-reject-title" class="font-display font-bold text-white text-xl mt-1">Porudzbina</h3>
+        <p id="vf-reject-meta" class="text-sm text-dark-300 mt-1"></p>
+      </div>
+      <button onclick="closeVerificationRejectModal()" class="w-10 h-10 rounded-xl flex items-center justify-center text-dark-300 hover:text-white transition-colors" style="background:rgba(255,255,255,0.05)">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="px-7 py-6 space-y-5">
+      <input type="hidden" id="vf-reject-id"/>
+      <div class="rounded-2xl p-4 text-sm text-dark-300" style="background:linear-gradient(135deg,rgba(239,68,68,0.08),rgba(220,38,38,0.06));border:1px solid rgba(239,68,68,0.18)">
+        Kupac ce dobiti email sa razlogom odbijanja. Unesite jasan razlog kako bi znao sta treba ispraviti prije slanja novog dokaza.
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Razlog odbijanja</label>
+        <textarea id="vf-reject-reason" rows="6" class="admin-input resize-none" placeholder="Npr. screenshot nije citljiv, pogresan iznos, ne podudara se email platitelja, transakcija nije pronadjena..."></textarea>
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="closeVerificationRejectModal()" class="flex-1 py-3 rounded-2xl text-sm font-semibold text-dark-200 border border-dark-600 hover:border-dark-400 transition-colors">Nazad</button>
+        <button type="button" id="vf-reject-submit" onclick="submitVerificationRejection()" class="flex-1 py-3 rounded-2xl text-sm font-semibold text-white hover:opacity-90 transition-all" style="background:linear-gradient(135deg,#ef4444,#dc2626)">Posalji odbijanje</button>
       </div>
     </div>
   </div>

@@ -4947,11 +4947,15 @@ app.put('/api/admin/verifications/:id/approve', authenticateToken, checkPermissi
 /** PUT /api/admin/verifications/:id/reject – reject payment */
 app.put('/api/admin/verifications/:id/reject', authenticateToken, checkPermission('can_verify_payments'), async (req, res) => {
   const { id } = req.params;
-  const { admin_notes } = req.body;
+  const rejectionReason = String(req.body?.admin_notes || '').trim();
+
+  if (!rejectionReason) {
+    return res.status(400).json({ error: 'Unesite razlog odbijanja uplate.' });
+  }
 
   const { data: pv } = await supabase
     .from('payment_verifications')
-    .select('*, transactions(id, buyer_email, product_name)')
+    .select('*, transactions(id, buyer_email, product_name, amount)')
     .eq('id', id)
     .maybeSingle();
 
@@ -4960,7 +4964,7 @@ app.put('/api/admin/verifications/:id/reject', authenticateToken, checkPermissio
 
   await supabase.from('payment_verifications').update({
     status:      'rejected',
-    admin_notes: admin_notes || null,
+    admin_notes: rejectionReason,
     reviewed_by: req.user.id,
     reviewed_at: new Date().toISOString(),
   }).eq('id', id);
@@ -4988,7 +4992,7 @@ app.put('/api/admin/verifications/:id/reject', authenticateToken, checkPermissio
   </div>
   <div style="background:#fff;border:1px solid #e5e7eb;padding:28px 36px">
     <p style="font-size:14px;color:#374151;margin:0 0 16px">Nažalost, vaša uplata za <strong>${escServerHtml(tx.product_name || 'narudžbu')}</strong> nije mogla biti potvrđena.</p>
-    ${admin_notes ? `<p style="font-size:13px;color:#6b7280;margin:0 0 16px"><strong>Razlog:</strong> ${escServerHtml(admin_notes)}</p>` : ''}
+    ${rejectionReason ? `<p style="font-size:13px;color:#6b7280;margin:0 0 16px"><strong>Razlog:</strong> ${escServerHtml(rejectionReason)}</p>` : ''}
     <p style="font-size:13px;color:#6b7280;margin:0">Kontaktirajte nas putem Instagrama <a href="https://www.instagram.com/keyifyshop/" style="color:#1D6AFF">@keyifyshop</a> ili putem emaila za pomoć.</p>
   </div>
   <div style="background:#f9fafb;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 18px 18px;padding:16px 36px;text-align:center">
