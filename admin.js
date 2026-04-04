@@ -47,7 +47,7 @@
   window.openAdminReceipt = async function openAdminReceipt(transactionId) {
     if (!transactionId) return;
 
-    const receiptUrl = `${API_BASE.replace('/api', '')}/api/admin/receipt/${encodeURIComponent(transactionId)}`;
+    const receiptUrl = `${API_BASE.replace('/api', '')}/api/admin/receipt/${encodeURIComponent(transactionId)}?ts=${Date.now()}`;
     try {
       sessionStorage.setItem('keyify_admin_return_url', window.location.href);
       localStorage.setItem('kf_admin_goto', 'invoices');
@@ -59,6 +59,7 @@
     try {
       const response = await fetch(receiptUrl, {
         method: 'GET',
+        cache: 'no-store',
         headers: authHeaders(),
       });
       const html = await response.text();

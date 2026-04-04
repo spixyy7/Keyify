@@ -1863,7 +1863,7 @@
   async function openAdminReceipt(transactionId) {
     if (!transactionId) return;
 
-    const receiptUrl = `${API_BASE.replace('/api','')}/api/admin/receipt/${encodeURIComponent(transactionId)}`;
+    const receiptUrl = `${API_BASE.replace('/api','')}/api/admin/receipt/${encodeURIComponent(transactionId)}?ts=${Date.now()}`;
     try {
       sessionStorage.setItem('keyify_admin_return_url', window.location.href);
       localStorage.setItem('kf_admin_goto', 'invoices');
@@ -1871,7 +1871,7 @@
     setAdminPageLoader(true, 'Učitavanje računa...');
 
     try {
-      const res = await fetch(receiptUrl, { headers: authHeaders() });
+      const res = await fetch(receiptUrl, { cache: 'no-store', headers: authHeaders() });
       const html = await res.text();
       if (!res.ok) {
         throw new Error(html || 'Greska pri otvaranju racuna');

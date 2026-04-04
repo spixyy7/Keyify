@@ -3900,12 +3900,12 @@ app.get('/api/admin/receipt/:id', authenticateToken, requireAdmin, async (req, r
       try {
         localStorage.setItem('kf_admin_goto', 'invoices');
         const returnUrl = sessionStorage.getItem('keyify_admin_return_url');
-        if (window.history.length > 1) {
-          window.history.back();
-          return;
-        }
         if (returnUrl) {
           window.location.href = returnUrl;
+          return;
+        }
+        if (window.history.length > 1) {
+          window.history.back();
           return;
         }
       } catch (error) {}
@@ -3915,6 +3915,9 @@ app.get('/api/admin/receipt/:id', authenticateToken, requireAdmin, async (req, r
 </body>
 </html>`;
 
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   return res.send(html);
 });
