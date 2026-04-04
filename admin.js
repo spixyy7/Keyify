@@ -29,7 +29,7 @@
 
   function authHeaders() {
     if (typeof window.authHeaders === 'function') return window.authHeaders();
-    const token = localStorage.getItem('keyify_token');
+    const token = localStorage.getItem('keyify_token') || sessionStorage.getItem('keyify_token') || localStorage.getItem('kfy_token') || sessionStorage.getItem('kfy_token');
     return {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
@@ -43,6 +43,40 @@
     }
     console[type === 'error' ? 'error' : 'log'](message);
   }
+
+  window.openAdminReceipt = async function openAdminReceipt(transactionId) {
+    if (!transactionId) return;
+
+    const receiptUrl = `${API_BASE.replace('/api', '')}/api/admin/receipt/${encodeURIComponent(transactionId)}`;
+    const popup = window.open('', '_blank', 'noopener');
+    if (!popup) {
+      showToast('Browser je blokirao otvaranje racuna. Omogucite pop-up za admin panel.', 'error');
+      return;
+    }
+
+    popup.document.write('<!doctype html><title>UcItavanje racuna...</title><body style="font-family:Inter,Arial,sans-serif;padding:24px;background:#f8fafc;color:#0f172a">UcItavanje racuna...</body>');
+    popup.document.close();
+
+    try {
+      const response = await fetch(receiptUrl, {
+        method: 'GET',
+        headers: authHeaders(),
+      });
+      const html = await response.text();
+
+      if (!response.ok) {
+        popup.close();
+        throw new Error(html || 'Greska pri otvaranju racuna');
+      }
+
+      popup.document.open();
+      popup.document.write(html);
+      popup.document.close();
+    } catch (error) {
+      try { popup.close(); } catch {}
+      showToast(error.message || 'Greska pri otvaranju racuna', 'error');
+    }
+  };
 
   function normalizeCategory(value) {
     return String(value || '')
@@ -539,8 +573,6 @@
           const payerAccount = transaction.payer_account
             ? `<span style="font-family:monospace;font-size:11px;color:#94a3b8;word-break:break-all" title="${escapeHtml(transaction.payer_account)}">${escapeHtml(transaction.payer_account.length > 24 ? `${transaction.payer_account.slice(0, 24)}…` : transaction.payer_account)}</span>`
             : '<span style="color:#475569;font-size:11px">—</span>';
-          const receiptUrl = `${API_BASE.replace('/api', '')}/api/admin/receipt/${encodeURIComponent(transaction.id)}`;
-
           return `<tr>
             <td>
               <div style="display:flex;align-items:center;gap:8px">
@@ -559,10 +591,10 @@
             <td>${payerAccount}</td>
             <td>${transactionStatusBadge(transaction.status)}</td>
             <td>
-              <a href="${receiptUrl}" target="_blank" rel="noopener noreferrer"
+              <button type="button" onclick="window.openAdminReceipt('${escapeHtml(transaction.id)}')"
                  style="display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:8px;font-size:11px;font-weight:700;background:rgba(29,106,255,0.15);color:#60a5fa;border:1px solid rgba(29,106,255,0.25);text-decoration:none">
                  Račun
-              </a>
+              </button>
             </td>
           </tr>`;
         }).join('');

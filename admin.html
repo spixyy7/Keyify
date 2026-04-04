@@ -1780,10 +1780,44 @@
 
   /* ── AUTH HEADER ── */
   function authHeaders() {
+    const token = localStorage.getItem('keyify_token')
+      || sessionStorage.getItem('keyify_token')
+      || localStorage.getItem('kfy_token')
+      || sessionStorage.getItem('kfy_token');
     return {
       'Content-Type':  'application/json',
-      'Authorization': `Bearer ${localStorage.getItem('keyify_token')}`,
+      'Authorization': `Bearer ${token}`,
     };
+  }
+
+  async function openAdminReceipt(transactionId) {
+    if (!transactionId) return;
+
+    const receiptUrl = `${API_BASE.replace('/api','')}/api/admin/receipt/${encodeURIComponent(transactionId)}`;
+    const popup = window.open('', '_blank', 'noopener');
+    if (!popup) {
+      showToast('Browser je blokirao otvaranje racuna. Omogucite pop-up za admin panel.', 'error');
+      return;
+    }
+
+    popup.document.write('<!doctype html><title>UcItavanje racuna...</title><body style="font-family:Inter,Arial,sans-serif;padding:24px;background:#f8fafc;color:#0f172a">UcItavanje racuna...</body>');
+    popup.document.close();
+
+    try {
+      const res = await fetch(receiptUrl, { headers: authHeaders() });
+      const html = await res.text();
+      if (!res.ok) {
+        popup.close();
+        throw new Error(html || 'Greska pri otvaranju racuna');
+      }
+
+      popup.document.open();
+      popup.document.write(html);
+      popup.document.close();
+    } catch (e) {
+      try { popup.close(); } catch {}
+      showToast(e.message || 'Greska pri otvaranju racuna', 'error');
+    }
   }
 
   /* ── TOAST ── */
@@ -4099,8 +4133,7 @@
           ? new Date(tx.created_at).toLocaleString('sr-RS', { dateStyle:'short', timeStyle:'short' })
           : '—';
         const amount = tx.amount != null ? `€${parseFloat(tx.amount).toFixed(2)}` : '—';
-        const receiptBtn = `<a href="${API_BASE.replace('/api','')}/api/admin/receipt/${esc(tx.id)}"
-             target="_blank" rel="noopener noreferrer"
+        const receiptBtn = `<button type="button" onclick="openAdminReceipt('${esc(tx.id)}')"
              style="display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:8px;
                     font-size:11px;font-weight:700;background:rgba(29,106,255,0.15);
                     color:#60a5fa;border:1px solid rgba(29,106,255,0.25);text-decoration:none"
@@ -4109,6 +4142,8 @@
              <svg style="width:12px;height:12px" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                <path stroke-linecap="round" stroke-linejoin="round" d="M17 17H7V3h7l3 3v11zM13 3v4h4M9 9h6M9 13h6M9 17h4"/>
              </svg>Račun</a>`;
+
+        const safeReceiptBtn = receiptBtn.replace('</a>', '</button>');
 
         const avatarHtml = tx.avatar_url
           ? `<img src="${esc(tx.avatar_url)}" alt="" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0"/>`
@@ -4135,7 +4170,7 @@
           <td>${pmBadge(tx.payment_method)}</td>
           <td>${accountCell}</td>
           <td>${statusBadge(tx.status)}</td>
-          <td>${receiptBtn}</td>
+          <td>${safeReceiptBtn}</td>
         </tr>`;
       }).join('');
 
