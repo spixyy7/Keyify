@@ -815,6 +815,7 @@ app.post('/api/admin/settings', authenticateToken, requireAdmin, async (req, res
     paypal_email, paypal_client_id, paypal_secret,
     btc_wallet, eth_wallet, usdt_wallet,
     bank_iban, bank_name,
+    facebook_url, twitter_url, instagram_url,
   } = req.body;
 
   const row = {
@@ -828,6 +829,9 @@ app.post('/api/admin/settings', authenticateToken, requireAdmin, async (req, res
     usdt_wallet,
     bank_iban,
     bank_name,
+    facebook_url:  facebook_url  || null,
+    twitter_url:   twitter_url   || null,
+    instagram_url: instagram_url || null,
     updated_at: new Date().toISOString(),
   };
 
@@ -848,14 +852,30 @@ app.post('/api/admin/settings', authenticateToken, requireAdmin, async (req, res
   return res.json({ message: 'Podešavanja su uspješno sačuvana' });
 });
 
+/**
+ * GET /api/public/social-links – no auth, returns only social URLs
+ */
+app.get('/api/public/social-links', async (req, res) => {
+  const { data } = await supabase
+    .from('site_settings')
+    .select('facebook_url, twitter_url, instagram_url')
+    .eq('id', 1)
+    .maybeSingle();
+  return res.json({
+    facebook_url:  (data && data.facebook_url)  || '',
+    twitter_url:   (data && data.twitter_url)   || '',
+    instagram_url: (data && data.instagram_url) || '',
+  });
+});
+
 /* ─────────────────────────────────────────
    PRODUCTS ROUTES
 ───────────────────────────────────────── */
 
-/* Multer: memory storage, 5 MB limit, images only */
+/* Multer: memory storage, 10 MB limit, images only */
 const productUpload = multer({
   storage: multer.memoryStorage(),
-  limits:  { fileSize: 5 * 1024 * 1024 },
+  limits:  { fileSize: 10 * 1024 * 1024 },
   fileFilter(req, file, cb) {
     if (file.mimetype.startsWith('image/')) cb(null, true);
     else cb(new Error('Dozvoljene su samo slike (image/*)'));
@@ -895,10 +915,35 @@ app.get('/api/products', async (req, res) => {
     console.error('[products] Supabase error:', error.message);
     return res.status(500).json({ error: 'Greška pri dohvaćanju proizvoda' });
   }
+
+  // Attach min/max variant prices for price-range display
+  if (data && data.length) {
+    const productIds = data.map(p => p.id);
+    const { data: variantPrices } = await supabase
+      .from('product_variants')
+      .select('product_id, price')
+      .in('product_id', productIds);
+
+    if (variantPrices && variantPrices.length) {
+      const priceMap = {};
+      variantPrices.forEach(v => {
+        if (!priceMap[v.product_id]) priceMap[v.product_id] = [];
+        priceMap[v.product_id].push(parseFloat(v.price));
+      });
+      data.forEach(p => {
+        const prices = priceMap[p.id];
+        if (prices && prices.length > 1) {
+          p.min_variant_price = Math.min(...prices);
+          p.max_variant_price = Math.max(...prices);
+        }
+      });
+    }
+  }
+
   return res.json(data || []);
 });
 
-/** GET /api/products/:id – single product by ID */
+/** GET /api/products/:id – single product by ID (with variants + features) */
 app.get('/api/products/:id', async (req, res) => {
   const { data, error } = await supabase
     .from('products')
@@ -907,6 +952,15 @@ app.get('/api/products/:id', async (req, res) => {
     .maybeSingle();
   if (error) return res.status(500).json({ error: 'Greška' });
   if (!data) return res.status(404).json({ error: 'Proizvod nije pronađen' });
+
+  // Fetch variants and features (non-blocking, graceful fallback)
+  const [varRes, featRes] = await Promise.all([
+    supabase.from('product_variants').select('*').eq('product_id', data.id).order('sort_order'),
+    supabase.from('product_features').select('*').eq('product_id', data.id).order('sort_order'),
+  ]);
+  data.variants = varRes.data || [];
+  data.features = featRes.data || [];
+
   return res.json(data);
 });
 
@@ -949,6 +1003,7 @@ app.post('/api/products', authenticateToken, requireAdmin, (req, res, next) => {
       stars:          starsVal,
       bonus_coupon_id:  req.body.bonus_coupon_id || null,
       delivery_message: req.body.delivery_message || null,
+      warranty_text:    req.body.warranty_text || null,
       created_at:     new Date().toISOString(),
     })
     .select()
@@ -958,6 +1013,23 @@ app.post('/api/products', authenticateToken, requireAdmin, (req, res, next) => {
     console.error('Product create error:', error);
     return res.status(500).json({ error: 'Greška pri kreiranju proizvoda' });
   }
+
+  // Save variants and features if provided
+  try {
+    const variants = JSON.parse(req.body.variants || '[]');
+    if (variants.length) {
+      await supabase.from('product_variants').insert(
+        variants.map((v, i) => ({ product_id: data.id, label: v.label, variant_type: v.variant_type || 'duration', price: parseFloat(v.price), original_price: v.original_price ? parseFloat(v.original_price) : null, sort_order: i }))
+      );
+    }
+    const features = JSON.parse(req.body.features || '[]');
+    if (features.length) {
+      await supabase.from('product_features').insert(
+        features.map((f, i) => ({ product_id: data.id, text_sr: f.text_sr, text_en: f.text_en || null, sort_order: i }))
+      );
+    }
+  } catch (e) { console.error('Variants/features save error:', e.message); }
+
   return res.status(201).json(data);
 });
 
@@ -989,6 +1061,7 @@ app.put('/api/products/:id', authenticateToken, requireAdmin, (req, res, next) =
   if (grid_order       !== undefined) updates.grid_order       = Number(grid_order);
   if (req.body.bonus_coupon_id !== undefined)  updates.bonus_coupon_id  = req.body.bonus_coupon_id || null;
   if (req.body.delivery_message !== undefined) updates.delivery_message = req.body.delivery_message || null;
+  if (req.body.warranty_text !== undefined) updates.warranty_text = req.body.warranty_text || null;
 
   // File upload takes priority; fall back to URL field; undefined = keep existing
   if (req.file) {
@@ -1014,6 +1087,29 @@ app.put('/api/products/:id', authenticateToken, requireAdmin, (req, res, next) =
     console.error('Product update error:', error);
     return res.status(500).json({ error: 'Greška pri ažuriranju' });
   }
+
+  // Update variants and features if provided
+  try {
+    if (req.body.variants !== undefined) {
+      await supabase.from('product_variants').delete().eq('product_id', id);
+      const variants = JSON.parse(req.body.variants || '[]');
+      if (variants.length) {
+        await supabase.from('product_variants').insert(
+          variants.map((v, i) => ({ product_id: id, label: v.label, variant_type: v.variant_type || 'duration', price: parseFloat(v.price), original_price: v.original_price ? parseFloat(v.original_price) : null, sort_order: i }))
+        );
+      }
+    }
+    if (req.body.features !== undefined) {
+      await supabase.from('product_features').delete().eq('product_id', id);
+      const features = JSON.parse(req.body.features || '[]');
+      if (features.length) {
+        await supabase.from('product_features').insert(
+          features.map((f, i) => ({ product_id: id, text_sr: f.text_sr, text_en: f.text_en || null, sort_order: i }))
+        );
+      }
+    }
+  } catch (e) { console.error('Variants/features update error:', e.message); }
+
   return res.json(data);
 });
 
@@ -1857,8 +1953,11 @@ app.get('/api/admin/chat/sessions/:id/guest-info', authenticateToken, checkPermi
 
 /** POST /api/checkout/apply-promo – public endpoint, validates a code */
 app.post('/api/checkout/apply-promo', async (req, res) => {
-  const { code, subtotal, cart_item_count } = req.body;
+  const { code, subtotal, cart_item_count, has_referral_discount } = req.body;
   if (!code) return res.status(400).json({ error: 'Unesite promo kod' });
+
+  // Prevent stacking referral + promo code
+  if (has_referral_discount) return res.status(400).json({ error: 'Ne možete koristiti promo kod zajedno sa referral popustom. Uklonite jedan od njih.' });
   if (!subtotal || subtotal <= 0) return res.status(400).json({ error: 'Nevažeći iznos narudžbe' });
 
   const { data: promoRow } = await supabase
@@ -1894,6 +1993,81 @@ app.post('/api/checkout/apply-promo', async (req, res) => {
       ? `Kod "${promoRow.code}" – popust ${promoRow.discount_value}% (−€${discount.toFixed(2)})`
       : `Kod "${promoRow.code}" – popust −€${discount.toFixed(2)}`,
   });
+});
+
+/* ─────────────────────────────────────────
+   ADMIN – ROLE BUILDER (Dynamic RBAC)
+───────────────────────────────────────── */
+
+/** GET /api/admin/roles – list all roles */
+app.get('/api/admin/roles', authenticateToken, requireAdmin, async (req, res) => {
+  const { data, error } = await supabase
+    .from('roles')
+    .select('*')
+    .order('power_level', { ascending: true });
+  if (error) return res.status(500).json({ error: 'Greška pri učitavanju rola' });
+  return res.json(data || []);
+});
+
+/** POST /api/admin/roles – create role (super_admin only) */
+app.post('/api/admin/roles', authenticateToken, checkPermission('can_manage_roles'), async (req, res) => {
+  const { name, power_level, permissions } = req.body;
+  if (!name) return res.status(400).json({ error: 'Naziv role je obavezan' });
+  if (power_level >= 100) return res.status(400).json({ error: 'Power level ne može biti 100 (rezervisano za Super Admin)' });
+
+  const { data, error } = await supabase.from('roles').insert({
+    name: name.trim(),
+    power_level: parseInt(power_level) || 10,
+    permissions: permissions || {},
+  }).select().single();
+
+  if (error) return res.status(500).json({ error: error.message.includes('unique') ? 'Rola sa tim imenom već postoji' : 'Greška pri kreiranju' });
+  return res.status(201).json(data);
+});
+
+/** PUT /api/admin/roles/:id – update role (super_admin only) */
+app.put('/api/admin/roles/:id', authenticateToken, checkPermission('can_manage_roles'), async (req, res) => {
+  const { name, power_level, permissions } = req.body;
+  const updates = {};
+  if (name) updates.name = name.trim();
+  if (power_level !== undefined) {
+    if (power_level >= 100) return res.status(400).json({ error: 'Power level ne može biti 100' });
+    updates.power_level = parseInt(power_level);
+  }
+  if (permissions !== undefined) updates.permissions = permissions;
+
+  const { data, error } = await supabase.from('roles').update(updates).eq('id', req.params.id).select().single();
+  if (error) return res.status(500).json({ error: 'Greška pri ažuriranju role' });
+  return res.json(data);
+});
+
+/** DELETE /api/admin/roles/:id – delete role (super_admin only, cannot delete default) */
+app.delete('/api/admin/roles/:id', authenticateToken, checkPermission('can_manage_roles'), async (req, res) => {
+  const { data: role } = await supabase.from('roles').select('is_default').eq('id', req.params.id).maybeSingle();
+  if (!role) return res.status(404).json({ error: 'Rola nije pronađena' });
+  if (role.is_default) return res.status(400).json({ error: 'Default rola se ne može obrisati' });
+
+  await supabase.from('roles').delete().eq('id', req.params.id);
+  return res.json({ ok: true });
+});
+
+/** PUT /api/admin/users/:id/role – assign role to user (copies permissions) */
+app.put('/api/admin/users/:id/role', authenticateToken, checkPermission('can_manage_roles'), async (req, res) => {
+  const { role_id } = req.body;
+  const { data: role } = await supabase.from('roles').select('*').eq('id', role_id).maybeSingle();
+  if (!role) return res.status(404).json({ error: 'Rola nije pronađena' });
+
+  const rankMap = { 100: 'super_admin', 90: 'admin' };
+  const rank = rankMap[role.power_level] || (role.power_level >= 50 ? 'admin' : 'user');
+  const userRole = role.power_level >= 50 ? 'admin' : 'user';
+
+  await supabase.from('users').update({
+    role: userRole,
+    rank: rank,
+    permissions: role.permissions || {},
+  }).eq('id', req.params.id);
+
+  return res.json({ ok: true, assigned_role: role.name });
 });
 
 /** GET /api/admin/promos */
@@ -2851,7 +3025,7 @@ app.get('/api/admin/transactions', authenticateToken, checkPermission('can_view_
 
   let query = supabase
     .from('transactions')
-    .select('id, user_id, product_name, amount, payment_method, status, tx_reference, license_key, buyer_email, ip_address_enc, created_at, users(name, email, avatar_url), payment_verifications(paypal_email, tx_hash, network)', { count: 'exact' })
+    .select('id, user_id, product_name, amount, payment_method, status, tx_reference, license_key, buyer_email, ip_address_enc, created_at', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -2864,17 +3038,34 @@ app.get('/api/admin/transactions', authenticateToken, checkPermission('can_view_
     return res.status(500).json({ error: 'Greška pri dohvatanju transakcija' });
   }
 
+  // Fetch user info (avatar, name, email) separately
+  const userIds = [...new Set((data || []).map(r => r.user_id).filter(Boolean))];
+  let userMap = {};
+  if (userIds.length) {
+    const { data: users } = await supabase.from('users').select('id, name, email, avatar_url').in('id', userIds);
+    if (users) users.forEach(u => { userMap[u.id] = u; });
+  }
+
+  // Fetch payment verification details (payer account) separately
+  const txIds = (data || []).map(r => r.id);
+  let pvMap = {};
+  if (txIds.length) {
+    const { data: pvs } = await supabase.from('payment_verifications').select('transaction_id, paypal_email, tx_hash, network').in('transaction_id', txIds);
+    if (pvs) pvs.forEach(pv => { pvMap[pv.transaction_id] = pv; });
+  }
+
   const transactions = (data || []).map(row => {
-    const pv = Array.isArray(row.payment_verifications) ? row.payment_verifications[0] : row.payment_verifications;
+    const u = row.user_id ? userMap[row.user_id] : null;
+    const pv = pvMap[row.id];
     let payer_account = null;
     if (pv?.paypal_email) payer_account = pv.paypal_email;
     else if (pv?.tx_hash) payer_account = (pv.network ? pv.network + ': ' : '') + pv.tx_hash;
 
     return {
       id:             row.id,
-      customer_name:  row.users?.name  || null,
-      customer_email: row.buyer_email  || row.users?.email || null,
-      avatar_url:     row.users?.avatar_url || null,
+      customer_name:  u?.name || null,
+      customer_email: row.buyer_email || u?.email || null,
+      avatar_url:     u?.avatar_url || null,
       product_name:   row.product_name,
       amount:         row.amount,
       payment_method: row.payment_method,
@@ -3467,6 +3658,51 @@ app.post('/api/products/:id/reviews', authenticateToken, async (req, res) => {
   }).select('id').single();
 
   if (error) return res.status(500).json({ error: 'Greška pri slanju recenzije' });
+
+  // Generate review reward promo code (5% discount, 3-day expiry, single use)
+  try {
+    const rewardCode = 'RVW-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+    const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: promo } = await supabase.from('promo_codes').insert({
+      code: rewardCode,
+      discount_type: 'percent',
+      discount_value: 5,
+      usage_limit: 1,
+      used_count: 0,
+      expires_at: expiresAt,
+    }).select('id').single();
+
+    if (promo) {
+      await supabase.from('user_coupons').insert({
+        user_id: req.user.id,
+        buyer_email: req.user.email || '',
+        promo_code_id: promo.id,
+        code: rewardCode,
+        source: 'purchase_bonus',
+      });
+
+      // Email the reward
+      const userEmail = req.user.email;
+      if (userEmail) {
+        sendMailSafe({
+          from: process.env.EMAIL_FROM || `"Keyify" <${process.env.EMAIL_USER}>`,
+          to: userEmail,
+          subject: '🎁 Keyify – Hvala na recenziji! Evo vašeg popusta',
+          html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;background:#f9fafb;border-radius:16px">
+            <h2 style="color:#111;margin:0 0 12px">Hvala na recenziji!</h2>
+            <p style="color:#6b7280;font-size:14px">Kao zahvalnost, evo vašeg ekskluzivnog promo koda sa <strong>5% popusta</strong>:</p>
+            <div style="background:#fff;border:2px solid #1D6AFF;border-radius:12px;padding:16px;text-align:center;margin:16px 0">
+              <div style="font-size:24px;font-weight:800;letter-spacing:3px;color:#1D6AFF">${rewardCode}</div>
+              <div style="font-size:11px;color:#9ca3af;margin-top:6px">Važi 3 dana · jednokratna upotreba</div>
+            </div>
+            <p style="color:#9ca3af;font-size:12px;text-align:center">Keyify tim</p>
+          </div>`,
+        }).catch(() => {});
+      }
+    }
+  } catch (e) { console.error('[review-reward]', e.message); }
+
   return res.status(201).json({ ok: true, review_id: review.id });
 });
 
@@ -3738,14 +3974,28 @@ app.get('/api/admin/verifications', authenticateToken, checkPermission('can_veri
   const status = req.query.status || null;
   let query = supabase
     .from('payment_verifications')
-    .select('*, transactions(id, product_name, amount, payment_method, license_key, buyer_email), users(name, avatar_url)')
+    .select('*, transactions(id, product_name, amount, payment_method, license_key, buyer_email)')
     .order('created_at', { ascending: false });
 
   if (status) query = query.eq('status', status);
 
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: 'Greška pri učitavanju verifikacija' });
-  return res.json(data || []);
+
+  // Fetch user avatars separately (ambiguous FK prevents join)
+  const userIds = [...new Set((data || []).map(v => v.user_id).filter(Boolean))];
+  let avatarMap = {};
+  if (userIds.length) {
+    const { data: users } = await supabase.from('users').select('id, name, avatar_url').in('id', userIds);
+    if (users) users.forEach(u => { avatarMap[u.id] = { name: u.name, avatar_url: u.avatar_url }; });
+  }
+
+  const result = (data || []).map(v => ({
+    ...v,
+    users: v.user_id ? avatarMap[v.user_id] || null : null,
+  }));
+
+  return res.json(result);
 });
 
 /** GET /api/admin/verifications/pending-count */

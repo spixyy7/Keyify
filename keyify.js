@@ -115,12 +115,18 @@ const KEYIFY = (() => {
 
     /* ── operations ── */
     add(product) {
+      // Normalize API fields to cart format
+      const p = { ...product };
+      if (!p.name) p.name = p.name_sr || p.name_en || 'Proizvod';
+      if (!p.imageUrl && p.image_url) p.imageUrl = p.image_url;
+      if (typeof p.price === 'string') p.price = parseFloat(p.price) || 0;
+
       const items = this._load();
-      const idx   = items.findIndex(i => i.id === product.id);
+      const idx   = items.findIndex(i => i.id === p.id);
       if (idx >= 0) {
         items[idx].qty = (items[idx].qty || 1) + 1;
       } else {
-        items.push({ ...product, qty: 1 });
+        items.push({ ...p, qty: 1 });
       }
       this._save(items);
       this.updateNavbarText();
@@ -248,7 +254,7 @@ const KEYIFY = (() => {
             </div>
             <!-- Info -->
             <div class="flex-1 min-w-0">
-              <p class="font-semibold text-gray-900 text-sm leading-tight truncate">${escHtml(item.name)}</p>
+              <p class="font-semibold text-gray-900 text-sm leading-tight truncate">${escHtml(item.name)}${item.variant_label ? ` <span class="text-xs font-normal text-gray-400">(${escHtml(item.variant_label)})</span>` : ''}</p>
               ${item.desc ? `<p class="text-xs text-gray-400 mt-0.5 truncate">${escHtml(item.desc)}</p>` : ''}
               <div class="flex items-center gap-2 mt-2">
                 <!-- Qty controls -->
@@ -492,12 +498,14 @@ const KEYIFY = (() => {
 
     const mc = document.createElement('div');
     mc.id = 'kf-minicart';
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     mc.style.cssText = `
       position:fixed; top:70px; right:16px; z-index:9990;
       width:380px; max-width:calc(100vw - 32px);
-      background:#fff; border-radius:20px;
-      border:1px solid rgba(0,0,0,0.06);
-      box-shadow:0 20px 60px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.08);
+      background:${isDark ? '#12121f' : '#fff'}; color:${isDark ? '#e2e8f0' : '#111'};
+      border-radius:20px;
+      border:1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'};
+      box-shadow:0 20px 60px rgba(0,0,0,${isDark ? '0.5' : '0.15'}), 0 4px 16px rgba(0,0,0,${isDark ? '0.3' : '0.08'});
       opacity:0; transform:translateY(-10px) scale(0.97);
       pointer-events:none;
       transition:opacity 0.25s cubic-bezier(.22,.68,0,1), transform 0.25s cubic-bezier(.22,.68,0,1);
@@ -505,34 +513,40 @@ const KEYIFY = (() => {
       overflow:hidden;
     `;
 
+    const cBorder = isDark ? 'rgba(255,255,255,0.08)' : '#f3f4f6';
+    const cText = isDark ? '#e2e8f0' : '#111';
+    const cMuted = isDark ? '#94a3b8' : '#6b7280';
+    const cBtnBg = isDark ? 'rgba(255,255,255,0.08)' : '#f3f4f6';
+    const cBtnHover = isDark ? 'rgba(255,255,255,0.15)' : '#e5e7eb';
+
     mc.innerHTML = `
       <!-- Header -->
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid #f3f4f6">
-        <h3 id="kf-mc-title" style="font-family:'Poppins',sans-serif;font-size:15px;font-weight:700;color:#111;margin:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid ${cBorder}">
+        <h3 id="kf-mc-title" style="font-family:'Poppins',sans-serif;font-size:15px;font-weight:700;color:${cText};margin:0">
           Korpa
         </h3>
-        <button id="kf-mc-close" style="width:28px;height:28px;border:none;background:#f3f4f6;border-radius:8px;cursor:pointer;font-size:13px;color:#6b7280;display:flex;align-items:center;justify-content:center;transition:all 0.15s"
-                onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">
+        <button id="kf-mc-close" style="width:28px;height:28px;border:none;background:${cBtnBg};border-radius:8px;cursor:pointer;font-size:13px;color:${cMuted};display:flex;align-items:center;justify-content:center;transition:all 0.15s"
+                onmouseover="this.style.background='${cBtnHover}'" onmouseout="this.style.background='${cBtnBg}'">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
 
       <!-- Items list -->
-      <div id="kf-mc-items" style="max-height:240px;overflow-y:auto;padding:8px 16px;scrollbar-width:thin;scrollbar-color:#e5e7eb transparent"></div>
+      <div id="kf-mc-items" style="max-height:240px;overflow-y:auto;padding:8px 16px;scrollbar-width:thin;scrollbar-color:${cBorder} transparent"></div>
 
       <!-- Empty state -->
       <div id="kf-mc-empty" style="display:none;text-align:center;padding:28px 16px">
         <svg style="width:48px;height:48px;color:#d1d5db;margin:0 auto 12px" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
           <path stroke-linecap="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
         </svg>
-        <p style="font-size:14px;font-weight:600;color:#6b7280;margin:0 0 4px">Korpa je prazna</p>
+        <p style="font-size:14px;font-weight:600;color:${cMuted};margin:0 0 4px">Korpa je prazna</p>
         <p style="font-size:12px;color:#9ca3af;margin:0">Dodajte proizvode da biste nastavili</p>
       </div>
 
       <!-- Footer: total + buttons -->
-      <div id="kf-mc-footer" style="border-top:1px solid #f3f4f6;padding:14px 20px">
+      <div id="kf-mc-footer" style="border-top:1px solid ${cBorder};padding:14px 20px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <span style="font-size:13px;color:#6b7280;font-weight:500">Ukupno</span>
+          <span style="font-size:13px;color:${cMuted};font-weight:500">Ukupno</span>
           <span id="kf-mc-total" style="font-size:16px;font-weight:800;background:linear-gradient(135deg,#1D6AFF,#A259FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent">€ 0,00</span>
         </div>
         <a href="cart.html" id="kf-mc-goto-cart"
@@ -544,14 +558,14 @@ const KEYIFY = (() => {
           Idi na korpu
         </a>
         <button id="kf-mc-continue"
-                style="width:100%;padding:10px;margin-top:8px;border:none;background:transparent;color:#6b7280;font-size:13px;font-weight:600;cursor:pointer;border-radius:10px;transition:all 0.15s"
-                onmouseover="this.style.background='#f3f4f6';this.style.color='#374151'" onmouseout="this.style.background='transparent';this.style.color='#6b7280'">
+                style="width:100%;padding:10px;margin-top:8px;border:none;background:transparent;color:${cMuted};font-size:13px;font-weight:600;cursor:pointer;border-radius:10px;transition:all 0.15s"
+                onmouseover="this.style.background='${cBtnBg}';this.style.color='${cText}'" onmouseout="this.style.background='transparent';this.style.color='${cMuted}'">
           Nastavi kupovinu
         </button>
       </div>
 
       <!-- You may also like -->
-      <div id="kf-mc-related" style="display:none;border-top:1px solid #f3f4f6;padding:14px 20px">
+      <div id="kf-mc-related" style="display:none;border-top:1px solid ${cBorder};padding:14px 20px">
         <p style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 10px">Mozda vas zanima</p>
         <div id="kf-mc-related-grid" style="display:flex;gap:10px"></div>
       </div>
@@ -587,9 +601,15 @@ const KEYIFY = (() => {
   }
 
   function _openMiniCart() {
-    const mc  = document.getElementById('kf-minicart');
+    let mc  = document.getElementById('kf-minicart');
     const btn = document.getElementById('kf-header-cart-btn');
-    if (!mc) return;
+
+    /* Safety: re-inject if element was removed or never created */
+    if (!mc) {
+      _injectMiniCart();
+      mc = document.getElementById('kf-minicart');
+      if (!mc) return;
+    }
 
     /* Position below the cart button */
     if (btn) {
@@ -599,8 +619,8 @@ const KEYIFY = (() => {
       mc.style.left  = 'auto';
     }
 
-    _renderMiniCartItems();
-    _loadMiniCartRelated();
+    try { _renderMiniCartItems(); } catch (e) { console.warn('[minicart] render error:', e); }
+    try { _loadMiniCartRelated(); } catch (e) { /* non-critical */ }
     mc.style.opacity = '1';
     mc.style.transform = 'translateY(0) scale(1)';
     mc.style.pointerEvents = 'auto';
@@ -638,30 +658,38 @@ const KEYIFY = (() => {
     emptyEl.style.display = 'none';
     footerEl.style.display = 'block';
 
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const mcText = isDark ? '#e2e8f0' : '#111';
+    const mcMuted = isDark ? '#94a3b8' : '#6b7280';
+    const mcBorder = isDark ? 'rgba(255,255,255,0.06)' : '#f9fafb';
+    const mcQtyBorder = isDark ? 'rgba(255,255,255,0.12)' : '#e5e7eb';
+    const mcBtnHover = isDark ? 'rgba(255,255,255,0.08)' : '#f3f4f6';
+
     container.innerHTML = items.map(item => {
       const qty = item.qty || 1;
       const subtotal = (item.price * qty).toFixed(2).replace('.', ',');
       const iconBg = item.color || '#1D6AFF';
+      const variantTag = item.variant_label ? `<span style="font-size:10px;color:${mcMuted};font-weight:500;margin-left:4px">(${escHtml(item.variant_label)})</span>` : '';
       return `
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f9fafb" data-mc-id="${escAttr(item.id)}">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid ${mcBorder}" data-mc-id="${escAttr(item.id)}">
           <div style="flex-shrink:0;width:44px;height:44px;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:${item.imageUrl ? 'linear-gradient(145deg,#0f0f1a,#1a1a2e)' : `linear-gradient(135deg,${iconBg},${iconBg}aa)`}">
             ${item.imageUrl
-              ? `<img src="${escAttr(item.imageUrl)}" alt="${escAttr(item.name)}" style="width:44px;height:44px;object-fit:contain;padding:4px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))"/>`
+              ? `<img src="${escAttr(item.imageUrl)}" alt="${escAttr(item.name)}" style="width:44px;height:44px;object-fit:cover;border-radius:10px"/>`
               : `<span style="color:#fff;font-weight:700;font-size:16px;font-family:'Poppins',sans-serif">${escHtml(item.name.charAt(0))}</span>`}
           </div>
           <div style="flex:1;min-width:0">
-            <p style="font-size:13px;font-weight:600;color:#111;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.name)}</p>
+            <p style="font-size:13px;font-weight:600;color:${mcText};margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.name)}${variantTag}</p>
             <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-              <div style="display:inline-flex;align-items:center;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+              <div style="display:inline-flex;align-items:center;border:1px solid ${mcQtyBorder};border-radius:8px;overflow:hidden">
                 <button onclick="event.stopPropagation();KEYIFY.CART.setQty('${escAttr(item.id)}',${qty - 1})"
-                        style="width:24px;height:24px;border:none;background:transparent;color:#6b7280;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;transition:background 0.15s"
-                        onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">−</button>
-                <span style="width:26px;text-align:center;font-size:12px;font-weight:600;color:#111;user-select:none">${qty}</span>
+                        style="width:24px;height:24px;border:none;background:transparent;color:${mcMuted};cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;transition:background 0.15s"
+                        onmouseover="this.style.background='${mcBtnHover}'" onmouseout="this.style.background='transparent'">−</button>
+                <span style="width:26px;text-align:center;font-size:12px;font-weight:600;color:${mcText};user-select:none">${qty}</span>
                 <button onclick="event.stopPropagation();KEYIFY.CART.setQty('${escAttr(item.id)}',${qty + 1})"
-                        style="width:24px;height:24px;border:none;background:transparent;color:#6b7280;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;transition:background 0.15s"
-                        onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">+</button>
+                        style="width:24px;height:24px;border:none;background:transparent;color:${mcMuted};cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;transition:background 0.15s"
+                        onmouseover="this.style.background='${mcBtnHover}'" onmouseout="this.style.background='transparent'">+</button>
               </div>
-              <span style="font-size:12px;font-weight:700;color:#111">€ ${subtotal}</span>
+              <span style="font-size:12px;font-weight:700;color:${mcText}">€ ${subtotal}</span>
             </div>
           </div>
           <div style="display:flex;align-items:center;flex-shrink:0">
@@ -882,6 +910,7 @@ const KEYIFY = (() => {
     const isSuperAdmin   = role === 'admin' && Object.keys(perms).length === 0;
     const isSupportAgent = role === 'admin' && (isSuperAdmin || perms.can_manage_support === true);
     const canSQL         = role === 'admin' && (isSuperAdmin || perms.can_execute_sql === true);
+    const canEditor      = role === 'admin' && (isSuperAdmin || perms.can_use_editor === true);
 
     /* ── Inject one-time styles ── */
     if (!document.getElementById('kf-dd-style')) {
@@ -934,12 +963,18 @@ const KEYIFY = (() => {
         <span style="font-size:16px;line-height:1;flex-shrink:0">🗄️</span>SQL Editor
       </a>` : '';
 
+    const editorItem = canEditor ? `
+      <a href="#" id="kf-editor-toggle" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:600;color:#10b981;text-decoration:none;">
+        <span style="font-size:16px;line-height:1;flex-shrink:0">🎨</span>Live Editor
+      </a>` : '';
+
     const adminItem = role === 'admin' ? `
       <div style="height:1px;background:var(--kf-dd-divider);margin:3px 0"></div>
       <a href="admin.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:700;color:#1D6AFF;text-decoration:none;">
         <span style="font-size:16px;line-height:1;flex-shrink:0">💻</span>Admin Panel
       </a>
-      ${sqlItem}` : '';
+      ${sqlItem}
+      ${editorItem}` : '';
 
     const inboxItem = isSupportAgent ? `
       <a href="support-inbox.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:600;color:#10b981;text-decoration:none;">
@@ -988,6 +1023,28 @@ const KEYIFY = (() => {
       _closeDD();
       _openOrdersModal(token, API_BASE);
     });
+
+    /* ── Live Editor toggle ── */
+    const editorBtn = panel.querySelector('#kf-editor-toggle');
+    if (editorBtn) {
+      const editorActive = localStorage.getItem('keyify_editor_active') === 'true';
+      if (editorActive) {
+        editorBtn.innerHTML = '<span style="font-size:16px;line-height:1;flex-shrink:0">🎨</span>Live Editor <span style="margin-left:auto;font-size:10px;font-weight:700;color:#fff;background:#10b981;padding:2px 7px;border-radius:6px">ON</span>';
+      }
+      editorBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const isOn = localStorage.getItem('keyify_editor_active') === 'true';
+        if (isOn) {
+          localStorage.removeItem('keyify_editor_active');
+          editorBtn.innerHTML = '<span style="font-size:16px;line-height:1;flex-shrink:0">🎨</span>Live Editor';
+        } else {
+          localStorage.setItem('keyify_editor_active', 'true');
+          editorBtn.innerHTML = '<span style="font-size:16px;line-height:1;flex-shrink:0">🎨</span>Live Editor <span style="margin-left:auto;font-size:10px;font-weight:700;color:#fff;background:#10b981;padding:2px 7px;border-radius:6px">ON</span>';
+        }
+        _closeDD();
+        window.location.reload();
+      });
+    }
 
     /* ── Logout button ── */
     panel.querySelector('#kf-logout-btn').addEventListener('click', () => _logout());
@@ -1554,6 +1611,25 @@ const KEYIFY = (() => {
   }
 
   /* ─────────────────────────────────────────────────────────
+     SOCIAL LINKS LOADER
+  ───────────────────────────────────────────────────────── */
+  async function _loadSocialLinks() {
+    const fb = document.getElementById('footer-fb');
+    const tw = document.getElementById('footer-tw');
+    const ig = document.getElementById('footer-ig');
+    if (!fb && !tw && !ig) return;
+    try {
+      const base = (window.KEYIFY_CONFIG && window.KEYIFY_CONFIG.API_BASE) || 'http://localhost:3001/api';
+      const res = await fetch(`${base}/public/social-links`);
+      if (!res.ok) return;
+      const d = await res.json();
+      if (fb && d.facebook_url)  { fb.href = d.facebook_url;  fb.target = '_blank'; fb.rel = 'noopener'; }
+      if (tw && d.twitter_url)   { tw.href = d.twitter_url;   tw.target = '_blank'; tw.rel = 'noopener'; }
+      if (ig && d.instagram_url) { ig.href = d.instagram_url;  ig.target = '_blank'; ig.rel = 'noopener'; }
+    } catch { /* silent */ }
+  }
+
+  /* ─────────────────────────────────────────────────────────
      INIT
   ───────────────────────────────────────────────────────── */
   function init() {
@@ -1567,6 +1643,7 @@ const KEYIFY = (() => {
     LANG.apply();
     CART.updateNavbarText();
     CART._renderDrawerItems();
+    _loadSocialLinks();
 
     /* Re-wire on any dynamic DOM changes (e.g. API-loaded products) */
     const obs = new MutationObserver(() => _wireProductButtons());

@@ -366,13 +366,13 @@
                     <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M6 12h12M9 17h6"/>
                     </svg>
-                    <select class="text-sm text-gray-700 font-medium bg-transparent border-none outline-none cursor-pointer w-full">
-                        <option>Sortiraj: Preporučeno</option>
-                        <option>Cijena: Niža → Viša</option>
-                        <option>Cijena: Viša → Niža</option>
-                        <option>Najpopularnije</option>
-                        <option>Najnovije</option>
-                        <option>Popust %</option>
+                    <select id="sort-select" class="text-sm text-gray-700 font-medium bg-transparent border-none outline-none cursor-pointer w-full">
+                        <option value="default">Sortiraj: Preporučeno</option>
+                        <option value="price-asc">Cijena: Niža → Viša</option>
+                        <option value="price-desc">Cijena: Viša → Niža</option>
+                        <option value="popular">Najpopularnije</option>
+                        <option value="newest">Najnovije</option>
+                        <option value="discount">Popust %</option>
                     </select>
                 </div>
 
@@ -424,13 +424,13 @@
                     Vaš pouzdani izvor originalnih digitalnih ključeva i pretplata po najboljim cijenama na tržištu.
                 </p>
                 <div class="flex gap-3">
-                    <a href="#" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-blue-600 flex items-center justify-center transition-colors">
+                    <a href="#" id="footer-fb" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-blue-600 flex items-center justify-center transition-colors">
                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
                     </a>
-                    <a href="#" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-blue-400 flex items-center justify-center transition-colors">
+                    <a href="#" id="footer-tw" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-blue-400 flex items-center justify-center transition-colors">
                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
                     </a>
-                    <a href="#" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-pink-600 flex items-center justify-center transition-colors">
+                    <a href="#" id="footer-ig" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-pink-600 flex items-center justify-center transition-colors">
                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
                     </a>
                 </div>
@@ -590,19 +590,38 @@
   var grid = document.getElementById('product-grid');
   grid.innerHTML = '<div class="col-span-full flex flex-col items-center py-16 text-gray-400">' + SPINNER + '<p class="text-sm font-medium mt-2">Učitavanje proizvoda...</p></div>';
 
+  var _allProducts = [];
+  var apiBase = (window.KEYIFY_CONFIG && window.KEYIFY_CONFIG.API_BASE) || 'http://localhost:3001/api';
+  var lang    = localStorage.getItem('keyify_lang') || 'sr';
+
   try {
-    var apiBase = (window.KEYIFY_CONFIG && window.KEYIFY_CONFIG.API_BASE) || 'http://localhost:3001/api';
-    var lang    = localStorage.getItem('keyify_lang') || 'sr';
     var res     = await fetch(apiBase + '/products?category=' + CATEGORY);
     if (!res.ok) throw new Error('api');
-    var products = await res.json();
+    _allProducts = await res.json();
 
-    if (!products.length) {
+    if (!_allProducts.length) {
       grid.innerHTML = '<div class="col-span-full text-center py-16 text-gray-400 text-sm">Nema dostupnih proizvoda.</div>';
       return;
     }
 
+    renderAll(_allProducts);
+
+    document.getElementById('sort-select').addEventListener('change', function() {
+      var sorted = _allProducts.slice();
+      switch (this.value) {
+        case 'price-asc':  sorted.sort(function(a,b){ return parseFloat(a.price) - parseFloat(b.price); }); break;
+        case 'price-desc': sorted.sort(function(a,b){ return parseFloat(b.price) - parseFloat(a.price); }); break;
+        case 'popular':    sorted.sort(function(a,b){ return (parseInt(b.stars)||5) - (parseInt(a.stars)||5); }); break;
+        case 'newest':     sorted.sort(function(a,b){ return new Date(b.created_at) - new Date(a.created_at); }); break;
+        case 'discount':   sorted.sort(function(a,b){ var da = a.original_price ? (1 - a.price/a.original_price) : 0; var db = b.original_price ? (1 - b.price/b.original_price) : 0; return db - da; }); break;
+        default: break;
+      }
+      renderAll(sorted);
+    });
+
+  function renderAll(products) {
     grid.innerHTML = products.map(function(p, i) { return renderCard(p, i, lang); }).join('');
+  } // end renderAll
 
   } catch(e) {
     grid.innerHTML = '<div class="col-span-full text-center py-16 text-red-400 text-sm font-medium">Greška pri učitavanju. Pokušajte ponovo.</div>';
@@ -615,20 +634,27 @@
     var price = parseFloat(p.price).toFixed(2);
     var orig  = p.original_price ? parseFloat(p.original_price).toFixed(2) : null;
     var disc  = orig ? Math.round((1 - p.price / p.original_price) * 100) : 0;
+    var hasRange = p.min_variant_price && p.max_variant_price && p.min_variant_price !== p.max_variant_price;
 
     var badgeHtml = p.badge
       ? '<div class="absolute top-3 left-3 z-20 kve-badge-wrap"><span class="' + (BADGE_MAP[p.badge] || 'bg-gray-600 text-white') + ' text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full shadow">' + h(p.badge) + '</span></div>'
       : '';
 
     var imgHtml = p.image_url
-      ? '<img src="' + h(p.image_url) + '" class="max-h-24 w-auto object-contain" alt="' + h(name) + '">'
+      ? '<img src="' + h(p.image_url) + '" class="w-full h-full object-cover rounded-lg" alt="' + h(name) + '" style="max-height:140px">'
       : '<div class="w-14 h-14 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,' + color + ',' + color + '99)"><span class="text-2xl font-black text-white">' + h(name.charAt(0)) + '</span></div>';
 
     var dataProduct = ea(JSON.stringify({id:p.id, name:name, name_en:p.name_en||name, price:parseFloat(p.price), desc:desc, desc_en:p.description_en||desc, color:color, category:CATEGORY, imageUrl:p.image_url||null}));
 
-    var priceRow = (orig ? '<span class="text-xs text-gray-400 line-through">\u20ac ' + orig + '</span>' : '')
-      + '<span class="text-base font-bold text-blue-600">\u20ac ' + price + '</span>'
-      + (disc > 0 ? '<span class="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">-' + disc + '%</span>' : '');
+    var priceRow;
+    if (hasRange) {
+      priceRow = '<span class="text-xs text-gray-400">Od</span> <span class="text-base font-bold text-blue-600">\u20ac ' + parseFloat(p.min_variant_price).toFixed(2) + '</span>'
+        + ' <span class="text-xs text-gray-400">do</span> <span class="text-base font-bold text-blue-600">\u20ac ' + parseFloat(p.max_variant_price).toFixed(2) + '</span>';
+    } else {
+      priceRow = (orig ? '<span class="text-xs text-gray-400 line-through">\u20ac ' + orig + '</span>' : '')
+        + '<span class="text-base font-bold text-blue-600">\u20ac ' + price + '</span>'
+        + (disc > 0 ? '<span class="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">-' + disc + '%</span>' : '');
+    }
 
     return '<div class="product-card card-animate bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">'
       + '<div class="relative rounded-2xl m-3 overflow-hidden" style="background:linear-gradient(145deg,#0f0f1a,#1a1a2e);height:220px">'

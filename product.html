@@ -56,8 +56,42 @@
             background: radial-gradient(circle, rgba(29,106,255,0.35), transparent); filter: blur(40px);
         }
         .pdp-image-wrap img { position: relative; z-index: 1; max-height: 320px; object-fit: contain;
-            filter: drop-shadow(0 12px 32px rgba(0,0,0,0.5)); transition: transform .3s; }
-        .pdp-image-wrap:hover img { transform: scale(1.03); }
+            filter: drop-shadow(0 12px 32px rgba(0,0,0,0.5)); transition: transform .3s ease; transform-origin: center center; }
+        .pdp-image-wrap.zooming img { transform: scale(2); cursor: zoom-out; }
+
+        /* Variants / Packages */
+        .variant-group { display: flex; flex-wrap: wrap; gap: 10px; }
+        .variant-btn {
+            position: relative; padding: 12px 20px; border: 2px solid #e5e7eb; border-radius: 14px;
+            background: #fff; cursor: pointer; transition: all .2s; text-align: center; min-width: 120px;
+        }
+        .variant-btn:hover { border-color: #93c5fd; }
+        .variant-btn.active { border-color: #1D6AFF; background: rgba(29,106,255,0.04); box-shadow: 0 0 0 3px rgba(29,106,255,0.1); }
+        .variant-btn .vb-label { font-size: 13px; font-weight: 600; color: #374151; }
+        .variant-btn .vb-price { font-size: 15px; font-weight: 700; color: #111827; margin-top: 2px; }
+        .variant-btn .vb-orig { font-size: 11px; color: #9ca3af; text-decoration: line-through; }
+
+        /* Features checkmark list */
+        .feature-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; }
+        .feature-check { width: 22px; height: 22px; border-radius: 50%; background: #dcfce7; display: flex; align-items: center;
+            justify-content: center; flex-shrink: 0; margin-top: 1px; }
+        .feature-check svg { width: 13px; height: 13px; color: #16a34a; }
+
+        /* Tabs */
+        .pdp-tabs { display: flex; gap: 0; border-bottom: 2px solid #f0f0f4; margin-bottom: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .pdp-tabs::-webkit-scrollbar { display: none; }
+        .pdp-tab {
+            padding: 14px 24px; font-size: 14px; font-weight: 600; color: #6b7280; cursor: pointer;
+            border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .2s; user-select: none; white-space: nowrap; flex-shrink: 0;
+        }
+        @media (max-width: 640px) {
+            .pdp-tab { padding: 12px 16px; font-size: 13px; }
+            .crop-container { width: 280px !important; height: 280px !important; }
+        }
+        .pdp-tab:hover { color: #374151; }
+        .pdp-tab.active { color: #1D6AFF; border-bottom-color: #1D6AFF; }
+        .pdp-tab-content { display: none; }
+        .pdp-tab-content.active { display: block; }
         .pdp-badge-row { display: flex; gap: 8px; flex-wrap: wrap; }
         .pdp-badge {
             display: flex; align-items: center; gap: 6px; padding: 6px 14px;
@@ -215,8 +249,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 mb-16">
 
             <!-- Left: Image -->
-            <div class="pdp-image-wrap flex items-center justify-center p-8" style="min-height:380px"
-                 onclick="document.getElementById('pdp-lightbox').classList.add('open')">
+            <div class="pdp-image-wrap flex items-center justify-center p-8" style="min-height:380px">
                 <img id="pdp-img" src="" alt="" class="relative z-10" style="max-width:85%">
                 <div id="pdp-img-placeholder" class="hidden relative z-10 w-28 h-28 rounded-3xl flex items-center justify-center text-white text-5xl font-bold font-display shadow-2xl"
                      style="background:linear-gradient(135deg,#1D6AFF,#A259FF)"></div>
@@ -255,10 +288,21 @@
                 </div>
 
                 <!-- Price -->
-                <div class="flex items-center gap-3 mb-6">
+                <div class="flex items-center gap-3 mb-4">
                     <span class="font-display font-extrabold text-4xl text-gray-900" id="pdp-price"></span>
                     <span class="text-lg text-gray-400 line-through hidden" id="pdp-orig-price"></span>
                     <span class="bg-green-100 text-green-700 text-xs font-bold px-2.5 py-1 rounded-full hidden" id="pdp-discount"></span>
+                </div>
+
+                <!-- Variants / Packages (populated by JS if product has variants) -->
+                <div id="pdp-variants-section" class="mb-5" style="display:none">
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2" id="pdp-variants-label">Izaberite paket</p>
+                    <div class="variant-group" id="pdp-variants"></div>
+                </div>
+
+                <!-- Features checklist (populated by JS if product has features) -->
+                <div id="pdp-features-section" class="mb-5" style="display:none">
+                    <div id="pdp-features-list"></div>
                 </div>
 
                 <!-- Category tag -->
@@ -277,80 +321,148 @@
             </div>
         </div>
 
-        <!-- Description + Specs -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-10 mb-16">
-
-            <!-- Description (2/3) -->
-            <div class="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-8 shadow-sm">
-                <h2 class="font-display font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
-                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                    Opis proizvoda
-                </h2>
-                <div class="text-gray-600 text-sm leading-relaxed space-y-3" id="pdp-description"></div>
-            </div>
-
-            <!-- Specs (1/3) -->
-            <div class="bg-white rounded-2xl border border-gray-100 p-8 shadow-sm">
-                <h2 class="font-display font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
-                    <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.573-1.066z"/><circle cx="12" cy="12" r="3"/></svg>
-                    Specifikacije
-                </h2>
-                <div id="pdp-specs">
-                    <div class="pdp-spec-row"><span class="pdp-spec-label">Kategorija</span><span class="pdp-spec-value" id="spec-category"></span></div>
-                    <div class="pdp-spec-row"><span class="pdp-spec-label">Region</span><span class="pdp-spec-value">Global</span></div>
-                    <div class="pdp-spec-row"><span class="pdp-spec-label">Dostava</span><span class="pdp-spec-value">Instant (Email)</span></div>
-                    <div class="pdp-spec-row"><span class="pdp-spec-label">Tip</span><span class="pdp-spec-value">Digitalni kljuc</span></div>
-                    <div class="pdp-spec-row" style="border:none"><span class="pdp-spec-label">Garancija</span><span class="pdp-spec-value">Da</span></div>
+        <!-- ── TABS ── -->
+        <div class="mb-16">
+            <div class="pdp-tabs">
+                <div class="pdp-tab active" data-tab="opis" onclick="switchPdpTab('opis')">
+                    <span class="flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        Opis
+                    </span>
+                </div>
+                <div class="pdp-tab" data-tab="recenzije" onclick="switchPdpTab('recenzije')">
+                    <span class="flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                        Recenzije <span id="pdp-review-count" class="text-xs font-normal text-gray-400 ml-0.5"></span>
+                    </span>
+                </div>
+                <div class="pdp-tab" data-tab="garancija" onclick="switchPdpTab('garancija')">
+                    <span class="flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                        Garancija
+                    </span>
                 </div>
             </div>
-        </div>
 
-        <!-- ── REVIEWS SECTION ── -->
-        <div class="mb-16" id="pdp-reviews-section">
-            <h2 class="font-display font-bold text-xl text-gray-900 mb-6 flex items-center gap-2">
-                <svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                Recenzije korisnika
-                <span id="pdp-review-count" class="text-sm font-normal text-gray-400 ml-1"></span>
-            </h2>
-
-            <!-- Average + distribution -->
-            <div id="pdp-review-summary" class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm mb-6" style="display:none">
-                <div class="flex flex-col sm:flex-row gap-6 items-center sm:items-start">
-                    <div class="text-center">
-                        <div id="pdp-avg-rating" class="text-4xl font-bold text-gray-900">0</div>
-                        <div id="pdp-avg-stars" class="text-yellow-400 text-lg my-1"></div>
-                        <div class="text-xs text-gray-400"><span id="pdp-total-reviews">0</span> recenzija</div>
+            <!-- Tab: Opis (Description + Specs) -->
+            <div class="pdp-tab-content active" id="tab-opis">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-10 pt-8">
+                    <div class="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-8 shadow-sm">
+                        <h2 class="font-display font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            Opis proizvoda
+                        </h2>
+                        <div class="text-gray-600 text-sm leading-relaxed space-y-3" id="pdp-description"></div>
                     </div>
-                    <div class="flex-1 space-y-1.5 w-full max-w-xs">
-                        <div class="flex items-center gap-2 text-xs" id="pdp-dist-5"></div>
-                        <div class="flex items-center gap-2 text-xs" id="pdp-dist-4"></div>
-                        <div class="flex items-center gap-2 text-xs" id="pdp-dist-3"></div>
-                        <div class="flex items-center gap-2 text-xs" id="pdp-dist-2"></div>
-                        <div class="flex items-center gap-2 text-xs" id="pdp-dist-1"></div>
+                    <div class="bg-white rounded-2xl border border-gray-100 p-8 shadow-sm">
+                        <h2 class="font-display font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.573-1.066z"/><circle cx="12" cy="12" r="3"/></svg>
+                            Specifikacije
+                        </h2>
+                        <div id="pdp-specs">
+                            <div class="pdp-spec-row"><span class="pdp-spec-label">Kategorija</span><span class="pdp-spec-value" id="spec-category"></span></div>
+                            <div class="pdp-spec-row"><span class="pdp-spec-label">Region</span><span class="pdp-spec-value">Global</span></div>
+                            <div class="pdp-spec-row"><span class="pdp-spec-label">Dostava</span><span class="pdp-spec-value">Instant (Email)</span></div>
+                            <div class="pdp-spec-row"><span class="pdp-spec-label">Tip</span><span class="pdp-spec-value">Digitalni kljuc</span></div>
+                            <div class="pdp-spec-row" style="border:none"><span class="pdp-spec-label">Garancija</span><span class="pdp-spec-value">Da</span></div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Write review form (logged in + purchased) -->
-            <div id="pdp-write-review" class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm mb-6" style="display:none">
-                <h3 class="font-display font-semibold text-gray-800 text-sm mb-4">Napišite recenziju</h3>
-                <div class="flex gap-1 mb-3" id="pdp-star-picker">
-                    <button type="button" onclick="setReviewRating(1)" class="text-2xl text-gray-300 hover:text-yellow-400 transition-colors">★</button>
-                    <button type="button" onclick="setReviewRating(2)" class="text-2xl text-gray-300 hover:text-yellow-400 transition-colors">★</button>
-                    <button type="button" onclick="setReviewRating(3)" class="text-2xl text-gray-300 hover:text-yellow-400 transition-colors">★</button>
-                    <button type="button" onclick="setReviewRating(4)" class="text-2xl text-gray-300 hover:text-yellow-400 transition-colors">★</button>
-                    <button type="button" onclick="setReviewRating(5)" class="text-2xl text-gray-300 hover:text-yellow-400 transition-colors">★</button>
+            <!-- Tab: Recenzije (two-column layout) -->
+            <div class="pdp-tab-content" id="tab-recenzije">
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 pt-8" id="pdp-reviews-section">
+                    <!-- Left: Summary + Reviews list (3/5) -->
+                    <div class="lg:col-span-3">
+                        <!-- Average + distribution -->
+                        <div id="pdp-review-summary" class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm mb-6" style="display:none">
+                            <div class="flex flex-col sm:flex-row gap-6 items-center sm:items-start">
+                                <div class="text-center">
+                                    <div id="pdp-avg-rating" class="text-4xl font-bold text-gray-900">0</div>
+                                    <div id="pdp-avg-stars" class="text-yellow-400 text-lg my-1"></div>
+                                    <div class="text-xs text-gray-400"><span id="pdp-total-reviews">0</span> recenzija</div>
+                                </div>
+                                <div class="flex-1 space-y-1.5 w-full max-w-xs">
+                                    <div class="flex items-center gap-2 text-xs" id="pdp-dist-5"></div>
+                                    <div class="flex items-center gap-2 text-xs" id="pdp-dist-4"></div>
+                                    <div class="flex items-center gap-2 text-xs" id="pdp-dist-3"></div>
+                                    <div class="flex items-center gap-2 text-xs" id="pdp-dist-2"></div>
+                                    <div class="flex items-center gap-2 text-xs" id="pdp-dist-1"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Reviews list -->
+                        <div id="pdp-reviews-list" class="space-y-4">
+                            <p class="text-sm text-gray-400 italic">Učitavanje recenzija...</p>
+                        </div>
+                    </div>
+
+                    <!-- Right: Write review form (2/5) -->
+                    <div class="lg:col-span-2">
+                        <div id="pdp-write-review" class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm sticky top-20" style="display:none">
+                            <h3 class="font-display font-semibold text-gray-800 text-sm mb-4">Napišite recenziju</h3>
+                            <div class="flex gap-1 mb-3" id="pdp-star-picker">
+                                <button type="button" onclick="setReviewRating(1)" class="text-2xl text-gray-300 hover:text-yellow-400 transition-colors">&#9733;</button>
+                                <button type="button" onclick="setReviewRating(2)" class="text-2xl text-gray-300 hover:text-yellow-400 transition-colors">&#9733;</button>
+                                <button type="button" onclick="setReviewRating(3)" class="text-2xl text-gray-300 hover:text-yellow-400 transition-colors">&#9733;</button>
+                                <button type="button" onclick="setReviewRating(4)" class="text-2xl text-gray-300 hover:text-yellow-400 transition-colors">&#9733;</button>
+                                <button type="button" onclick="setReviewRating(5)" class="text-2xl text-gray-300 hover:text-yellow-400 transition-colors">&#9733;</button>
+                            </div>
+                            <textarea id="pdp-review-text" rows="4" placeholder="Napišite vaše iskustvo sa ovim proizvodom..."
+                                class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-blue-400 resize-none mb-3"></textarea>
+                            <div id="pdp-review-msg" class="text-sm mb-2" style="display:none"></div>
+                            <button onclick="submitReview()" class="w-full px-5 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:shadow-lg"
+                                style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">Pošalji recenziju</button>
+                        </div>
+                        <div id="pdp-write-review-placeholder" class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm text-center">
+                            <div class="text-3xl mb-2">&#9997;</div>
+                            <p class="text-sm text-gray-500">Kupite ovaj proizvod da biste ostavili recenziju.</p>
+                        </div>
+                    </div>
                 </div>
-                <textarea id="pdp-review-text" rows="3" placeholder="Napišite vaše iskustvo sa ovim proizvodom..."
-                    class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-blue-400 resize-none mb-3"></textarea>
-                <div id="pdp-review-msg" class="text-sm mb-2" style="display:none"></div>
-                <button onclick="submitReview()" class="px-5 py-2 rounded-xl text-white text-sm font-semibold"
-                    style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">Pošalji recenziju</button>
             </div>
 
-            <!-- Reviews list -->
-            <div id="pdp-reviews-list" class="space-y-4">
-                <p class="text-sm text-gray-400 italic">Učitavanje recenzija...</p>
+            <!-- Tab: Garancija -->
+            <div class="pdp-tab-content" id="tab-garancija">
+                <div class="pt-8">
+                    <!-- Custom warranty text (from admin) -->
+                    <div id="pdp-custom-warranty" class="bg-blue-50 rounded-2xl border border-blue-100 p-6 shadow-sm max-w-3xl mb-6" style="display:none">
+                        <div class="flex items-start gap-3">
+                            <div class="feature-check" style="background:#dbeafe"><svg fill="none" stroke="#2563eb" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
+                            <div id="pdp-warranty-text" class="text-sm text-gray-700 leading-relaxed"></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-gray-100 p-8 shadow-sm max-w-3xl">
+                        <div class="flex items-start gap-4 mb-6">
+                            <div class="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center flex-shrink-0">
+                                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                            </div>
+                            <div>
+                                <h3 class="font-display font-bold text-lg text-gray-900 mb-1">Keyify Garancija</h3>
+                                <p class="text-sm text-gray-500">Svaki proizvod na Keyify platformi dolazi sa nasim garantovanim obećanjem kvaliteta.</p>
+                            </div>
+                        </div>
+                        <div class="space-y-4 text-sm text-gray-600 leading-relaxed">
+                            <div class="flex items-start gap-3">
+                                <div class="feature-check"><svg fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
+                                <p><strong class="text-gray-800">100% Originalni kljucevi</strong> — Svi nasi proizvodi su originalni i legalni. Garantujemo autenticnost svakog kljuca.</p>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <div class="feature-check"><svg fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
+                                <p><strong class="text-gray-800">Instant dostava</strong> — Kljuc dobijate na email odmah nakon potvrde uplate. Bez cekanja.</p>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <div class="feature-check"><svg fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
+                                <p><strong class="text-gray-800">Zamjena u slucaju problema</strong> — Ako kljuc ne radi, kontaktirajte nas i dobicete zamjenu ili povrat novca u roku od 24h.</p>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <div class="feature-check"><svg fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
+                                <p><strong class="text-gray-800">24/7 Podrska</strong> — Nas tim za podrsku je dostupan non-stop putem live chata i email-a.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -398,13 +510,25 @@
     const STAR_SVG = '<svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
     const EMPTY_STAR = '<svg class="w-4 h-4 text-gray-300" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
 
+    // Tab switching
+    window.switchPdpTab = function(tab) {
+        document.querySelectorAll('.pdp-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+        document.querySelectorAll('.pdp-tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
+    };
+
+    // Track current product data + selected variant for cart
+    let _currentProduct = null;
+    let _selectedVariant = null;
+
     if (!productId) { showError(); return; }
 
     try {
         const res = await fetch(`${apiBase}/products/${productId}`);
         if (!res.ok) throw new Error();
         const p = await res.json();
+        _currentProduct = p;
         renderProduct(p);
+        initImageZoom();
         loadRelated(p);
         loadReviews(productId);
     } catch {
@@ -471,6 +595,45 @@
             }
         }
 
+        // Variants / Packages
+        if (p.variants && p.variants.length > 0) {
+            const sec = document.getElementById('pdp-variants-section');
+            sec.style.display = 'block';
+            const container = document.getElementById('pdp-variants');
+            container.innerHTML = p.variants.map((v, i) => {
+                const origHtml = v.original_price ? `<div class="vb-orig">&euro; ${parseFloat(v.original_price).toFixed(2)}</div>` : '';
+                return `<div class="variant-btn${i === 0 ? ' active' : ''}" data-idx="${i}" onclick="selectVariant(${i})">
+                    <div class="vb-label">${h(v.label)}</div>
+                    <div class="vb-price">&euro; ${parseFloat(v.price).toFixed(2)}</div>
+                    ${origHtml}
+                </div>`;
+            }).join('');
+            // Auto-select first variant
+            _selectedVariant = p.variants[0];
+            updatePriceDisplay(_selectedVariant.price, _selectedVariant.original_price);
+        }
+
+        // Features checklist
+        if (p.features && p.features.length > 0) {
+            const sec = document.getElementById('pdp-features-section');
+            sec.style.display = 'block';
+            const list = document.getElementById('pdp-features-list');
+            list.innerHTML = p.features.map(f => {
+                const text = (lang === 'en' && f.text_en) ? f.text_en : f.text_sr;
+                return `<div class="feature-item">
+                    <div class="feature-check"><svg fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
+                    <span class="text-sm text-gray-700 font-medium">${h(text)}</span>
+                </div>`;
+            }).join('');
+        }
+
+        // Custom warranty text
+        if (p.warranty_text) {
+            const wEl = document.getElementById('pdp-custom-warranty');
+            wEl.style.display = 'block';
+            document.getElementById('pdp-warranty-text').innerHTML = p.warranty_text.split('\n').map(l => `<p>${h(l)}</p>`).join('');
+        }
+
         // Category tag
         document.getElementById('pdp-category-tag').textContent = catName;
         document.getElementById('spec-category').textContent = catName;
@@ -487,7 +650,20 @@
 
         // Add to cart
         document.getElementById('pdp-add-cart').addEventListener('click', function() {
-            try { KEYIFY.CART.add(p); } catch(e) { console.error(e); }
+            const cartItem = {
+                id: p.id,
+                name: name,
+                price: parseFloat(p.price) || 0,
+                imageUrl: p.image_url || null,
+                category: p.category || '',
+                desc: desc ? desc.substring(0, 100) : '',
+            };
+            if (_selectedVariant) {
+                cartItem.price = parseFloat(_selectedVariant.price) || 0;
+                cartItem.variant_label = _selectedVariant.label;
+                cartItem.variant_id = _selectedVariant.id;
+            }
+            try { KEYIFY.CART.add(cartItem); } catch(e) { console.error(e); }
             const btn = this;
             const orig = btn.innerHTML;
             btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Dodano u korpu!';
@@ -503,6 +679,56 @@
         // Show content
         document.getElementById('pdp-loading').classList.add('hidden');
         document.getElementById('pdp-content').classList.remove('hidden');
+    }
+
+    // Variant selection
+    window.selectVariant = function(idx) {
+        if (!_currentProduct || !_currentProduct.variants) return;
+        _selectedVariant = _currentProduct.variants[idx];
+        document.querySelectorAll('.variant-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+        updatePriceDisplay(_selectedVariant.price, _selectedVariant.original_price);
+    };
+
+    function updatePriceDisplay(price, originalPrice) {
+        document.getElementById('pdp-price').textContent = `\u20AC ${parseFloat(price).toFixed(2)}`;
+        const opEl = document.getElementById('pdp-orig-price');
+        const ddEl = document.getElementById('pdp-discount');
+        if (originalPrice && parseFloat(originalPrice) > parseFloat(price)) {
+            opEl.classList.remove('hidden');
+            opEl.textContent = `\u20AC ${parseFloat(originalPrice).toFixed(2)}`;
+            const disc = Math.round((1 - price / originalPrice) * 100);
+            ddEl.classList.remove('hidden');
+            ddEl.textContent = `-${disc}%`;
+        } else {
+            opEl.classList.add('hidden');
+            ddEl.classList.add('hidden');
+        }
+    }
+
+    // Image hover zoom
+    function initImageZoom() {
+        const wrap = document.querySelector('.pdp-image-wrap');
+        const img = document.getElementById('pdp-img');
+        if (!wrap || !img) return;
+
+        wrap.addEventListener('mousemove', function(e) {
+            const rect = wrap.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * 100;
+            const y = ((e.clientY - rect.top) / rect.height) * 100;
+            img.style.transformOrigin = `${x}% ${y}%`;
+            wrap.classList.add('zooming');
+        });
+
+        wrap.addEventListener('mouseleave', function() {
+            wrap.classList.remove('zooming');
+            img.style.transformOrigin = 'center center';
+        });
+
+        // Click still opens lightbox
+        wrap.addEventListener('click', function() {
+            wrap.classList.remove('zooming');
+            document.getElementById('pdp-lightbox').classList.add('open');
+        });
     }
 
     async function loadRelated(current) {
@@ -586,6 +812,7 @@
 
             // Show write-review form only if user is logged in AND has a completed purchase
             const token = localStorage.getItem('keyify_token') || localStorage.getItem('kfy_token');
+            const placeholder = document.getElementById('pdp-write-review-placeholder');
             if (token) {
                 try {
                     const canRes = await fetch(`${apiBase}/products/${pid}/can-review`, {
@@ -595,6 +822,7 @@
                         const canData = await canRes.json();
                         if (canData.can_review) {
                             document.getElementById('pdp-write-review').style.display = 'block';
+                            if (placeholder) placeholder.style.display = 'none';
                         }
                     }
                 } catch {}

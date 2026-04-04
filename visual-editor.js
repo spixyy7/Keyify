@@ -22,8 +22,11 @@
 
   const token = localStorage.getItem('keyify_token');
   const role  = localStorage.getItem('keyify_role');
-  if (!token || role !== 'admin') {
-    console.warn('[KVE] Editor mode requires admin login.');
+  const perms = JSON.parse(localStorage.getItem('keyify_permissions') || '{}');
+  const isSuperAdmin = role === 'admin' && Object.keys(perms).length === 0;
+  const canEdit = role === 'admin' && (isSuperAdmin || perms.can_use_editor === true);
+  if (!token || !canEdit) {
+    console.warn('[KVE] Editor mode requires admin login with editor permission.');
     localStorage.removeItem('keyify_editor_active');
     return;
   }

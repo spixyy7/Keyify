@@ -232,6 +232,10 @@
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><path stroke-linecap="round" d="M1 10h22"/></svg>
       <span data-i18n="admin.nav.payments">Plaćanja</span>
     </a>
+    <a class="sidebar-link" onclick="showSection('social')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path stroke-linecap="round" d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+      <span>Društvene mreže</span>
+    </a>
     <a class="sidebar-link" onclick="showSection('security')">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       <span data-i18n="admin.nav.security">Sigurnost & Logovi</span>
@@ -597,6 +601,36 @@
         <button onclick="savePayments()" class="w-full py-3.5 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
                 style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
           <span data-i18n="admin.payments.saveBtn">Sačuvaj podatke o plaćanju</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ SOCIAL LINKS ═══════════════════════ -->
+    <div id="section-social" class="section space-y-5" style="display:none">
+      <div class="glass rounded-2xl p-6 space-y-5">
+        <div>
+          <h3 class="font-display font-semibold text-white text-lg">Društvene mreže</h3>
+          <p class="text-xs text-dark-300 mt-1">URL-ovi za footer ikonice na svim stranicama</p>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Facebook URL</label>
+            <input type="url" id="social-facebook" placeholder="https://facebook.com/keyify" class="admin-input"/>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Twitter / X URL</label>
+            <input type="url" id="social-twitter" placeholder="https://x.com/keyify" class="admin-input"/>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Instagram URL</label>
+            <input type="url" id="social-instagram" placeholder="https://instagram.com/keyify" class="admin-input"/>
+          </div>
+        </div>
+
+        <button onclick="saveSocialLinks()" class="w-full py-3.5 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
+                style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
+          Sačuvaj linkove
         </button>
       </div>
     </div>
@@ -1349,7 +1383,7 @@
           <div id="img-file-wrap" style="display:none">
             <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px dashed rgba(255,255,255,0.15);border-radius:10px;cursor:pointer;background:rgba(255,255,255,0.03);font-size:12px;color:#9090b8;transition:border-color .2s" onmouseover="this.style.borderColor='rgba(29,106,255,0.5)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.15)'">
               <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-              <span id="img-file-name">Klikni ili prevuci sliku (max 5 MB)</span>
+              <span id="img-file-name">Klikni ili prevuci sliku (max 10 MB)</span>
               <input type="file" id="prod-image-file" accept="image/*" style="display:none" onchange="handleImgFile(this)"/>
             </label>
           </div>
@@ -1388,6 +1422,26 @@
         <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Custom poruka za dostavu</label>
         <textarea id="prod-delivery-msg" rows="3" placeholder="Opciono: link za preuzimanje, kredencijali, uputstva... Šalje se umjesto/uz licencni ključ u emailu kupcu." class="admin-input resize-none"></textarea>
         <p class="text-xs text-dark-400 mt-1">HTML dozvoljen. Ako je prazno, šalje se standardni licencni ključ.</p>
+      </div>
+
+      <!-- Warranty / Garancija text -->
+      <div>
+        <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Tekst garancije</label>
+        <textarea id="prod-warranty" rows="3" placeholder="Unesite specifičan tekst garancije za ovaj proizvod (prikazuje se na product page u tabu Garancija)..." class="admin-input resize-none"></textarea>
+      </div>
+
+      <!-- Variants / Packages repeater -->
+      <div>
+        <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Paketi / Varijante</label>
+        <div id="variants-repeater" class="space-y-2"></div>
+        <button type="button" onclick="addVariantRow()" class="mt-2 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors" style="background:rgba(29,106,255,0.1);color:#1D6AFF">+ Dodaj paket</button>
+      </div>
+
+      <!-- Features repeater -->
+      <div>
+        <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Feature lista (zeleni checkmark)</label>
+        <div id="features-repeater" class="space-y-2"></div>
+        <button type="button" onclick="addFeatureRow()" class="mt-2 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors" style="background:rgba(16,185,129,0.1);color:#10b981">+ Dodaj feature</button>
       </div>
 
       <div class="flex gap-3 pt-2">
@@ -1666,6 +1720,7 @@
     loadStats();
     loadProducts();
     loadSettings();
+    loadSocialLinks();
     refreshTxBadge();
 
     // Sync lang button state with saved language
@@ -2049,7 +2104,7 @@
     document.getElementById('img-tab-file').style.color      = isUrl ? '#9090b8' : '#fff';
     if (isUrl) {
       document.getElementById('prod-image-file').value = '';
-      document.getElementById('img-file-name').textContent = 'Klikni ili prevuci sliku (max 5 MB)';
+      document.getElementById('img-file-name').textContent = 'Klikni ili prevuci sliku (max 10 MB)';
       updateImgPreview();
     } else {
       // clear URL preview when switching to file tab (file not chosen yet)
@@ -2088,7 +2143,14 @@
   }
 
   /* ── PRODUCT MODAL ── */
-  function openProductModal(product) {
+  async function openProductModal(product) {
+    // Fetch full product data (with variants + features) if editing
+    if (product?.id) {
+      try {
+        const r = await fetch(`${API_BASE}/products/${product.id}`, { headers: authHeaders() });
+        if (r.ok) product = await r.json();
+      } catch {}
+    }
     editingProduct = product;
     document.getElementById('modal-title').textContent = product ? 'Uredi proizvod' : 'Novi proizvod';
     document.getElementById('product-id').value         = product?.id         || '';
@@ -2102,13 +2164,24 @@
     document.getElementById('prod-badge').value        = product?.badge       || '';
     // Reset image section
     document.getElementById('prod-image-file').value = '';
-    document.getElementById('img-file-name').textContent = 'Klikni ili prevuci sliku (max 5 MB)';
+    document.getElementById('img-file-name').textContent = 'Klikni ili prevuci sliku (max 10 MB)';
     document.getElementById('prod-image-url').value = product?.image_url || '';
     switchImgTab('url');
     updateImgPreview();
     // Populate bonus coupon dropdown + delivery message
     populateBonusCouponDropdown(product?.bonus_coupon_id || '');
     document.getElementById('prod-delivery-msg').value = product?.delivery_message || '';
+    document.getElementById('prod-warranty').value = product?.warranty_text || '';
+    // Populate variants repeater
+    document.getElementById('variants-repeater').innerHTML = '';
+    if (product?.variants?.length) {
+      product.variants.forEach(v => addVariantRow(v.label, v.price, v.original_price));
+    }
+    // Populate features repeater
+    document.getElementById('features-repeater').innerHTML = '';
+    if (product?.features?.length) {
+      product.features.forEach(f => addFeatureRow(f.text_sr, f.text_en));
+    }
     document.getElementById('modal-overlay').classList.add('open');
   }
 
@@ -2134,6 +2207,46 @@
     editingProduct = null;
   }
 
+  /* ── Variant Repeater ── */
+  window.addVariantRow = function(label, price, origPrice) {
+    const row = document.createElement('div');
+    row.className = 'flex items-center gap-2';
+    row.innerHTML = `
+      <input type="text" placeholder="Label (npr. 3 mjeseca)" value="${label||''}" class="admin-input flex-1 text-xs py-2" data-vf="label"/>
+      <input type="number" step="0.01" placeholder="Cijena" value="${price||''}" class="admin-input w-24 text-xs py-2" data-vf="price"/>
+      <input type="number" step="0.01" placeholder="Orig. cijena" value="${origPrice||''}" class="admin-input w-24 text-xs py-2" data-vf="orig"/>
+      <button type="button" onclick="this.parentElement.remove()" class="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors" style="flex-shrink:0"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg></button>`;
+    document.getElementById('variants-repeater').appendChild(row);
+  };
+
+  /* ── Feature Repeater ── */
+  window.addFeatureRow = function(textSr, textEn) {
+    const row = document.createElement('div');
+    row.className = 'flex items-center gap-2';
+    row.innerHTML = `
+      <input type="text" placeholder="Feature (SR)" value="${textSr||''}" class="admin-input flex-1 text-xs py-2" data-ff="sr"/>
+      <input type="text" placeholder="Feature (EN)" value="${textEn||''}" class="admin-input flex-1 text-xs py-2" data-ff="en"/>
+      <button type="button" onclick="this.parentElement.remove()" class="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors" style="flex-shrink:0"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg></button>`;
+    document.getElementById('features-repeater').appendChild(row);
+  };
+
+  function collectVariants() {
+    const rows = document.querySelectorAll('#variants-repeater > div');
+    return Array.from(rows).map(r => ({
+      label: r.querySelector('[data-vf="label"]').value.trim(),
+      price: r.querySelector('[data-vf="price"]').value,
+      original_price: r.querySelector('[data-vf="orig"]').value || null,
+    })).filter(v => v.label && v.price);
+  }
+
+  function collectFeatures() {
+    const rows = document.querySelectorAll('#features-repeater > div');
+    return Array.from(rows).map(r => ({
+      text_sr: r.querySelector('[data-ff="sr"]').value.trim(),
+      text_en: r.querySelector('[data-ff="en"]').value.trim() || null,
+    })).filter(f => f.text_sr);
+  }
+
   async function saveProduct(e) {
     e.preventDefault();
     const id       = document.getElementById('product-id').value;
@@ -2152,6 +2265,9 @@
       badge:          document.getElementById('prod-badge').value || '',
       bonus_coupon_id:  document.getElementById('prod-bonus-coupon').value || null,
       delivery_message: document.getElementById('prod-delivery-msg').value || null,
+      warranty_text:    document.getElementById('prod-warranty').value || null,
+      variants:         JSON.stringify(collectVariants()),
+      features:         JSON.stringify(collectFeatures()),
     };
 
     const endpoint = id ? `${API_BASE}/products/${id}` : `${API_BASE}/products`;
@@ -2166,7 +2282,7 @@
     let fetchOpts;
     if (hasFile) {
       const fd = new FormData();
-      Object.entries(fields).forEach(([k, v]) => fd.append(k, v));
+      Object.entries(fields).forEach(([k, v]) => { if (v != null) fd.append(k, v); });
       fd.append('image', fileInp.files[0]);
       fetchOpts = { method, headers: { 'Authorization': `Bearer ${token}` }, body: fd };
     } else {
@@ -2356,7 +2472,7 @@
   }
 
   /* ── PERMISSIONS ── */
-  const PERM_KEYS = ['manage_products', 'edit_theme', 'manage_users', 'view_financials', 'can_view_invoices', 'can_manage_promos', 'can_manage_support', 'can_execute_sql'];
+  const PERM_KEYS = ['manage_products', 'edit_theme', 'manage_users', 'view_financials', 'can_view_invoices', 'can_manage_promos', 'can_manage_support', 'can_execute_sql', 'can_use_editor', 'can_manage_roles'];
 
   function loadUDPermissions(permissions, rank) {
     const p = permissions || {};
@@ -2552,6 +2668,36 @@
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
       showToast('Podaci o plaćanju sačuvani!');
+    } catch (err) {
+      showToast(err.message || 'Greška', 'error');
+    }
+  }
+
+  /* ── SOCIAL LINKS ── */
+  async function loadSocialLinks() {
+    try {
+      const res  = await fetch(`${API_BASE}/admin/settings`, { headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) return;
+      if (data.facebook_url)  document.getElementById('social-facebook').value  = data.facebook_url;
+      if (data.twitter_url)   document.getElementById('social-twitter').value   = data.twitter_url;
+      if (data.instagram_url) document.getElementById('social-instagram').value = data.instagram_url;
+    } catch { /* ignore */ }
+  }
+
+  async function saveSocialLinks() {
+    const body = {
+      facebook_url:  document.getElementById('social-facebook').value,
+      twitter_url:   document.getElementById('social-twitter').value,
+      instagram_url: document.getElementById('social-instagram').value,
+    };
+    try {
+      const res = await fetch(`${API_BASE}/admin/settings`, {
+        method: 'POST', headers: authHeaders(), body: JSON.stringify(body),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      showToast('Linkovi društvenih mreža sačuvani!');
     } catch (err) {
       showToast(err.message || 'Greška', 'error');
     }

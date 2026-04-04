@@ -402,7 +402,7 @@
           <div class="flex-1 min-w-0">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <h3 class="font-display font-semibold text-gray-900 text-base leading-tight truncate">${esc(item.name)}</h3>
+                <h3 class="font-display font-semibold text-gray-900 text-base leading-tight truncate">${esc(item.name)}${item.variant_label ? ` <span class="text-xs font-normal text-gray-400">(${esc(item.variant_label)})</span>` : ''}</h3>
                 ${item.desc ? `<p class="text-xs text-gray-400 mt-1 line-clamp-2">${esc(item.desc)}</p>` : ''}
               </div>
               <!-- Remove button -->
@@ -571,13 +571,16 @@
       if (!related.length) return;
 
       section.classList.remove('hidden');
+      const lang = localStorage.getItem('keyify_lang') || 'sr';
       grid.innerHTML = related.map(p => {
-        const name  = esc(p.name || '');
+        const pName = p.name || ((lang === 'en' && p.name_en) ? p.name_en : p.name_sr) || '';
+        const name  = esc(pName);
         const price = parseFloat(p.price) || 0;
-        const desc  = esc(p.description || '');
+        const pDesc = p.description || ((lang === 'en' && p.description_en) ? p.description_en : p.description_sr) || '';
+        const desc  = esc(pDesc);
         const color = p.badge_color || '#1D6AFF';
         const id    = p.id || name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        const dataProduct = esc(JSON.stringify({id:p.id, name:p.name, price:price, desc:p.description||'', color:color}));
+        const dataProduct = esc(JSON.stringify({id:p.id, name:pName, price:price, desc:pDesc, color:color, imageUrl:p.image_url||null}));
 
         return `
           <div class="related-card">
