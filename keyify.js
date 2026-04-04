@@ -976,7 +976,7 @@ const KEYIFY = (() => {
      ACCOUNT NAVBAR (dynamic after login)
   ───────────────────────────────────────────────────────── */
   function _logout() {
-    ['keyify_token','keyify_name','keyify_role','keyify_email','keyify_id','keyify_permissions','keyify_avatar'].forEach(k => localStorage.removeItem(k));
+    ['keyify_token','keyify_name','keyify_role','keyify_rank','keyify_email','keyify_id','keyify_permissions','keyify_avatar'].forEach(k => localStorage.removeItem(k));
     window.location.href = 'index.html';
   }
 
@@ -985,6 +985,7 @@ const KEYIFY = (() => {
     const name  = localStorage.getItem('keyify_name');
     const email = localStorage.getItem('keyify_email') || '';
     const role  = localStorage.getItem('keyify_role');
+    const rank  = (localStorage.getItem('keyify_rank') || role || 'user').toLowerCase();
 
     const accountLink = document.querySelector('header a[href="login.html"]');
     if (!accountLink || !token || !name) return;
@@ -995,10 +996,18 @@ const KEYIFY = (() => {
 
     /* ── Permissions (must be defined before use) ── */
     const perms          = JSON.parse(localStorage.getItem('keyify_permissions') || '{}');
-    const isSuperAdmin   = role === 'admin' && Object.keys(perms).length === 0;
-    const isSupportAgent = role === 'admin' && (isSuperAdmin || perms.can_manage_support === true);
+    const isSuperAdmin   = role === 'admin' && (rank === 'super_admin' || Object.keys(perms).length === 0);
+    const isSupportAgent = role === 'admin' && (isSuperAdmin || rank === 'support' || perms.can_manage_support === true);
     const canSQL         = role === 'admin' && (isSuperAdmin || perms.can_execute_sql === true);
     const canEditor      = role === 'admin' && (isSuperAdmin || perms.can_use_editor === true);
+    const rankMeta       = {
+      super_admin: { label: 'Super Admin', icon: '👑', color: '#fbbf24', bg: 'rgba(251,191,36,0.14)', border: 'rgba(251,191,36,0.28)' },
+      admin:       { label: 'Admin',       icon: '⚙️', color: '#a78bfa', bg: 'rgba(167,139,250,0.14)', border: 'rgba(167,139,250,0.28)' },
+      moderator:   { label: 'Moderator',   icon: '🛡️', color: '#60a5fa', bg: 'rgba(96,165,250,0.14)', border: 'rgba(96,165,250,0.28)' },
+      support:     { label: 'Podrška',     icon: '🎧', color: '#34d399', bg: 'rgba(52,211,153,0.14)', border: 'rgba(52,211,153,0.28)' },
+      user:        { label: 'Korisnik',    icon: '👤', color: '#94a3b8', bg: 'rgba(148,163,184,0.14)', border: 'rgba(148,163,184,0.25)' },
+    };
+    const activeRank = rankMeta[rank] || rankMeta.user;
 
     /* ── Inject one-time styles ── */
     if (!document.getElementById('kf-dd-style')) {
@@ -1074,7 +1083,7 @@ const KEYIFY = (() => {
       <div style="padding:14px 15px;border-bottom:1px solid var(--kf-dd-hdr-border);background:var(--kf-dd-hdr-bg)">
         <div style="font-size:13px;font-weight:700;color:var(--kf-dd-name);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(name)}</div>
         <div style="font-size:11px;color:var(--kf-dd-email);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(email)}</div>
-        ${role === 'admin' ? '<div style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:2px 8px;border-radius:6px;background:rgba(162,89,255,0.12);border:1px solid rgba(162,89,255,0.25);font-size:10px;font-weight:700;color:#a259ff;text-transform:uppercase;letter-spacing:.05em">⚡ Admin</div>' : ''}
+        ${(role === 'admin' || rank !== 'user') ? `<div style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:2px 8px;border-radius:6px;background:${activeRank.bg};border:1px solid ${activeRank.border};font-size:10px;font-weight:700;color:${activeRank.color};text-transform:uppercase;letter-spacing:.05em">${activeRank.icon} ${escHtml(activeRank.label)}</div>` : ''}
       </div>
       <div style="padding:5px">
         <button class="kf-item" id="kf-orders-btn" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:500;color:var(--kf-dd-item);background:transparent;border:none;width:100%;cursor:pointer;border-radius:10px;text-align:left;">
@@ -1707,13 +1716,44 @@ const KEYIFY = (() => {
     const ig = document.getElementById('footer-ig');
     if (!fb && !tw && !ig) return;
     try {
+      if (!document.getElementById('kf-social-anim-style')) {
+        const style = document.createElement('style');
+        style.id = 'kf-social-anim-style';
+        style.textContent = `
+          @keyframes kf-social-pulse { 0% { transform:translateY(0) scale(1); } 50% { transform:translateY(-2px) scale(1.12); } 100% { transform:translateY(0) scale(1); } }
+          @keyframes kf-social-bounce { 0%,100% { transform:translateY(0) scale(1); } 40% { transform:translateY(-6px) scale(1.08); } 65% { transform:translateY(0) scale(1.03); } 82% { transform:translateY(-2px) scale(1.05); } }
+          @keyframes kf-social-float { 0%,100% { transform:translateY(0) scale(1); } 50% { transform:translateY(-5px) scale(1.08); } }
+          .kf-social-link {
+            transition: transform .3s ease, box-shadow .3s ease, background-color .3s ease !important;
+            will-change: transform;
+          }
+          .kf-social-link:hover {
+            transform: translateY(-4px) scale(1.1) !important;
+            box-shadow: 0 14px 28px rgba(15,23,42,0.24) !important;
+          }
+          .kf-social-link[data-kf-anim="pulse"]:hover { animation: kf-social-pulse .65s ease both; }
+          .kf-social-link[data-kf-anim="bounce"]:hover { animation: kf-social-bounce .72s ease both; }
+          .kf-social-link[data-kf-anim="float"]:hover { animation: kf-social-float 1.25s ease-in-out infinite; }
+        `;
+        document.head.appendChild(style);
+      }
       const base = (window.KEYIFY_CONFIG && window.KEYIFY_CONFIG.API_BASE) || 'http://localhost:3001/api';
       const res = await fetch(`${base}/public/social-links`);
       if (!res.ok) return;
       const d = await res.json();
-      if (fb && d.facebook_url)  { fb.href = d.facebook_url;  fb.target = '_blank'; fb.rel = 'noopener'; }
-      if (tw && d.twitter_url)   { tw.href = d.twitter_url;   tw.target = '_blank'; tw.rel = 'noopener'; }
-      if (ig && d.instagram_url) { ig.href = d.instagram_url;  ig.target = '_blank'; ig.rel = 'noopener'; }
+      const applySocialLink = (el, href, animation) => {
+        if (!el) return;
+        el.classList.add('kf-social-link');
+        el.dataset.kfAnim = String(animation || 'float').toLowerCase();
+        if (href) {
+          el.href = href;
+          el.target = '_blank';
+          el.rel = 'noopener';
+        }
+      };
+      applySocialLink(fb, d.facebook_url, d.facebook_animation);
+      applySocialLink(tw, d.twitter_url, d.twitter_animation);
+      applySocialLink(ig, d.instagram_url, d.instagram_animation);
     } catch { /* silent */ }
   }
 

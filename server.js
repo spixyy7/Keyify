@@ -416,6 +416,81 @@ function hashUA(ua) {
   return crypto.createHash('sha256').update(ua || '').digest('hex').slice(0, 16);
 }
 
+function hashTrustedDeviceId(deviceId) {
+  return crypto.createHash('sha256').update(String(deviceId || '')).digest('hex');
+}
+
+async function findTrustedDeviceRecord({ userId, ip, uaHash, deviceId }) {
+  const nowIso = new Date().toISOString();
+
+  if (deviceId) {
+    try {
+      const { data, error } = await supabase
+        .from('trusted_devices')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('device_fingerprint', hashTrustedDeviceId(deviceId))
+        .gt('expires_at', nowIso)
+        .limit(1);
+
+      if (!error && data?.[0]) {
+        return data[0];
+      }
+    } catch (_) {}
+  }
+
+  const { data } = await supabase
+    .from('trusted_devices')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('ip', ip)
+    .eq('ua_hash', uaHash)
+    .gt('expires_at', nowIso)
+    .limit(1);
+
+  return data?.[0] || null;
+}
+
+async function saveTrustedDeviceRecord({ userId, ip, uaHash, deviceId, expiresAt }) {
+  const legacyPayload = {
+    user_id: userId,
+    ip,
+    ua_hash: uaHash,
+    expires_at: expiresAt,
+  };
+
+  if (deviceId) {
+    const deviceFingerprint = hashTrustedDeviceId(deviceId);
+    try {
+      await supabase
+        .from('trusted_devices')
+        .delete()
+        .eq('user_id', userId)
+        .eq('device_fingerprint', deviceFingerprint);
+
+      await supabase
+        .from('trusted_devices')
+        .insert({
+          ...legacyPayload,
+          device_fingerprint: deviceFingerprint,
+        });
+
+      return;
+    } catch (_) {}
+  }
+
+  await supabase
+    .from('trusted_devices')
+    .delete()
+    .eq('user_id', userId)
+    .eq('ip', ip)
+    .eq('ua_hash', uaHash);
+
+  await supabase
+    .from('trusted_devices')
+    .insert(legacyPayload);
+}
+
 /** Strip sensitive DB columns before returning user data to clients */
 function sanitizeUser(user) {
   if (!user) return user;
@@ -929,7 +1004,7 @@ app.post('/api/register', authLimiter, async (req, res) => {
   // Check duplicate
   const { data: existing } = await supabase
     .from('users')
-    .select('id, name, email, role, permissions, avatar_url')
+    .select('id, name, email, role, rank, permissions, avatar_url')
     .eq('email', email.toLowerCase())
     .maybeSingle();
 
@@ -995,7 +1070,7 @@ app.post('/api/register', authLimiter, async (req, res) => {
  * Returns: { user_id, message } – OTP sent to email
  */
 app.post('/api/login', authLimiter, async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, device_id } = req.body;
   if (!email || !password)
     return res.status(400).json({ error: 'Unesite email i lozinku' });
 
@@ -1019,16 +1094,12 @@ app.post('/api/login', authLimiter, async (req, res) => {
   // Clean up expired records first (best-effort, don't block login)
   supabase.from('trusted_devices').delete().lt('expires_at', new Date().toISOString()).then(() => {});
 
-  const { data: trustedRows } = await supabase
-    .from('trusted_devices')
-    .select('id, name, email, role, permissions, avatar_url')
-    .eq('user_id', user.id)
-    .eq('ip', ip)
-    .eq('ua_hash', ua)
-    .gt('expires_at', new Date().toISOString())
-    .limit(1);
-
-  const trusted = trustedRows?.[0];
+  const trusted = await findTrustedDeviceRecord({
+    userId: user.id,
+    ip,
+    uaHash: ua,
+    deviceId: device_id,
+  });
 
   if (trusted) {
     // Roll the 30-day window forward on each trusted login
@@ -1038,7 +1109,7 @@ app.post('/api/login', authLimiter, async (req, res) => {
       .eq('id', trusted.id);
 
     const jwtToken = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, name: user.name, ip, ua },
+      { id: user.id, email: user.email, role: user.role, rank: user.rank || 'user', name: user.name, ip, ua },
       process.env.JWT_SECRET,
       { expiresIn: '2h' }
     );
@@ -1053,6 +1124,7 @@ app.post('/api/login', authLimiter, async (req, res) => {
     return res.json({
       token:       jwtToken,
       role:        user.role,
+      rank:        user.rank || 'user',
       name:        user.name,
       email:       user.email,
       avatar_url:  user.avatar_url || null,
@@ -1117,13 +1189,13 @@ app.post('/api/login', authLimiter, async (req, res) => {
  * Returns: { token, role, name, email }
  */
 app.post('/api/verify', authLimiter, async (req, res) => {
-  const { user_id, otp, remember_device } = req.body;
+  const { user_id, otp, remember_device, device_id } = req.body;
   if (!user_id || !otp)
     return res.status(400).json({ error: 'Nedostaju podaci' });
 
   const { data: user } = await supabase
     .from('users')
-    .select('id, name, email, role, permissions, otp_code, otp_expires, avatar_url')
+    .select('id, name, email, role, rank, permissions, otp_code, otp_expires, avatar_url')
     .eq('id', user_id)
     .maybeSingle();
 
@@ -1144,7 +1216,7 @@ app.post('/api/verify', authLimiter, async (req, res) => {
   const ua = hashUA(req.headers['user-agent']);
 
   const token = jwt.sign(
-    { id: user.id, email: user.email, role: user.role, name: user.name, ip, ua },
+    { id: user.id, email: user.email, role: user.role, rank: user.rank || 'user', name: user.name, ip, ua },
     process.env.JWT_SECRET,
     { expiresIn: '2h' }
   );
@@ -1152,16 +1224,13 @@ app.post('/api/verify', authLimiter, async (req, res) => {
   // ── Save trusted device if requested ───────────────────────────
   if (remember_device) {
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-    // Remove any existing records for this device, then insert fresh
-    await supabase
-      .from('trusted_devices')
-      .delete()
-      .eq('user_id', user.id)
-      .eq('ip', ip)
-      .eq('ua_hash', ua);
-    await supabase
-      .from('trusted_devices')
-      .insert({ user_id: user.id, ip, ua_hash: ua, expires_at: expiresAt });
+    await saveTrustedDeviceRecord({
+      userId: user.id,
+      ip,
+      uaHash: ua,
+      deviceId: device_id,
+      expiresAt,
+    });
   }
   // ───────────────────────────────────────────────────────────────
 
@@ -1175,6 +1244,7 @@ app.post('/api/verify', authLimiter, async (req, res) => {
   return res.json({
     token,
     role:        user.role,
+    rank:        user.rank || 'user',
     name:        user.name,
     email:       user.email,
     avatar_url:  user.avatar_url || null,
@@ -1255,6 +1325,9 @@ app.post('/api/admin/settings', authenticateToken, requireAdmin, async (req, res
     btc_wallet, eth_wallet, usdt_wallet,
     bank_iban, bank_name,
     facebook_url, twitter_url, instagram_url,
+    global_warranty_text,
+    facebook_animation, twitter_animation, instagram_animation,
+    social_animation_type,
   } = req.body;
 
   const { data: existingSettings, error: existingError } = await supabase
@@ -1290,6 +1363,11 @@ app.post('/api/admin/settings', authenticateToken, requireAdmin, async (req, res
   assignIfProvided('facebook_url', facebook_url, facebook_url || null);
   assignIfProvided('twitter_url', twitter_url, twitter_url || null);
   assignIfProvided('instagram_url', instagram_url, instagram_url || null);
+  assignIfProvided('global_warranty_text', global_warranty_text, global_warranty_text || null);
+  assignIfProvided('facebook_animation', facebook_animation, facebook_animation || null);
+  assignIfProvided('twitter_animation', twitter_animation, twitter_animation || null);
+  assignIfProvided('instagram_animation', instagram_animation, instagram_animation || null);
+  assignIfProvided('social_animation_type', social_animation_type, social_animation_type || null);
 
   // Encrypt PayPal secret if provided (never store in plaintext)
   if (paypal_secret && paypal_secret.trim()) {
@@ -1314,13 +1392,40 @@ app.post('/api/admin/settings', authenticateToken, requireAdmin, async (req, res
 app.get('/api/public/social-links', async (req, res) => {
   const { data } = await supabase
     .from('site_settings')
-    .select('facebook_url, twitter_url, instagram_url')
+    .select('facebook_url, twitter_url, instagram_url, facebook_animation, twitter_animation, instagram_animation, social_animation_type, global_warranty_text')
     .eq('id', 1)
     .maybeSingle();
   return res.json({
-    facebook_url:  (data && data.facebook_url)  || '',
-    twitter_url:   (data && data.twitter_url)   || '',
-    instagram_url: (data && data.instagram_url) || '',
+    facebook_url:        (data && data.facebook_url)  || '',
+    twitter_url:         (data && data.twitter_url)   || '',
+    instagram_url:       (data && data.instagram_url) || '',
+    facebook_animation:  (data && data.facebook_animation) || (data && data.social_animation_type) || 'float',
+    twitter_animation:   (data && data.twitter_animation) || (data && data.social_animation_type) || 'float',
+    instagram_animation: (data && data.instagram_animation) || (data && data.social_animation_type) || 'float',
+    global_warranty_text:(data && data.global_warranty_text) || '',
+  });
+});
+
+app.get('/api/public/settings', async (req, res) => {
+  const { data, error } = await supabase
+    .from('site_settings')
+    .select('global_warranty_text, facebook_url, twitter_url, instagram_url, facebook_animation, twitter_animation, instagram_animation, social_animation_type')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error && !isMissingSchemaError(error)) {
+    return res.status(500).json({ error: 'Greška pri čitanju javnih podešavanja' });
+  }
+
+  return res.json({
+    global_warranty_text: (data && data.global_warranty_text) || '',
+    facebook_url:         (data && data.facebook_url) || '',
+    twitter_url:          (data && data.twitter_url) || '',
+    instagram_url:        (data && data.instagram_url) || '',
+    facebook_animation:   (data && data.facebook_animation) || (data && data.social_animation_type) || 'float',
+    twitter_animation:    (data && data.twitter_animation) || (data && data.social_animation_type) || 'float',
+    instagram_animation:  (data && data.instagram_animation) || (data && data.social_animation_type) || 'float',
+    social_animation_type:(data && data.social_animation_type) || 'float',
   });
 });
 
@@ -2336,6 +2441,95 @@ app.put('/api/admin/tickets/:id/status', authenticateToken, checkPermission('can
 ───────────────────────────────────────── */
 
 /** POST /api/chat/start – start a new chat session (public, guest or logged-in) */
+const FEEDBACK_CATEGORIES = ['nalog', 'rad_sajta', 'predlog', 'zalba'];
+
+app.post('/api/feedback', async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const category = String(req.body?.category || '')
+    .trim()
+    .toLowerCase()
+    .replace(/č/g, 'c')
+    .replace(/ć/g, 'c')
+    .replace(/š/g, 's')
+    .replace(/ž/g, 'z')
+    .replace(/đ/g, 'dj')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  const message = String(req.body?.message || '').trim();
+  const pageUrl = String(req.body?.page_url || req.headers.referer || '').trim();
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Email je obavezan.' });
+  }
+  if (!FEEDBACK_CATEGORIES.includes(category)) {
+    return res.status(400).json({ error: 'Kategorija feedbacka nije ispravna.' });
+  }
+  if (message.length < 8) {
+    return res.status(400).json({ error: 'Feedback poruka je prekratka.' });
+  }
+
+  const { data, error } = await supabase
+    .from('feedbacks')
+    .insert({
+      email,
+      category,
+      message,
+      page_url: pageUrl || null,
+      status: 'new',
+      meta: {
+        user_agent: req.headers['user-agent'] || '',
+        ip: getClientIP(req),
+      },
+    })
+    .select('id, email, category, message, page_url, status, created_at')
+    .single();
+
+  if (error) {
+    console.error('[feedback/create] error:', error.message);
+    return res.status(500).json({ error: 'Greška pri slanju feedbacka.' });
+  }
+
+  return res.status(201).json({ ok: true, feedback: data });
+});
+
+app.get('/api/admin/feedbacks', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  const status = String(req.query?.status || '').trim().toLowerCase();
+  let query = supabase
+    .from('feedbacks')
+    .select('id, email, category, message, page_url, status, created_at, updated_at')
+    .order('category', { ascending: true })
+    .order('created_at', { ascending: false });
+
+  if (status) query = query.eq('status', status);
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('[feedback/list] error:', error.message);
+    return res.status(500).json({ error: 'Greška pri dohvatanju feedback liste.' });
+  }
+
+  return res.json(data || []);
+});
+
+app.patch('/api/admin/feedbacks/:id/status', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  const status = String(req.body?.status || '').trim().toLowerCase();
+  if (!['new', 'reviewed', 'closed'].includes(status)) {
+    return res.status(400).json({ error: 'Nevažeći status feedbacka.' });
+  }
+
+  const { error } = await supabase
+    .from('feedbacks')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', req.params.id);
+
+  if (error) {
+    console.error('[feedback/status] error:', error.message);
+    return res.status(500).json({ error: 'Greška pri ažuriranju feedback statusa.' });
+  }
+
+  return res.json({ ok: true });
+});
+
 app.post('/api/chat/start', async (req, res) => {
   const { guest_email } = req.body;
 
@@ -3267,10 +3461,13 @@ async function exchangeGoogleCode(code) {
 function issueJWT(user, req) {
   return jwt.sign(
     {
-      id:   user.id,
-      role: user.role,
-      ip:   getClientIP(req),
-      ua:   hashUA(req.headers['user-agent']),
+      id:    user.id,
+      email: user.email,
+      name:  user.name,
+      role:  user.role,
+      rank:  user.rank || 'user',
+      ip:    getClientIP(req),
+      ua:    hashUA(req.headers['user-agent']),
     },
     process.env.JWT_SECRET,
     { expiresIn: '2h' }
@@ -3381,6 +3578,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
       token,
       name:  user.name,
       role:  user.role,
+      rank:  user.rank || 'user',
       email: user.email,
       id:    user.id,
     });
@@ -3912,7 +4110,7 @@ app.get('/api/orders/guest/:token', async (req, res) => {
   if (normalizedBuyerEmail) {
     const { data } = await supabase
       .from('users')
-      .select('id, name, email, role, permissions, avatar_url')
+      .select('id, name, email, role, rank, permissions, avatar_url')
       .eq('email', normalizedBuyerEmail)
       .maybeSingle();
     existingUser = data || null;
@@ -3963,7 +4161,7 @@ app.post('/api/auth/guest-resume', authLimiter, async (req, res) => {
   const normalizedEmail = String(order.buyer_email).trim().toLowerCase();
   const { data: existingUser, error: userError } = await supabase
     .from('users')
-    .select('id, name, email, role, permissions, avatar_url')
+    .select('id, name, email, role, rank, permissions, avatar_url')
     .eq('email', normalizedEmail)
     .maybeSingle();
 
@@ -4032,7 +4230,7 @@ app.post('/api/auth/convert-guest', authLimiter, async (req, res) => {
   const normalizedEmail = String(order.buyer_email).trim().toLowerCase();
   const { data: existingUser } = await supabase
     .from('users')
-    .select('id, name, email, role, permissions, avatar_url')
+    .select('id, name, email, role, rank, permissions, avatar_url')
     .eq('email', normalizedEmail)
     .maybeSingle();
 
@@ -4060,12 +4258,13 @@ app.post('/api/auth/convert-guest', authLimiter, async (req, res) => {
       email: normalizedEmail,
       password_hash,
       role: 'user',
+      rank: 'user',
       permissions: {},
       is_verified: true,
       registered_ip: ip,
       created_at: new Date().toISOString(),
     })
-    .select('id, name, email, role, permissions')
+    .select('id, name, email, role, rank, permissions')
     .single();
 
   if (createError) {

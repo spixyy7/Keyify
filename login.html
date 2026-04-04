@@ -814,6 +814,21 @@
     let pendingRemember     = false;
     let currentLang         = localStorage.getItem('keyify_lang') || 'sr';
     let resendCooldown      = false;
+    const TRUSTED_DEVICE_KEY = 'keyify_trusted_device_id';
+
+    function getTrustedDeviceId() {
+        let deviceId = localStorage.getItem(TRUSTED_DEVICE_KEY);
+        if (deviceId) return deviceId;
+
+        if (window.crypto?.randomUUID) {
+            deviceId = window.crypto.randomUUID();
+        } else {
+            deviceId = `kfy-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+        }
+
+        localStorage.setItem(TRUSTED_DEVICE_KEY, deviceId);
+        return deviceId;
+    }
 
     /* ── INIT ── */
     document.addEventListener('DOMContentLoaded', () => {
@@ -824,10 +839,11 @@
         if (oauthToken) {
             localStorage.setItem('keyify_token', oauthToken);
             localStorage.setItem('keyify_name',  params.get('name')  || '');
-            localStorage.setItem('keyify_role',  params.get('role')  || 'user');
-            localStorage.setItem('keyify_email', params.get('email') || '');
-            localStorage.setItem('keyify_id',    params.get('id')    || '');
-            localStorage.setItem('keyify_avatar', params.get('avatar_url') || '');
+                localStorage.setItem('keyify_role',  params.get('role')  || 'user');
+                localStorage.setItem('keyify_rank',  params.get('rank')  || 'user');
+                localStorage.setItem('keyify_email', params.get('email') || '');
+                localStorage.setItem('keyify_id',    params.get('id')    || '');
+                localStorage.setItem('keyify_avatar', params.get('avatar_url') || '');
             const role = params.get('role');
             window.location.href = role === 'admin' ? 'admin.html' : 'index.html';
             return;
@@ -1005,7 +1021,7 @@
             const res  = await fetch(`${getApiBase()}/login`, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ email, password }),
+                body:    JSON.stringify({ email, password, device_id: getTrustedDeviceId() }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Greška pri prijavi');
@@ -1037,6 +1053,7 @@
     function saveSession(data) {
         localStorage.setItem('keyify_token',       data.token);
         localStorage.setItem('keyify_role',        data.role);
+        localStorage.setItem('keyify_rank',        data.rank || data.role || 'user');
         localStorage.setItem('keyify_name',        data.name);
         localStorage.setItem('keyify_email',       data.email);
         localStorage.setItem('keyify_avatar',      data.avatar_url || '');
@@ -1234,7 +1251,12 @@
             const res  = await fetch(`${getApiBase()}/verify`, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ user_id: pendingUserId, otp, remember_device: document.getElementById('remember-device').checked }),
+                body:    JSON.stringify({
+                    user_id: pendingUserId,
+                    otp,
+                    remember_device: document.getElementById('remember-device').checked,
+                    device_id: getTrustedDeviceId(),
+                }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Pogrešan kod');
@@ -1266,7 +1288,7 @@
             const res  = await fetch(`${getApiBase()}/login`, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ email, password }),
+                body:    JSON.stringify({ email, password, device_id: getTrustedDeviceId() }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);

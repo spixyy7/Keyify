@@ -35,6 +35,7 @@
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem('keyify_name');
     localStorage.removeItem('keyify_role');
+    localStorage.removeItem('keyify_rank');
     localStorage.removeItem('keyify_email');
     localStorage.removeItem('keyify_id');
   }

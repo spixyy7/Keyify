@@ -524,13 +524,20 @@
     // Track current product data + selected variant for cart
     let _currentProduct = null;
     let _selectedVariant = null;
+    let _publicSettings = { global_warranty_text: '' };
 
     if (!productId) { showError(); return; }
 
     try {
-        const res = await fetch(`${apiBase}/products/${productId}`);
-        if (!res.ok) throw new Error();
-        const p = await res.json();
+        const [productRes, settingsRes] = await Promise.all([
+            fetch(`${apiBase}/products/${productId}`),
+            fetch(`${apiBase}/public/settings`).catch(() => null),
+        ]);
+        if (!productRes.ok) throw new Error();
+        const p = await productRes.json();
+        if (settingsRes && settingsRes.ok) {
+            _publicSettings = await settingsRes.json();
+        }
         _currentProduct = p;
         window.KEYIFY_PDP_PRODUCT = p;
         renderProduct(p);
@@ -641,11 +648,14 @@
             }).join('');
         }
 
-        // Custom warranty text
-        if (p.warranty_text) {
+        // Global warranty text
+        const warrantyText = String((_publicSettings && _publicSettings.global_warranty_text) || p.warranty_text || '').trim();
+        if (warrantyText) {
             const wEl = document.getElementById('pdp-custom-warranty');
             wEl.style.display = 'block';
-            document.getElementById('pdp-warranty-text').innerHTML = p.warranty_text.split('\n').map(l => `<p>${h(l)}</p>`).join('');
+            document.getElementById('pdp-warranty-text').innerHTML = warrantyText.split('\n').filter(Boolean).map(l => `<p>${h(l)}</p>`).join('');
+        } else {
+            document.getElementById('pdp-custom-warranty').style.display = 'none';
         }
 
         // Category tag

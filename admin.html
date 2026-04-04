@@ -111,9 +111,31 @@
       border-radius: 10px; padding: 10px 14px;
       font-size: 13px; color: #e2e2f0;
       transition: border-color 0.2s, box-shadow 0.2s;
+      color-scheme: dark;
     }
     .admin-input:focus { outline: none; border-color: #1D6AFF; box-shadow: 0 0 0 3px rgba(29,106,255,0.15); }
     .admin-input::placeholder { color: #5050808; color: rgba(160,160,200,0.5); }
+    select.admin-input {
+      appearance: none;
+      -webkit-appearance: none;
+      background-color: rgba(17,24,39,0.92);
+      color: #f8fafc;
+      border-color: rgba(71,85,105,0.9);
+      font-weight: 600;
+    }
+    select.admin-input option,
+    select.admin-input optgroup {
+      background: #111827;
+      color: #f8fafc;
+    }
+    select.admin-input:hover {
+      border-color: rgba(96,165,250,0.85);
+      background-color: rgba(17,24,39,0.98);
+    }
+    select.admin-input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.18);
+    }
 
     /* Badge */
     .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
@@ -335,6 +357,10 @@
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
       <span>Podrška</span>
       <span id="support-badge" class="hidden ml-auto w-5 h-5 rounded-full text-white text-xs font-bold flex items-center justify-center" style="background:#ef4444;min-width:20px">0</span>
+    </a>
+    <a class="sidebar-link" onclick="showSection('feedback')" id="nav-feedback">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h8M8 14h5M21 12c0 4.97-4.03 9-9 9a9.79 9.79 0 01-4-.84L3 21l.84-5A9.79 9.79 0 013 12c0-4.97 4.03-9 9-9s9 4.03 9 9z"/></svg>
+      <span>User Feedback</span>
     </a>
     <a class="sidebar-link" onclick="showSection('promos')">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
@@ -692,27 +718,74 @@
       <div class="glass rounded-2xl p-6 space-y-5">
         <div>
           <h3 class="font-display font-semibold text-white text-lg">Društvene mreže</h3>
-          <p class="text-xs text-dark-300 mt-1">URL-ovi za footer ikonice na svim stranicama</p>
+          <p class="text-xs text-dark-300 mt-1">URL-ovi, animacije i globalna garancija za sve javne stranice.</p>
         </div>
 
-        <div class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Facebook URL</label>
-            <input type="url" id="social-facebook" placeholder="https://facebook.com/keyify" class="admin-input"/>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Facebook URL</label>
+              <input type="url" id="social-facebook" placeholder="https://facebook.com/keyify" class="admin-input"/>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Facebook animacija</label>
+              <select id="social-facebook-animation" class="admin-input">
+                <option value="float">Float</option>
+                <option value="pulse">Pulse</option>
+                <option value="bounce">Bounce</option>
+              </select>
+            </div>
           </div>
-          <div>
-            <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Twitter / X URL</label>
-            <input type="url" id="social-twitter" placeholder="https://x.com/keyify" class="admin-input"/>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Twitter / X URL</label>
+              <input type="url" id="social-twitter" placeholder="https://x.com/keyify" class="admin-input"/>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Twitter / X animacija</label>
+              <select id="social-twitter-animation" class="admin-input">
+                <option value="float">Float</option>
+                <option value="pulse">Pulse</option>
+                <option value="bounce">Bounce</option>
+              </select>
+            </div>
           </div>
-          <div>
-            <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Instagram URL</label>
-            <input type="url" id="social-instagram" placeholder="https://instagram.com/keyify" class="admin-input"/>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Instagram URL</label>
+              <input type="url" id="social-instagram" placeholder="https://instagram.com/keyify" class="admin-input"/>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Instagram animacija</label>
+              <select id="social-instagram-animation" class="admin-input">
+                <option value="float">Float</option>
+                <option value="pulse">Pulse</option>
+                <option value="bounce">Bounce</option>
+              </select>
+            </div>
           </div>
+          <div class="space-y-4">
+            <div class="rounded-2xl p-4" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08)">
+              <div class="text-xs font-semibold text-dark-300 uppercase tracking-wide mb-2">Globalni fallback</div>
+              <select id="social-animation-type" class="admin-input">
+                <option value="float">Float</option>
+                <option value="pulse">Pulse</option>
+                <option value="bounce">Bounce</option>
+              </select>
+              <p class="text-xs text-dark-400 mt-2">Koristi se ako pojedinačna mreža nema ručno izabranu animaciju.</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Globalni tekst garancije</label>
+          <textarea id="global-warranty-text" rows="6" placeholder="Ovaj tekst će se prikazivati u tabu Garancija na svim product stranicama." class="admin-input resize-none"></textarea>
+          <p class="text-xs text-dark-400 mt-2">Ako je popunjeno, automatski preuzima prikaz na svim proizvodima.</p>
         </div>
 
         <button onclick="saveSocialLinks()" class="w-full py-3.5 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
                 style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
-          Sačuvaj linkove
+          Sačuvaj globalne postavke
         </button>
       </div>
     </div>
@@ -880,6 +953,44 @@
         </div>
       </div>
 
+    </div>
+
+    <div id="section-feedback" class="section space-y-5">
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="p-5 border-b flex items-center justify-between" style="border-color:rgba(255,255,255,0.06)">
+          <div>
+            <h3 class="font-display font-semibold text-white">User Feedback</h3>
+            <p class="text-xs text-dark-300 mt-0.5">Sve povratne informacije korisnika, odvojeno od live podrške.</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <select id="feedback-status-filter" class="admin-input" style="width:auto" onchange="loadFeedbacks()">
+              <option value="">Svi statusi</option>
+              <option value="new">Novi</option>
+              <option value="reviewed">Pregledani</option>
+              <option value="closed">Zatvoreni</option>
+            </select>
+            <button onclick="loadFeedbacks()" class="px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all" style="background:rgba(29,106,255,0.2);border:1px solid rgba(29,106,255,0.3)">↻ Osvježi</button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Kategorija</th>
+                <th>Korisnik</th>
+                <th>Poruka</th>
+                <th>Stranica</th>
+                <th>Status</th>
+                <th>Datum</th>
+                <th>Akcije</th>
+              </tr>
+            </thead>
+            <tbody id="feedback-table-body">
+              <tr><td colspan="7" class="text-center py-10 text-dark-300">Učitavanje feedback liste...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- ═══════════════════════ PROMO CODES ═══════════════════════ -->
@@ -2019,6 +2130,7 @@
       products:  ['admin.section.productsTitle',  'admin.section.productsSub'],
       theme:     ['admin.section.themeTitle',     'admin.section.themeSub'],
       payments:  ['admin.section.paymentsTitle',  'admin.section.paymentsSub'],
+      social:    ['Društvene mreže',              'Globalni linkovi, animacije i garancija'],
       security:  ['admin.section.securityTitle',  'admin.section.securitySub'],
       support:   ['admin.section.securityTitle',  'admin.section.securitySub'],
       promos:    ['admin.section.securityTitle',  'admin.section.securitySub'],
@@ -2026,6 +2138,7 @@
     };
     const sectionLabels = {
       support:  ['🎧 Podrška',              'Tiketi korisnika'],
+      feedback: ['📝 User Feedback',        'Povratne informacije korisnika'],
       promos:   ['🏷️ Promo kodovi',         'Upravljanje kodovima za popust'],
       referrals:     ['🏆 Referral Program',     'Upravljanje nivoima i praćenje referala'],
       reviews:       ['⭐ Recenzije',            'Upravljanje recenzijama i Social Proof alat'],
@@ -2047,6 +2160,7 @@
         // NOVO: Automatski osvežavaj listu chatova svakih 5 sekundi!
         window._inboxQueueTimer = setInterval(() => loadInbox({ silent: true }), 5000);
       }
+      if (name === 'feedback') loadFeedbacks();
       if (name === 'referrals')     loadAdminReferrals();
       if (name === 'reviews')       loadAdminReviews();
       if (name === 'verifications') loadVerifications('pending');
@@ -2057,8 +2171,8 @@
       return;
     }
     const [titleKey, subKey] = titles[name] || ['admin.section.dashboardTitle', 'admin.section.dashboardSub'];
-    document.getElementById('section-title').textContent    = t(titleKey);
-    document.getElementById('section-subtitle').textContent = t(subKey);
+    document.getElementById('section-title').textContent    = titleKey.startsWith('admin.') ? t(titleKey) : titleKey;
+    document.getElementById('section-subtitle').textContent = subKey.startsWith('admin.') ? t(subKey) : subKey;
   }
 
   /* ── SIDEBAR MOBILE ── */
@@ -2073,7 +2187,7 @@
 
   /* ── LOGOUT ── */
   function logout() {
-    ['keyify_token','keyify_role','keyify_name','keyify_email'].forEach(k => localStorage.removeItem(k));
+    ['keyify_token','keyify_role','keyify_rank','keyify_name','keyify_email'].forEach(k => localStorage.removeItem(k));
     window.location.href = 'login.html';
   }
 
@@ -2376,8 +2490,9 @@
   /* ── PRODUCT MODAL ── */
   async function openProductModal(product) {
     const loaderStartedAt = Date.now();
+    setAdminPageLoader(true, 'Učitavanje editora proizvoda...');
     setProductEditorLoader(true, 'Učitavanje editora proizvoda...');
-    await waitForAdminLoaderPaint(320);
+    await waitForAdminLoaderPaint(420);
     try {
       // Fetch full product data (with variants + features) if editing
       if (product?.id) {
@@ -2414,6 +2529,7 @@
       // Populate bonus coupon dropdown + delivery message
       populateBonusCouponDropdown(product?.bonus_coupon_id || '');
       document.getElementById('prod-delivery-msg').value = product?.delivery_message || '';
+      document.getElementById('prod-required-inputs').value = product?.required_user_inputs || 'none';
       document.getElementById('prod-warranty').value = product?.warranty_text || '';
       // Populate variants repeater
       document.getElementById('variants-repeater').innerHTML = '';
@@ -2427,12 +2543,13 @@
       }
       document.getElementById('modal-overlay').classList.add('open');
     } finally {
-      const remainingDelay = Math.max(0, 560 - (Date.now() - loaderStartedAt));
+      const remainingDelay = Math.max(0, 760 - (Date.now() - loaderStartedAt));
       if (remainingDelay) {
         await waitForAdminLoaderPaint(remainingDelay);
       }
       setProductModalLoading(false);
       setProductEditorLoader(false);
+      setAdminPageLoader(false);
     }
   }
 
@@ -2517,6 +2634,7 @@
       badge:          document.getElementById('prod-badge').value || '',
       bonus_coupon_id:  document.getElementById('prod-bonus-coupon').value || null,
       delivery_message: document.getElementById('prod-delivery-msg').value || null,
+      required_user_inputs: document.getElementById('prod-required-inputs').value || 'none',
       warranty_text:    document.getElementById('prod-warranty').value || null,
       variants:         JSON.stringify(collectVariants()),
       features:         JSON.stringify(collectFeatures()),
@@ -2531,8 +2649,10 @@
     const submitBtn = document.querySelector('#product-form button[type="submit"]');
     const origText  = submitBtn?.textContent;
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Čuvanje...'; }
+    setAdminPageLoader(true, loaderLabel);
+    setProductEditorLoader(true, loaderLabel);
     setProductModalLoading(true, loaderLabel);
-    await waitForAdminLoaderPaint(220);
+    await waitForAdminLoaderPaint(320);
 
     let fetchOpts;
     if (hasFile) {
@@ -2557,8 +2677,10 @@
       console.error('[saveProduct] Error:', err);
       showToast(err.message || 'Greška pri čuvanju proizvoda', 'error');
     } finally {
-      await waitForAdminLoaderPaint(320);
+      await waitForAdminLoaderPaint(520);
       setProductModalLoading(false);
+      setProductEditorLoader(false);
+      setAdminPageLoader(false);
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = origText; }
     }
   }
@@ -2939,6 +3061,11 @@
       if (data.facebook_url)  document.getElementById('social-facebook').value  = data.facebook_url;
       if (data.twitter_url)   document.getElementById('social-twitter').value   = data.twitter_url;
       if (data.instagram_url) document.getElementById('social-instagram').value = data.instagram_url;
+      document.getElementById('social-facebook-animation').value = data.facebook_animation || data.social_animation_type || 'float';
+      document.getElementById('social-twitter-animation').value = data.twitter_animation || data.social_animation_type || 'float';
+      document.getElementById('social-instagram-animation').value = data.instagram_animation || data.social_animation_type || 'float';
+      document.getElementById('social-animation-type').value = data.social_animation_type || 'float';
+      document.getElementById('global-warranty-text').value = data.global_warranty_text || '';
     } catch { /* ignore */ }
   }
 
@@ -2947,6 +3074,11 @@
       facebook_url:  document.getElementById('social-facebook').value,
       twitter_url:   document.getElementById('social-twitter').value,
       instagram_url: document.getElementById('social-instagram').value,
+      facebook_animation: document.getElementById('social-facebook-animation').value,
+      twitter_animation: document.getElementById('social-twitter-animation').value,
+      instagram_animation: document.getElementById('social-instagram-animation').value,
+      social_animation_type: document.getElementById('social-animation-type').value,
+      global_warranty_text: document.getElementById('global-warranty-text').value,
     };
     try {
       const res = await fetch(`${API_BASE}/admin/settings`, {
@@ -2954,7 +3086,85 @@
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
-      showToast('Linkovi društvenih mreža sačuvani!');
+      showToast('Globalne postavke su sačuvane!');
+    } catch (err) {
+      showToast(err.message || 'Greška', 'error');
+    }
+  }
+
+  function feedbackCategoryBadge(category) {
+    const map = {
+      nalog: ['Nalog', 'rgba(59,130,246,0.16)', '#60a5fa'],
+      rad_sajta: ['Rad sajta', 'rgba(16,185,129,0.14)', '#34d399'],
+      predlog: ['Predlog', 'rgba(168,85,247,0.15)', '#c084fc'],
+      zalba: ['Žalba', 'rgba(239,68,68,0.15)', '#f87171'],
+    };
+    const [label, bg, color] = map[category] || [category || 'Ostalo', 'rgba(148,163,184,0.14)', '#cbd5e1'];
+    return `<span class="badge" style="background:${bg};color:${color}">${escHtml(label)}</span>`;
+  }
+
+  function feedbackStatusBadge(status) {
+    const map = {
+      new: ['Novo', 'rgba(245,158,11,0.16)', '#fbbf24'],
+      reviewed: ['Pregledano', 'rgba(59,130,246,0.16)', '#60a5fa'],
+      closed: ['Zatvoreno', 'rgba(148,163,184,0.14)', '#cbd5e1'],
+    };
+    const [label, bg, color] = map[status] || [status || '—', 'rgba(148,163,184,0.14)', '#cbd5e1'];
+    return `<span class="badge" style="background:${bg};color:${color}">${escHtml(label)}</span>`;
+  }
+
+  async function loadFeedbacks() {
+    const tbody = document.getElementById('feedback-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10 text-dark-300">Učitavanje feedback liste...</td></tr>';
+    try {
+      const params = new URLSearchParams();
+      const status = document.getElementById('feedback-status-filter')?.value || '';
+      if (status) params.set('status', status);
+      const res = await fetch(`${API_BASE}/admin/feedbacks${params.toString() ? `?${params.toString()}` : ''}`, { headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Greška pri dohvatanju feedback liste.');
+
+      if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10 text-dark-300">Nema feedback zapisa.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = data.map((item) => `
+        <tr>
+          <td>${feedbackCategoryBadge(item.category)}</td>
+          <td>
+            <div class="font-medium text-white text-sm">${escHtml(item.email || '—')}</div>
+          </td>
+          <td class="max-w-md">
+            <div class="text-sm text-dark-100 whitespace-pre-wrap">${escHtml(item.message || '')}</div>
+          </td>
+          <td class="text-xs text-dark-300">${item.page_url ? `<a href="${escHtml(item.page_url)}" target="_blank" rel="noopener" style="color:#60a5fa">Otvori</a>` : '—'}</td>
+          <td>${feedbackStatusBadge(item.status)}</td>
+          <td class="text-xs text-dark-300">${fmtDate(item.created_at)}</td>
+          <td>
+            <div class="flex gap-2">
+              <button onclick="updateFeedbackStatus('${escHtml(item.id)}','reviewed')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white" style="background:rgba(59,130,246,0.24)">Pregledano</button>
+              <button onclick="updateFeedbackStatus('${escHtml(item.id)}','closed')" class="px-3 py-1.5 rounded-lg text-xs font-semibold" style="background:rgba(255,255,255,0.08);color:#cbd5e1">Zatvori</button>
+            </div>
+          </td>
+        </tr>`).join('');
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-red-400">${escHtml(err.message || 'Greška')}</td></tr>`;
+    }
+  }
+
+  async function updateFeedbackStatus(id, status) {
+    try {
+      const res = await fetch(`${API_BASE}/admin/feedbacks/${id}/status`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Greška pri ažuriranju feedback statusa.');
+      await loadFeedbacks();
+      showToast('Feedback status je ažuriran.');
     } catch (err) {
       showToast(err.message || 'Greška', 'error');
     }

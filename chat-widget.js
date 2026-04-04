@@ -235,6 +235,80 @@
       font-family:inherit;
     }
     .kfy-gate-skip:hover { color:#3b82f6; }
+    .kfy-gate-step { width:100%; }
+    .kfy-gate-choice-grid {
+      width:100%;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:8px;
+    }
+    .kfy-gate-card {
+      text-align:left;
+      border:1px solid rgba(148,163,184,0.22);
+      border-radius:16px;
+      padding:14px 12px;
+      background:linear-gradient(180deg,rgba(255,255,255,0.92),rgba(248,250,252,0.86));
+      color:#0f172a;
+      cursor:pointer;
+      transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+      box-shadow:0 10px 24px rgba(15,23,42,0.06);
+    }
+    .kfy-gate-card:hover {
+      transform:translateY(-2px);
+      border-color:rgba(59,130,246,0.42);
+      box-shadow:0 16px 36px rgba(59,130,246,0.16);
+    }
+    .kfy-gate-card-title {
+      font-size:13px;
+      font-weight:800;
+      margin-bottom:4px;
+      color:#0f172a;
+    }
+    .kfy-gate-card-sub {
+      font-size:11px;
+      line-height:1.45;
+      color:#64748b;
+    }
+    .kfy-gate-select,
+    .kfy-gate-textarea {
+      width:100%;
+      box-sizing:border-box;
+      border:1.5px solid var(--kfy-inp-border,#e5e7eb);
+      border-radius:12px;
+      font-size:13px;
+      outline:none;
+      color:var(--kfy-inp-color,#111827);
+      background:var(--kfy-inp-bg,#f9fafb);
+      font-family:inherit;
+      transition:border-color .15s,box-shadow .15s;
+      margin-top:10px;
+    }
+    .kfy-gate-select {
+      padding:11px 14px;
+      color-scheme:light;
+    }
+    .kfy-gate-textarea {
+      padding:12px 14px;
+      min-height:110px;
+      resize:vertical;
+    }
+    .kfy-gate-select:focus,
+    .kfy-gate-textarea:focus {
+      border-color:#3b82f6;
+      box-shadow:0 0 0 3px rgba(59,130,246,0.12);
+      background:var(--kfy-inp-focus-bg,#fff);
+    }
+    .kfy-gate-label {
+      display:block;
+      text-align:left;
+      font-size:11px;
+      font-weight:700;
+      color:#64748b;
+      margin-top:12px;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+    }
 
     /* ── Header (theme-aware via CSS variables) ── */
     .kfy-header {
@@ -503,17 +577,44 @@
           </svg>
         </div>
         <div class="kfy-gate-title">Počnite razgovor</div>
-        <div class="kfy-gate-sub">Unesite email kako bismo vam mogli odgovoriti i čuvali historiju razgovora.</div>
-        <input type="email" id="kfy-gate-inp" class="kfy-gate-input"
-               placeholder="vas@email.com" autocomplete="email"/>
-        <div class="kfy-gate-err" id="kfy-gate-err"></div>
-        <button class="kfy-gate-btn" id="kfy-gate-btn" type="button"
-                onclick="window._kfyGateSubmit()">
-          Počni razgovor →
-        </button>
-        <button class="kfy-gate-skip" type="button" onclick="window._kfyGateSkip()">
-          Nastavi bez email-a
-        </button>
+        <div class="kfy-gate-sub">Unesite email, pa izaberite da li želite live podršku ili feedback tok.</div>
+        <div id="kfy-gate-step-email" class="kfy-gate-step">
+          <input type="email" id="kfy-gate-inp" class="kfy-gate-input"
+                 placeholder="vas@email.com" autocomplete="email"/>
+          <div class="kfy-gate-err" id="kfy-gate-err"></div>
+          <button class="kfy-gate-btn" id="kfy-gate-btn" type="button"
+                  onclick="window._kfyGateSubmit()">
+            Nastavi →
+          </button>
+        </div>
+        <div id="kfy-gate-step-choice" class="kfy-gate-step" style="display:none">
+          <div class="kfy-gate-choice-grid">
+            <button type="button" class="kfy-gate-card" onclick="window._kfyChooseGateMode('support')">
+              <div class="kfy-gate-card-title">💬 Razgovor sa podrškom</div>
+              <div class="kfy-gate-card-sub">Pokreće live chat i ubacuje vas u red čekanja za agenta.</div>
+            </button>
+            <button type="button" class="kfy-gate-card" onclick="window._kfyChooseGateMode('feedback')">
+              <div class="kfy-gate-card-title">📝 Ostavi Feedback</div>
+              <div class="kfy-gate-card-sub">Pošaljite komentar, predlog ili žalbu bez otvaranja live chata.</div>
+            </button>
+          </div>
+          <button class="kfy-gate-skip" type="button" onclick="window._kfyGateBackToEmail()">Nazad na email</button>
+        </div>
+        <div id="kfy-gate-step-feedback" class="kfy-gate-step" style="display:none">
+          <label class="kfy-gate-label" for="kfy-feedback-category">U vezi čega je feedback?</label>
+          <select id="kfy-feedback-category" class="kfy-gate-select">
+            <option value="">Izaberite kategoriju</option>
+            <option value="nalog">Nalog</option>
+            <option value="rad_sajta">Rad sajta</option>
+            <option value="predlog">Predlog</option>
+            <option value="zalba">Žalba</option>
+          </select>
+          <label class="kfy-gate-label" for="kfy-feedback-text">Poruka</label>
+          <textarea id="kfy-feedback-text" class="kfy-gate-textarea" placeholder="Napišite detaljan feedback..."></textarea>
+          <div class="kfy-gate-err" id="kfy-feedback-err"></div>
+          <button class="kfy-gate-btn" id="kfy-feedback-btn" type="button" onclick="window._kfySubmitFeedback()">Pošalji feedback</button>
+          <button class="kfy-gate-skip" type="button" onclick="window._kfyChooseGateMode('choice')">Nazad na izbor</button>
+        </div>
       </div>
 
       <!-- Header tabs -->
@@ -560,7 +661,7 @@
           </div>
 
           <!-- Email capture card -->
-          <div class="kfy-email-card" id="kfy-email-card">
+          <div class="kfy-email-card" id="kfy-email-card" style="display:none">
             <h4>Koja je Vaša imejl adresa?</h4>
             <p>Unesite email kako bismo Vam mogli odgovoriti ako napustite stranicu.</p>
             <input type="email" class="kfy-email-input" id="kfy-email-input"

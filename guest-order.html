@@ -245,11 +245,13 @@
         localStorage.setItem('keyify_name', user.name || '');
         localStorage.setItem('keyify_email', normalizedEmail);
         localStorage.setItem('keyify_role', user.role || 'user');
+        localStorage.setItem('keyify_rank', user.rank || user.role || 'user');
         localStorage.setItem('keyify_avatar', user.avatar_url || '');
 
         sessionStorage.setItem('keyify_name', user.name || '');
         sessionStorage.setItem('keyify_email', normalizedEmail);
         sessionStorage.setItem('keyify_role', user.role || 'user');
+        sessionStorage.setItem('keyify_rank', user.rank || user.role || 'user');
         sessionStorage.setItem('keyify_avatar', user.avatar_url || '');
       }
 
