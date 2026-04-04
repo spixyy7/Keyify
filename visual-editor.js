@@ -66,13 +66,105 @@
   }
 
   const CATEGORIES = [
-    { value: 'ai',        label: '🤖 AI Alati'           },
-    { value: 'design',    label: '🎨 Design & Creativity' },
-    { value: 'business',  label: '💼 Business Software'   },
-    { value: 'windows',   label: '🪟 Windows & Office'    },
-    { value: 'music',     label: '🎵 Music Streaming'     },
-    { value: 'streaming', label: '📺 TV/Video Streaming'  },
+    { value: 'ai',        label: 'AI Alati',            page_slug: 'ai' },
+    { value: 'design',    label: 'Design & Creativity', page_slug: 'design' },
+    { value: 'business',  label: 'Business Software',   page_slug: 'business' },
+    { value: 'windows',   label: 'Windows & Office',    page_slug: 'windows' },
+    { value: 'music',     label: 'Music Streaming',     page_slug: 'music' },
+    { value: 'streaming', label: 'TV/Video Streaming',  page_slug: 'streaming' },
   ];
+  let categoryCache = CATEGORIES.slice();
+  let categoriesLoadedFromApi = false;
+  let categoryRequest = null;
+
+  function normalizeCategoryValue(value) {
+    return String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/&/g, ' and ')
+      .replace(/[()]/g, ' ')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  function mapCategory(category, index) {
+    const value = normalizeCategoryValue(category?.slug || category?.value || category?.page_slug || category?.name || category?.label);
+    return {
+      id: category?.id || null,
+      value,
+      label: category?.name || category?.label || value || `Kategorija ${index + 1}`,
+      page_slug: normalizeCategoryValue(category?.page_slug || category?.slug || category?.value || category?.name || category?.label) || value,
+    };
+  }
+
+  function getFallbackCategories() {
+    return CATEGORIES.map((category, index) => mapCategory(category, index));
+  }
+
+  async function getCategories(forceRefresh) {
+    if (!forceRefresh && categoriesLoadedFromApi && categoryCache?.length) return categoryCache;
+    if (!forceRefresh && categoryRequest) return categoryRequest;
+
+    categoryRequest = fetch(`${API}/categories`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Greška ${response.status}`);
+        const payload = await response.json();
+        if (!Array.isArray(payload) || !payload.length) {
+          return getFallbackCategories();
+        }
+        return payload.map(mapCategory).filter((category) => category.value);
+      })
+      .catch((error) => {
+        console.warn('[KVE] categories fallback:', error.message);
+        return getFallbackCategories();
+      })
+      .then((categories) => {
+        categoryCache = categories;
+        categoriesLoadedFromApi = true;
+        categoryRequest = null;
+        return categories;
+      });
+
+    return categoryRequest;
+  }
+
+  function getCurrentPageCategory(categories) {
+    const pageSlug = normalizeCategoryValue(getPageSlug());
+    const pool = Array.isArray(categories) && categories.length ? categories : (categoryCache?.length ? categoryCache : getFallbackCategories());
+    const match = pool.find((category) => {
+      const slugs = [category.value, category.page_slug].map(normalizeCategoryValue);
+      return slugs.includes(pageSlug);
+    });
+    return match?.value || 'ai';
+  }
+
+  function getCategoryOptionsHtml(selectedValue, categories) {
+    const pool = Array.isArray(categories) && categories.length ? categories : (categoryCache?.length ? categoryCache : getFallbackCategories());
+    const resolvedValue = normalizeCategoryValue(selectedValue) || getCurrentPageCategory(pool);
+    return pool.map((category) => {
+      const selected = normalizeCategoryValue(category.value) === resolvedValue ? ' selected' : '';
+      const dataId = category.id ? ` data-category-id="${esc(category.id)}"` : '';
+      const pageSlug = category.page_slug ? ` data-page-slug="${esc(category.page_slug)}"` : '';
+      return `<option value="${esc(category.value)}"${selected}${dataId}${pageSlug}>${esc(category.label)}</option>`;
+    }).join('');
+  }
+
+  async function hydrateCategorySelect(select, preferredValue) {
+    if (!select) return;
+    const categories = await getCategories();
+    select.innerHTML = getCategoryOptionsHtml(preferredValue, categories);
+  }
+
+  function getCategoryContextItemsHtml(categories) {
+    const pool = Array.isArray(categories) && categories.length ? categories : (categoryCache?.length ? categoryCache : getFallbackCategories());
+    return pool.map((category) => `<div class="kve-ctx-item" data-cat="${esc(category.value)}">${esc(category.label)}</div>`).join('');
+  }
+
+  function bindCategoryContextItems(menu, id) {
+    menu.querySelectorAll('.kve-ctx-item[data-cat]').forEach((item) => {
+      item.addEventListener('click', () => { moveToCategory(id, item.dataset.cat); removeContextMenu(); });
+    });
+  }
 
   /* ─────────────────────────────────────────────────────────────────
      3. BOOT
@@ -85,12 +177,109 @@
 
   function boot() {
     injectStyles();
+    injectPdpVariantEditorStyles();
     injectToolbar();
     watchGrid();
     initContentEditor();        // existing: [data-ck] key/value text fields
     initSmartEngine();          // Universal click delegator (replaces initGlobalTextEditing)
     initSectionHoverControls(); // Floating toolbar on section/header/article hover
     injectAddSectionBtn();      // NEW: + Dodaj novu sekciju button
+    initPdpVariantEditor();
+  }
+
+  function injectPdpVariantEditorStyles() {
+    if (document.getElementById('kve-pdp-variant-styles')) return;
+    const s = document.createElement('style');
+    s.id = 'kve-pdp-variant-styles';
+    s.textContent = `
+      body.kve-active #pdp-variants.kve-pdp-variant-editor {
+        align-items: stretch;
+      }
+      body.kve-active #pdp-variants.kve-pdp-variant-editor .variant-btn.kve-pdp-editable {
+        position: relative;
+        padding-top: 24px;
+        min-width: 152px;
+      }
+      body.kve-active #pdp-variants.kve-pdp-variant-editor .variant-btn.kve-pdp-editable .kve-pdp-variant-tools {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        display: flex;
+        gap: 4px;
+        opacity: 0;
+        transition: opacity .15s ease;
+      }
+      body.kve-active #pdp-variants.kve-pdp-variant-editor .variant-btn.kve-pdp-editable:hover .kve-pdp-variant-tools,
+      body.kve-active #pdp-variants.kve-pdp-variant-editor .variant-btn.kve-pdp-editable.kve-pdp-open .kve-pdp-variant-tools {
+        opacity: 1;
+      }
+      body.kve-active #pdp-variants.kve-pdp-variant-editor .kve-pdp-variant-icon {
+        width: 24px;
+        height: 24px;
+        border: none;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 12px;
+        line-height: 1;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
+      }
+      body.kve-active #pdp-variants.kve-pdp-variant-editor .kve-pdp-variant-icon.edit {
+        background: #1D6AFF;
+        color: #fff;
+      }
+      body.kve-active #pdp-variants.kve-pdp-variant-editor .kve-pdp-variant-icon.delete {
+        background: #ef4444;
+        color: #fff;
+      }
+      body.kve-active #pdp-variants.kve-pdp-variant-editor .kve-pdp-variant-add {
+        min-width: 152px;
+        min-height: 88px;
+        padding: 12px 16px;
+        border: 2px dashed rgba(29,106,255,0.45);
+        border-radius: 16px;
+        background: rgba(29,106,255,0.05);
+        color: #1D6AFF;
+        font: inherit;
+        font-weight: 700;
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        cursor: pointer;
+        transition: transform .15s ease, border-color .15s ease, background .15s ease;
+      }
+      body.kve-active #pdp-variants.kve-pdp-variant-editor .kve-pdp-variant-add:hover {
+        transform: translateY(-2px);
+        border-color: #1D6AFF;
+        background: rgba(29,106,255,0.1);
+      }
+      body.kve-active #pdp-variants.kve-pdp-variant-editor .kve-pdp-variant-add .plus {
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        border: 2px dashed currentColor;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        line-height: 1;
+      }
+      body.kve-active #pdp-variants.kve-pdp-variant-editor .kve-pdp-variant-add .label {
+        font-size: 12px;
+        letter-spacing: .01em;
+      }
+      body.kve-active #pdp-variants-section .kve-pdp-editor-hint {
+        margin-top: 8px;
+        font-size: 11px;
+        line-height: 1.4;
+        color: #6b7280;
+      }
+    `;
+    document.head.appendChild(s);
   }
 
   /* ─────────────────────────────────────────────────────────────────
@@ -753,11 +942,6 @@
     });
   }
 
-  function getCurrentPageCategory() {
-    const match = window.location.pathname.match(/\/(ai|design|business|windows|music|streaming)\.html/i);
-    return match ? match[1].toLowerCase() : 'ai';
-  }
-
   /* ─────────────────────────────────────────────────────────────────
      6b. ADD PRODUCT CARD (empty-state & trailing)
   ──────────────────────────────────────────────────────────────────── */
@@ -803,7 +987,7 @@
       <div class="kve-draft-row">
         <input type="number" class="kve-draft-price" placeholder="Cijena €" min="0.01" step="0.01"/>
         <select class="kve-draft-cat">
-          ${CATEGORIES.map(c => `<option value="${esc(c.value)}"${c.value === currentCat ? ' selected' : ''}>${c.label}</option>`).join('')}
+          ${getCategoryOptionsHtml(currentCat)}
         </select>
       </div>
       <div class="kve-draft-img-zone">
@@ -825,6 +1009,7 @@
       </div>
     `;
     grid.insertBefore(wrap, addWrap);
+    hydrateCategorySelect(wrap.querySelector('.kve-draft-cat'), currentCat);
     wrap.querySelector('.kve-draft-save').addEventListener('click', () => submitDraftCard(wrap));
     wrap.querySelector('.kve-draft-cancel').addEventListener('click', () => wrap.remove());
 
@@ -905,17 +1090,24 @@
   async function submitDraftCard(wrap) {
     const name  = wrap.querySelector('.kve-draft-name').textContent.trim();
     const desc  = wrap.querySelector('.kve-draft-desc').textContent.trim();
-    const price = parseFloat(wrap.querySelector('.kve-draft-price').value);
-    const cat   = wrap.querySelector('.kve-draft-cat').value;
+    const priceInput = wrap.querySelector('.kve-draft-price').value;
+    const price = parseFloat(priceInput);
+    const catSelect = wrap.querySelector('.kve-draft-cat');
+    const selectedCategory = catSelect?.options?.[catSelect.selectedIndex] || null;
+    const cat   = selectedCategory?.value || catSelect?.value || getCurrentPageCategory();
     const img   = wrap.querySelector('.kve-draft-img').value.trim();
     const variants = collectDraftVariants(wrap);
+    const variantPrices = variants
+      .map((variant) => parseFloat(variant.price))
+      .filter((variantPrice) => Number.isFinite(variantPrice) && variantPrice > 0);
+    const resolvedPrice = Number.isFinite(price) && price > 0 ? price : (variantPrices.length ? Math.min(...variantPrices) : NaN);
 
     if (!name) {
       wrap.querySelector('.kve-draft-name').focus();
       wrap.querySelector('.kve-draft-name').style.borderColor = '#ef4444';
       return;
     }
-    if (!price || price <= 0) {
+    if (!Number.isFinite(resolvedPrice) || resolvedPrice <= 0) {
       wrap.querySelector('.kve-draft-price').focus();
       wrap.querySelector('.kve-draft-price').style.borderColor = '#ef4444';
       return;
@@ -928,7 +1120,10 @@
     const body = {
       name_sr: name, name_en: name,
       description_sr: desc, description_en: desc,
-      price, category: cat, image_url: img || null,
+      price: Number.isFinite(price) && price > 0 ? price : '',
+      category: cat,
+      category_id: selectedCategory?.dataset?.categoryId || null,
+      image_url: img || null,
     };
     if (l === 'en') { body.name_en = name; body.description_en = desc; }
     else            { body.name_sr = name; body.description_sr = desc; }
@@ -942,7 +1137,7 @@
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `Greška ${res.status}`);
-      showKveToast('Proizvod uspješno dodan!');
+      showKveToast('Proizvod uspešno dodat!');
       wrap.remove();
       setTimeout(() => window.location.reload(), 800);
     } catch (err) {
@@ -955,6 +1150,210 @@
   /* ─────────────────────────────────────────────────────────────────
      7. INIT SINGLE PRODUCT CARD
   ──────────────────────────────────────────────────────────────────── */
+  function initPdpVariantEditor() {
+    if (!document.getElementById('pdp-variants')) return;
+    const sync = (event) => {
+      const product = event?.detail?.product || window.KEYIFY_PDP_PRODUCT || null;
+      if (!product) return;
+      enhancePdpVariantEditor(product);
+    };
+    window.addEventListener('keyify:pdp-rendered', sync);
+    setTimeout(sync, 180);
+  }
+
+  function enhancePdpVariantEditor(product) {
+    const section = document.getElementById('pdp-variants-section');
+    const container = document.getElementById('pdp-variants');
+    const label = document.getElementById('pdp-variants-label');
+    if (!section || !container || !product || product.id == null) return;
+
+    const variants = Array.isArray(product.variants) ? product.variants : [];
+    if (label) label.textContent = variants.length ? 'Izaberite paket' : 'Paketi proizvoda';
+    section.style.display = 'block';
+    container.classList.add('kve-pdp-variant-editor');
+
+    container.querySelectorAll('[data-kve-pdp-variant-editor="1"]').forEach((node) => node.remove());
+    container.querySelectorAll('.variant-btn').forEach((btn, index) => {
+      btn.classList.add('kve-pdp-editable');
+      btn.dataset.kveVariantIndex = String(index);
+      btn.ondblclick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openPdpVariantModal(product, index);
+      };
+
+      const tools = document.createElement('div');
+      tools.className = 'kve-pdp-variant-tools';
+      tools.setAttribute('data-kve-editor', '1');
+      tools.setAttribute('data-kve-pdp-variant-editor', '1');
+
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'kve-pdp-variant-icon edit';
+      editBtn.textContent = '✎';
+      editBtn.title = 'Uredi paket';
+      editBtn.setAttribute('data-kve-editor', '1');
+      editBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openPdpVariantModal(product, index);
+      });
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'kve-pdp-variant-icon delete';
+      deleteBtn.textContent = '×';
+      deleteBtn.title = 'Obriši paket';
+      deleteBtn.setAttribute('data-kve-editor', '1');
+      deleteBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        deletePdpVariant(product, index);
+      });
+
+      tools.appendChild(editBtn);
+      tools.appendChild(deleteBtn);
+      btn.appendChild(tools);
+    });
+
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'kve-pdp-variant-add';
+    addBtn.setAttribute('data-kve-editor', '1');
+    addBtn.setAttribute('data-kve-pdp-variant-editor', '1');
+    addBtn.innerHTML = '<span class="plus">+</span><span class="label">Dodaj paket</span>';
+    addBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openPdpVariantModal(product, -1);
+    });
+    container.appendChild(addBtn);
+
+    let hint = section.querySelector('.kve-pdp-editor-hint');
+    if (!hint) {
+      hint = document.createElement('div');
+      hint.className = 'kve-pdp-editor-hint';
+      hint.textContent = 'Klik na paket ga bira, a olovka ili dupli klik otvara izmenu imena i cene.';
+      hint.setAttribute('data-kve-editor', '1');
+      hint.setAttribute('data-kve-pdp-variant-editor', '1');
+      section.appendChild(hint);
+    }
+  }
+
+  function normalizePdpVariants(variants) {
+    return (Array.isArray(variants) ? variants : [])
+      .map((variant) => {
+        const label = String(variant?.label || '').trim();
+        const price = parseFloat(variant?.price);
+        const originalPrice = variant?.original_price === '' || variant?.original_price == null
+          ? null
+          : parseFloat(variant.original_price);
+        if (!label || !Number.isFinite(price) || price <= 0) return null;
+        return {
+          label,
+          price,
+          original_price: Number.isFinite(originalPrice) && originalPrice > 0 ? originalPrice : null,
+          variant_type: variant?.variant_type || 'duration',
+        };
+      })
+      .filter(Boolean);
+  }
+
+  function openPdpVariantModal(product, index) {
+    const source = window.KEYIFY_PDP_PRODUCT || product;
+    const variants = Array.isArray(source?.variants) ? source.variants : [];
+    const variant = index >= 0 ? variants[index] : null;
+    const editing = index >= 0 && !!variant;
+    const modal = createModal(editing ? '📦 Uredi paket' : '📦 Dodaj paket', `
+      <label>Naziv paketa</label>
+      <input type="text" id="kve-pdp-variant-label" value="${esc(variant?.label || '')}" placeholder="npr. 3 meseca"/>
+      <label>Cijena (€)</label>
+      <input type="number" id="kve-pdp-variant-price" min="0.01" step="0.01" value="${esc(variant?.price != null ? parseFloat(variant.price).toFixed(2) : '')}" placeholder="npr. 19.99"/>
+      <label>Stara cijena (€) - opciono</label>
+      <input type="number" id="kve-pdp-variant-original" min="0" step="0.01" value="${esc(variant?.original_price != null ? parseFloat(variant.original_price).toFixed(2) : '')}" placeholder="ostavite prazno ako nema popusta"/>
+    `);
+    modal.ok.textContent = editing ? 'Sačuvaj paket' : 'Dodaj paket';
+    modal.ok.addEventListener('click', async () => {
+      const labelInput = modal.overlay.querySelector('#kve-pdp-variant-label');
+      const priceInput = modal.overlay.querySelector('#kve-pdp-variant-price');
+      const originalInput = modal.overlay.querySelector('#kve-pdp-variant-original');
+      const nextLabel = labelInput.value.trim();
+      const nextPrice = parseFloat(priceInput.value);
+      const nextOriginal = originalInput.value.trim() ? parseFloat(originalInput.value) : null;
+
+      if (!nextLabel) {
+        labelInput.focus();
+        labelInput.style.borderColor = '#ef4444';
+        return;
+      }
+      if (!Number.isFinite(nextPrice) || nextPrice <= 0) {
+        priceInput.focus();
+        priceInput.style.borderColor = '#ef4444';
+        return;
+      }
+
+      const nextVariants = variants.slice();
+      const payload = {
+        label: nextLabel,
+        price: nextPrice,
+        original_price: Number.isFinite(nextOriginal) && nextOriginal > 0 ? nextOriginal : null,
+        variant_type: variant?.variant_type || 'duration',
+      };
+      if (editing) nextVariants[index] = { ...variant, ...payload };
+      else nextVariants.push(payload);
+
+      modal.ok.disabled = true;
+      modal.ok.textContent = 'Čuvanje...';
+      try {
+        await savePdpVariants(source.id, nextVariants, editing ? 'Paket uspešno sačuvan!' : 'Paket uspešno dodat!');
+        closeModal(modal.overlay);
+      } catch (error) {
+        showKveToast(error.message || 'Greška pri čuvanju paketa', 'error');
+        modal.ok.disabled = false;
+        modal.ok.textContent = editing ? 'Sačuvaj paket' : 'Dodaj paket';
+      }
+    });
+    setTimeout(() => modal.overlay.querySelector('#kve-pdp-variant-label')?.focus(), 60);
+  }
+
+  async function deletePdpVariant(product, index) {
+    const source = window.KEYIFY_PDP_PRODUCT || product;
+    const variants = Array.isArray(source?.variants) ? source.variants : [];
+    const target = variants[index];
+    if (!target) return;
+    if (!confirm(`Obrisati paket "${target.label}"?`)) return;
+    const nextVariants = variants.filter((_, variantIndex) => variantIndex !== index);
+    try {
+      await savePdpVariants(source.id, nextVariants, 'Paket uspešno obrisan!');
+    } catch (error) {
+      showKveToast(error.message || 'Greška pri brisanju paketa', 'error');
+    }
+  }
+
+  async function savePdpVariants(productId, variants, successMessage) {
+    const normalized = normalizePdpVariants(variants);
+    const res = await fetch(`${API}/products/${productId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ variants: JSON.stringify(normalized) }),
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(payload.error || `Greška ${res.status}`);
+    }
+
+    const freshRes = await fetch(`${API}/products/${productId}`);
+    if (!freshRes.ok) throw new Error('Paket je sačuvan, ali osvežavanje prikaza nije uspelo');
+    const freshProduct = await freshRes.json();
+    window.KEYIFY_PDP_PRODUCT = freshProduct;
+    if (typeof window.KEYIFY_PDP_SET_PRODUCT === 'function') {
+      window.KEYIFY_PDP_SET_PRODUCT(freshProduct);
+    } else {
+      enhancePdpVariantEditor(freshProduct);
+    }
+    showKveToast(successMessage || 'Paketi uspešno sačuvani!');
+  }
+
   function initCard(card) {
     const cartBtn = card.querySelector('[data-product]');
     if (!cartBtn) return;
@@ -1219,7 +1618,7 @@
       <div class="kve-ctx-sep"></div>
       <div class="kve-ctx-header">Premjesti u kategoriju</div>
       <div class="kve-ctx-sep"></div>
-      ${CATEGORIES.map(c => `<div class="kve-ctx-item" data-cat="${c.value}">${c.label}</div>`).join('')}
+      <div class="kve-ctx-cats">${getCategoryContextItemsHtml()}</div>
     `;
     const x = Math.min(e.clientX + 4, window.innerWidth  - 210);
     const y = Math.min(e.clientY + 4, window.innerHeight - 320);
@@ -1230,8 +1629,12 @@
     menu.querySelector('.kve-ctx-sale').addEventListener('click', () => {
       toggleSaleBadge(id, hasSale, cardWrap); removeContextMenu();
     });
-    menu.querySelectorAll('.kve-ctx-item[data-cat]').forEach(item => {
-      item.addEventListener('click', () => { moveToCategory(id, item.dataset.cat); removeContextMenu(); });
+    bindCategoryContextItems(menu, id);
+    getCategories().then((categories) => {
+      const target = menu.querySelector('.kve-ctx-cats');
+      if (!target || !menu.isConnected) return;
+      target.innerHTML = getCategoryContextItemsHtml(categories);
+      bindCategoryContextItems(menu, id);
     });
     setTimeout(() => document.addEventListener('click', removeContextMenu, { once: true }), 0);
   }
@@ -2360,6 +2763,11 @@
   function _openSocialLinkModal(el) {
     const curHref = el.getAttribute('href') || '';
     const curIcon = el.querySelector('svg')?.outerHTML || el.querySelector('i')?.outerHTML || '';
+    const socialFieldById = {
+      'footer-fb': 'facebook_url',
+      'footer-tw': 'twitter_url',
+      'footer-ig': 'instagram_url',
+    };
 
     const m = createModal('🔗 Uredi social link', `
       <label>URL (href)</label>
@@ -2372,7 +2780,7 @@
       <label style="margin-top:14px">SVG / Icon kod <span style="color:#5050a0;font-weight:400">(opciono — zalijepite novi SVG)</span></label>
       <textarea id="kve-soc-svg" rows="5" placeholder="&lt;svg …&gt;…&lt;/svg&gt;">${esc(curIcon)}</textarea>
     `);
-    m.ok.addEventListener('click', () => {
+    m.ok.addEventListener('click', async () => {
       const href    = m.overlay.querySelector('#kve-soc-href').value.trim();
       const tgt     = m.overlay.querySelector('#kve-soc-tgt').value;
       const svgCode = m.overlay.querySelector('#kve-soc-svg').value.trim();
@@ -2389,6 +2797,29 @@
         const newIcon = tmp.firstElementChild;
         if (newIcon) el.prepend(newIcon);
       }
+
+      const socialField = socialFieldById[el.id];
+      if (socialField) {
+        try {
+          const response = await fetch(`${API}/admin/settings`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ [socialField]: href || null }),
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(payload.error || `Greška ${response.status}`);
+          showKveToast('Social link uspešno sačuvan!');
+          return;
+        } catch (error) {
+          console.error('[KVE] social link save error:', error);
+          showKveToast(error.message || 'Greška pri čuvanju social linka', 'error');
+          return;
+        }
+      }
+
       toastMsg('🔗 Social link izmijenjen — klikni "Sačuvaj stranicu".');
     });
     setTimeout(() => m.overlay.querySelector('#kve-soc-href').select(), 60);

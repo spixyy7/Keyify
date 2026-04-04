@@ -57,6 +57,14 @@
   let _lastMsgCount  = 0;
   let _open          = false;
   let _adminInfo     = null;  // { name, avatar_url } when admin accepts
+  const _autoOpenChat = (() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('open_chat') === '1' || sessionStorage.getItem('kfy_open_chat_on_load') === '1';
+    } catch {
+      return false;
+    }
+  })();
 
   /* ─────────────────────────────────────────────────────────────
      INJECT STYLES
@@ -619,8 +627,8 @@
   /* ─────────────────────────────────────────────────────────────
      TOGGLE OPEN / CLOSE
   ───────────────────────────────────────────────────────────── */
-  fab.addEventListener('click', () => {
-    _open = !_open;
+  function _setOpenState(nextOpen) {
+    _open = !!nextOpen;
     fab.classList.toggle('kfy-open', _open);
     win.classList.toggle('kfy-visible', _open);
     fab.setAttribute('aria-expanded', String(_open));
@@ -630,6 +638,10 @@
     } else {
       _stopPoll();
     }
+  }
+
+  fab.addEventListener('click', () => {
+    _setOpenState(!_open);
   });
 
   /* ─────────────────────────────────────────────────────────────
@@ -718,6 +730,11 @@
       // Guest — always show the gate (email or skip)
       _showGate();
     }
+  }
+
+  if (_autoOpenChat) {
+    sessionStorage.removeItem('kfy_open_chat_on_load');
+    setTimeout(() => _setOpenState(true), 260);
   }
 
   /* ─────────────────────────────────────────────────────────────

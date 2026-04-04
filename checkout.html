@@ -165,6 +165,19 @@
         </div>
       </div>
 
+      <div id="checkout-extra-inputs-panel" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 hidden">
+        <h3 class="font-display font-bold text-gray-900 text-lg mb-4 flex items-center gap-2">
+          <span class="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold"
+                style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">1A</span>
+          Podaci za isporuku
+        </h3>
+        <p id="checkout-extra-inputs-copy" class="text-sm text-gray-500 mb-4"></p>
+        <div id="checkout-extra-inputs-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+        <div id="checkout-chat-hint" class="hidden mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          Ovaj proizvod se zavrsava kroz live chat. Nakon kupovine otvoricemo razgovor sa podrskom kako biste brzo dobili isporuku.
+        </div>
+      </div>
+
       <!-- Payment methods -->
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <h3 class="font-display font-bold text-gray-900 text-lg mb-5 flex items-center gap-2">
@@ -309,12 +322,197 @@
   let selectedMethod  = null;
   let paymentSettings = {};
   let appliedPromo    = null;   // { code, discount_amount, new_total }
+  let checkoutProductConfig = { required_user_inputs: 'none', redirect_to_chat: false, product_id: null };
 
   /* ── INIT ── */
   document.addEventListener('DOMContentLoaded', async () => {
     renderOrderSummary();
+    await hydrateCheckoutProductConfig();
     await loadPaymentMethods();
   });
+
+  function getPrimaryCartItem() {
+    const cart = JSON.parse(localStorage.getItem('keyify_cart') || '[]');
+    return cart[0] || null;
+  }
+
+  function normalizeRequiredInputs(value) {
+    const normalized = String(value || 'none').trim().toLowerCase();
+    return ['none', 'email', 'email_password', 'pin_code', 'redirect_to_chat'].includes(normalized)
+      ? normalized
+      : 'none';
+  }
+
+  async function hydrateCheckoutProductConfig() {
+    const firstItem = getPrimaryCartItem();
+    checkoutProductConfig = { required_user_inputs: 'none', redirect_to_chat: false, product_id: firstItem?.id || null };
+
+    if (!firstItem?.id) {
+      renderCheckoutExtraInputs();
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/products/${encodeURIComponent(firstItem.id)}`);
+      const data = await res.json();
+      if (res.ok && data) {
+        const requiredInputs = normalizeRequiredInputs(data.required_user_inputs);
+        checkoutProductConfig = {
+          required_user_inputs: requiredInputs,
+          redirect_to_chat: requiredInputs === 'redirect_to_chat',
+          product_id: data.id || firstItem.id,
+        };
+      }
+    } catch (error) {
+      console.warn('[checkout] product config fallback:', error.message);
+    }
+
+    renderCheckoutExtraInputs();
+  }
+
+  function renderCheckoutExtraInputs() {
+    const panel = document.getElementById('checkout-extra-inputs-panel');
+    const copy = document.getElementById('checkout-extra-inputs-copy');
+    const fields = document.getElementById('checkout-extra-inputs-fields');
+    const chatHint = document.getElementById('checkout-chat-hint');
+    if (!panel || !copy || !fields || !chatHint) return;
+
+    const type = checkoutProductConfig.required_user_inputs;
+    chatHint.classList.toggle('hidden', type !== 'redirect_to_chat');
+
+    if (type === 'none' && !checkoutProductConfig.redirect_to_chat) {
+      panel.classList.add('hidden');
+      fields.innerHTML = '';
+      return;
+    }
+
+    panel.classList.remove('hidden');
+
+    if (type === 'email') {
+      copy.textContent = 'Ovaj proizvod trazi email na koji admin ili sistem vrsi isporuku.';
+      fields.innerHTML = `
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5">Email za isporuku</label>
+          <input type="email" id="delivery-email" class="form-input w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 font-medium" placeholder="nalog@email.com"/>
+        </div>`;
+      return;
+    }
+
+    if (type === 'email_password') {
+      copy.textContent = 'Ovaj proizvod zahteva pristupne podatke koje ce admin bezbedno obraditi i sacuvati sifrovano.';
+      fields.innerHTML = `
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5">Email naloga</label>
+          <input type="email" id="delivery-email" class="form-input w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 font-medium" placeholder="nalog@email.com"/>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5">Lozinka naloga</label>
+          <input type="password" id="delivery-password" class="form-input w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 font-medium" placeholder="Unesite lozinku"/>
+        </div>`;
+      return;
+    }
+
+    if (type === 'pin_code') {
+      copy.textContent = 'Ovaj proizvod zahteva PIN ili verifikacioni kod koji ce biti sacuvan sifrovano i prikazan samo adminu.';
+      fields.innerHTML = `
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5">PIN / verifikacioni kod</label>
+          <input type="text" id="delivery-pin-code" class="form-input w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 font-medium" placeholder="Unesite PIN ili 2FA kod"/>
+        </div>`;
+      return;
+    }
+
+    if (type === 'redirect_to_chat') {
+      copy.textContent = 'Nakon uplate automatski cemo otvoriti live chat kako biste zavrsili isporuku sa adminom.';
+      fields.innerHTML = '';
+      return;
+    }
+
+    panel.classList.add('hidden');
+    fields.innerHTML = '';
+  }
+
+  function collectCheckoutExtraInputs() {
+    const type = checkoutProductConfig.required_user_inputs;
+    if (type === 'none' || type === 'redirect_to_chat') return {};
+
+    if (type === 'email') {
+      const email = document.getElementById('delivery-email')?.value.trim().toLowerCase();
+      if (!email || !/\S+@\S+\.\S+/.test(email)) {
+        alert('Unesite validan email za isporuku proizvoda.');
+        return null;
+      }
+      return { email };
+    }
+
+    if (type === 'email_password') {
+      const email = document.getElementById('delivery-email')?.value.trim().toLowerCase();
+      const password = document.getElementById('delivery-password')?.value.trim();
+      if (!email || !/\S+@\S+\.\S+/.test(email)) {
+        alert('Unesite validan email za nalog.');
+        return null;
+      }
+      if (!password) {
+        alert('Unesite lozinku naloga.');
+        return null;
+      }
+      return { email, password };
+    }
+
+    if (type === 'pin_code') {
+      const pin_code = document.getElementById('delivery-pin-code')?.value.trim();
+      if (!pin_code) {
+        alert('Unesite PIN ili verifikacioni kod.');
+        return null;
+      }
+      return { pin_code };
+    }
+
+    return {};
+  }
+
+  function goToChatAfterCheckout(transactionId) {
+    sessionStorage.setItem('kfy_open_chat_on_load', '1');
+    if (transactionId) sessionStorage.setItem('kfy_chat_tx_ref', transactionId);
+    window.location.href = 'contact.html?open_chat=1';
+  }
+
+  function persistLastOrder(result, cart, firstItem, email, paymentMethod, total) {
+    sessionStorage.setItem('kfy_last_order', JSON.stringify({
+      transaction_id: result.transaction_id,
+      license_key: result.license_key,
+      product_name: result.product_name || cart.map(i => i.name || i.title).join(', '),
+      product_image: result.product_image || firstItem.image || firstItem.image_url || null,
+      amount: result.amount ?? total,
+      order_date: result.order_date || new Date().toISOString(),
+      email_sent_to: result.email_sent_to || email,
+      payment_method: paymentMethod,
+      required_user_inputs: result.required_user_inputs || checkoutProductConfig.required_user_inputs,
+      redirect_to_chat: !!result.redirect_to_chat,
+      requires_manual_delivery: !!result.requires_manual_delivery,
+      cart_items: cart.map(i => ({ name: i.name || i.title, qty: i.qty || 1, price: i.price })),
+    }));
+  }
+
+  function routeAfterCheckout(result) {
+    if (result.needs_verification) {
+      const chatSuffix = result.redirect_to_chat ? '&chat=1' : '';
+      window.location.href = `verify-payment.html?tx=${encodeURIComponent(result.transaction_id)}${chatSuffix}`;
+      return;
+    }
+
+    if (result.redirect_to_chat) {
+      goToChatAfterCheckout(result.transaction_id);
+      return;
+    }
+
+    if (result.requires_manual_delivery) {
+      window.location.href = 'purchases.html';
+      return;
+    }
+
+    window.location.href = 'purchase-success.html';
+  }
 
   /* ── RENDER ORDER SUMMARY ── */
   function renderOrderSummary() {
@@ -619,25 +817,29 @@
         const name  = document.getElementById('buyer-name').value.trim();
         const email = document.getElementById('buyer-email').value.trim();
         if (!name || !email) { alert('Unesite ime i email prije potvrde.'); return; }
+        const buyerInputs = collectCheckoutExtraInputs();
+        if (buyerInputs === null) return;
 
-        const token = localStorage.getItem('kf_token') || null;
+        const token = localStorage.getItem('keyify_token') || localStorage.getItem('kf_token') || null;
         const firstItem = cart[0] || {};
         try {
           const res = await fetch(`${API_BASE}/checkout/confirm`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
             body: JSON.stringify({
-              guest_email: email, buyer_name: name,
+              buyer_email: email, buyer_name: name,
               product_id: firstItem.id || null,
               product_name: cart.map(i => i.name || i.title).filter(Boolean).join(', ') || 'Digitalni proizvod',
               amount: total, payment_method: 'paypal',
+              buyer_inputs: buyerInputs,
               tx_reference: details.id || null,
             }),
           });
           const result = await res.json();
           if (res.ok) {
+            persistLastOrder(result, cart, firstItem, email, 'paypal', total);
             localStorage.removeItem('keyify_cart');
-            window.location.href = `purchase-success.html?tx=${result.transaction_id}&key=${encodeURIComponent(result.license_key)}`;
+            routeAfterCheckout(result);
           } else {
             alert(result.error || 'Greška pri potvrdi narudžbe.');
           }
@@ -659,6 +861,9 @@
     if (!email) { shakeField('buyer-email'); alert('Unesite email adresu.'); return; }
     if (!/\S+@\S+\.\S+/.test(email)) { shakeField('buyer-email'); alert('Nevažeća email adresa.'); return; }
     if (!selectedMethod) { alert('Izaberite način plaćanja.'); return; }
+
+    const buyerInputs = collectCheckoutExtraInputs();
+    if (buyerInputs === null) return;
 
     // Stripe nije dostupno
     if (selectedMethod === 'stripe_card' || selectedMethod === 'stripe_coming_soon') {
@@ -682,7 +887,7 @@
     const firstItem = cart[0] || {};
 
     try {
-      const token = localStorage.getItem('kf_token') || null;
+      const token = localStorage.getItem('keyify_token') || localStorage.getItem('kf_token') || null;
       const res = await fetch(`${API_BASE}/checkout/confirm`, {
         method:  'POST',
         headers: {
@@ -690,11 +895,12 @@
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          guest_email:    email,
+          buyer_email:    email,
           product_id:     firstItem.id     || null,
           product_name:   cart.map(i => i.name || i.title).filter(Boolean).join(', ') || 'Digitalni proizvod',
           amount:         total,
           payment_method: selectedMethod,
+          buyer_inputs:   buyerInputs,
           tx_reference:   null,
         }),
       });
@@ -707,27 +913,11 @@
         return;
       }
 
-      // Store order for the success page
-      sessionStorage.setItem('kfy_last_order', JSON.stringify({
-        transaction_id: data.transaction_id,
-        license_key:    data.license_key,
-        product_name:   data.product_name   || cart.map(i => i.name || i.title).join(', '),
-        product_image:  data.product_image  || firstItem.image || firstItem.image_url || null,
-        amount:         data.amount         ?? total,
-        order_date:     data.order_date     || new Date().toISOString(),
-        email_sent_to:  data.email_sent_to  || email,
-        payment_method: selectedMethod,
-        cart_items:     cart.map(i => ({ name: i.name || i.title, qty: i.qty || 1, price: i.price })),
-      }));
+      persistLastOrder(data, cart, firstItem, email, selectedMethod, total);
 
       KEYIFY.CART.clear();
 
-      // Redirect: verification page for PayPal/crypto, success page otherwise
-      if (data.needs_verification) {
-        window.location.href = `verify-payment.html?tx=${data.transaction_id}`;
-      } else {
-        window.location.href = 'purchase-success.html';
-      }
+      routeAfterCheckout(data);
 
     } catch (err) {
       if (btn) { btn.disabled = false; btn.textContent = 'Potvrdi narudžbu'; }
@@ -861,6 +1051,11 @@
     const firstItem  = cart[0] || {};
     const productName = cart.map(i => i.name || i.title).filter(Boolean).join(', ') || 'Digitalni proizvod';
     const token      = localStorage.getItem('keyify_token') || null;
+    const buyerInputs = collectCheckoutExtraInputs();
+    if (buyerInputs === null) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Potvrdi narudÅ¾bu'; }
+      return;
+    }
 
     try {
       // 1. Create Stripe Invoice on backend → get client_secret
@@ -907,29 +1102,21 @@
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          guest_email:    email,
+          buyer_email:    email,
           product_id:     firstItem.id || null,
           product_name:   productName,
           amount:         total,
           payment_method: 'stripe_card',
+          buyer_inputs:   buyerInputs,
           tx_reference:   invoiceData.invoice_id,
         }),
       });
       const confirmData = await confirmRes.json();
 
-      sessionStorage.setItem('kfy_last_order', JSON.stringify({
-        transaction_id: confirmData.transaction_id,
-        license_key:    confirmData.license_key,
-        product_name:   productName,
-        product_image:  confirmData.product_image || firstItem.image || firstItem.image_url || null,
-        amount:         total,
-        order_date:     new Date().toISOString(),
-        email_sent_to:  email,
-        stripe_invoice_url: invoiceData.invoice_url || null,
-      }));
+      persistLastOrder(confirmData, cart, firstItem, email, 'stripe_card', total);
 
       KEYIFY.CART.clear();
-      window.location.href = 'purchase-success.html';
+      routeAfterCheckout(confirmData);
 
     } catch (err) {
       if (errEl) { errEl.textContent = err.message; errEl.classList.remove('hidden'); }

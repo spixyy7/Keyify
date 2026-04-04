@@ -250,8 +250,8 @@
         </svg>
       </div>
       <h2 class="font-display font-bold text-xl mb-2" style="color:var(--vp-text)">Dokaz poslan!</h2>
-      <p class="vp-muted text-sm mb-5">Vaša uplata je poslana na provjeru. Obavijestit ćemo vas putem emaila čim bude odobrena.</p>
-      <a href="purchases.html" class="inline-block px-6 py-2.5 rounded-xl text-white text-sm font-bold" style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">Moje narudžbe</a>
+      <p id="vp-success-copy" class="vp-muted text-sm mb-5">Vaša uplata je poslana na provjeru. Obavijestit ćemo vas putem emaila čim bude odobrena.</p>
+      <a id="vp-success-link" href="purchases.html" class="inline-block px-6 py-2.5 rounded-xl text-white text-sm font-bold" style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">Moje narudžbe</a>
     </div>
   </div>
 
@@ -263,12 +263,14 @@
 
     let currentTab = 'paypal';
     let selectedFile = null;
+    const API_BASE = window.KEYIFY_CONFIG?.API_BASE || 'http://localhost:3001/api';
 
     // Read order from sessionStorage or URL
     let order = {};
     try { order = JSON.parse(sessionStorage.getItem('kfy_last_order') || '{}'); } catch {}
     const params = new URLSearchParams(location.search);
     const txId = params.get('tx') || order.transaction_id || '';
+    const shouldRedirectToChat = params.get('chat') === '1';
 
     if (txId) document.getElementById('vp-order-id').textContent = txId;
 
@@ -346,16 +348,36 @@
       }
 
       const headers = {};
-      const token = localStorage.getItem('kfy_token');
+      const token = localStorage.getItem('keyify_token') || localStorage.getItem('kfy_token');
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
       try {
-        const resp = await fetch(`${window.KFY_CONFIG?.API_BASE || ''}/api/verification/submit`, {
+        const resp = await fetch(`${API_BASE}/verification/submit`, {
           method: 'POST', headers, body: fd,
         });
-        const data = await resp.json();
-        if (!resp.ok) { showError(data.error || 'Greška'); btn.disabled = false; btn.textContent = 'Pošalji dokaz uplate'; return; }
-        document.getElementById('vp-success').style.display = 'flex';
+        const raw = await resp.text();
+        let data = {};
+        try { data = raw ? JSON.parse(raw) : {}; } catch {}
+        if (!resp.ok) { showError(data.error || raw || 'Greška pri slanju verifikacije'); btn.disabled = false; btn.textContent = 'Pošalji dokaz uplate'; return; }
+
+        const successOverlay = document.getElementById('vp-success');
+        const successCopy = document.getElementById('vp-success-copy');
+        const successLink = document.getElementById('vp-success-link');
+
+        if (shouldRedirectToChat) {
+          sessionStorage.setItem('kfy_open_chat_on_load', '1');
+          if (txId) sessionStorage.setItem('kfy_chat_tx_ref', txId);
+          successCopy.textContent = 'Dokaz je poslat. Preusmjeravamo vas na live chat kako biste nastavili dogovor sa adminom.';
+          successLink.textContent = 'Otvori chat';
+          successLink.href = 'contact.html?open_chat=1';
+          successOverlay.style.display = 'flex';
+          setTimeout(() => {
+            window.location.href = 'contact.html?open_chat=1';
+          }, 1400);
+          return;
+        }
+
+        successOverlay.style.display = 'flex';
       } catch (e) {
         showError('Mrežna greška. Pokušajte ponovo.');
         btn.disabled = false;

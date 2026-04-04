@@ -48,15 +48,20 @@
         /* PDP specific */
         .pdp-image-wrap {
             background: linear-gradient(145deg, #0f0f1a, #1a1a2e);
-            border-radius: 20px; overflow: hidden; position: relative; cursor: zoom-in;
+            border-radius: 24px; overflow: hidden; position: relative; cursor: zoom-in;
+            min-height: 420px;
         }
         .pdp-image-wrap::before {
             content: ''; position: absolute; top: 50%; left: 50%; width: 200px; height: 200px;
             transform: translate(-50%, -50%); border-radius: 50%;
             background: radial-gradient(circle, rgba(29,106,255,0.35), transparent); filter: blur(40px);
         }
-        .pdp-image-wrap img { position: relative; z-index: 1; max-height: 320px; object-fit: contain;
-            filter: drop-shadow(0 12px 32px rgba(0,0,0,0.5)); transition: transform .3s ease; transform-origin: center center; }
+        .pdp-image-wrap img {
+            position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%;
+            object-fit: cover; object-position: center top;
+            filter: drop-shadow(0 12px 32px rgba(0,0,0,0.45));
+            transition: transform .3s ease, filter .3s ease; transform-origin: center center;
+        }
         .pdp-image-wrap.zooming img { transform: scale(2); cursor: zoom-out; }
 
         /* Variants / Packages */
@@ -151,7 +156,7 @@
             </a>
 
             <nav class="hidden lg:flex items-center flex-1">
-                <a href="index.html" class="px-3 py-2 text-[13.5px] font-bold text-gray-700 hover:text-gray-950 whitespace-nowrap select-none transition-colors">Pocetna</a>
+                <a href="index.html" class="px-3 py-2 text-[13.5px] font-bold text-gray-700 hover:text-gray-950 whitespace-nowrap select-none transition-colors">Početna</a>
                 <div class="dropdown relative">
                     <button class="kf-dd-trigger flex items-center gap-[5px] px-3 py-2 text-[13.5px] font-bold text-gray-700 hover:text-gray-950 whitespace-nowrap transition-colors select-none">
                         Shop Software
@@ -199,7 +204,7 @@
     </div>
     <div id="mobile-menu" class="lg:hidden border-t border-gray-100 bg-white">
         <div class="px-4 py-3 space-y-0.5">
-            <a href="index.html" class="block px-3 py-2.5 rounded-lg text-sm font-bold text-gray-700">Pocetna</a>
+            <a href="index.html" class="block px-3 py-2.5 rounded-lg text-sm font-bold text-gray-700">Početna</a>
             <a href="design.html" class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50">Design &amp; Creativity</a>
             <a href="business.html" class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50">Business Software</a>
             <a href="windows.html" class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50">Windows &amp; Office</a>
@@ -216,7 +221,7 @@
 <section class="bg-gray-50 border-b border-gray-100">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <nav class="flex items-center gap-2 text-sm text-gray-400 font-medium" id="pdp-breadcrumb">
-            <a href="index.html" class="hover:text-blue-600 transition-colors">Pocetna</a>
+            <a href="index.html" class="hover:text-blue-600 transition-colors">Početna</a>
             <span>/</span>
             <span id="bc-category" class="hover:text-blue-600 transition-colors cursor-pointer">Kategorija</span>
             <span>/</span>
@@ -231,15 +236,15 @@
     <!-- Loading state -->
     <div id="pdp-loading" class="flex flex-col items-center py-24">
         <div class="pdp-spinner mb-4"></div>
-        <p class="text-sm text-gray-400 font-medium">Ucitavanje proizvoda...</p>
+        <p class="text-sm text-gray-400 font-medium">Učitavanje proizvoda...</p>
     </div>
 
     <!-- Error state -->
     <div id="pdp-error" class="hidden text-center py-24">
         <div class="text-4xl mb-4">:(</div>
-        <h2 class="font-display font-bold text-xl text-gray-800 mb-2">Proizvod nije pronadjen</h2>
+        <h2 class="font-display font-bold text-xl text-gray-800 mb-2">Proizvod nije pronađen</h2>
         <p class="text-gray-500 text-sm mb-6">Moguce je da je uklonjen ili da link nije ispravan.</p>
-        <a href="index.html" class="inline-block bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-all">Nazad na pocetnu</a>
+        <a href="index.html" class="inline-block bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-all">Nazad na početnu</a>
     </div>
 
     <!-- Product content (hidden until loaded) -->
@@ -249,8 +254,8 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 mb-16">
 
             <!-- Left: Image -->
-            <div class="pdp-image-wrap flex items-center justify-center p-8" style="min-height:380px">
-                <img id="pdp-img" src="" alt="" class="relative z-10" style="max-width:85%">
+            <div class="pdp-image-wrap flex items-center justify-center" style="min-height:420px">
+                <img id="pdp-img" src="" alt="" class="absolute inset-0 z-10 w-full h-full">
                 <div id="pdp-img-placeholder" class="hidden relative z-10 w-28 h-28 rounded-3xl flex items-center justify-center text-white text-5xl font-bold font-display shadow-2xl"
                      style="background:linear-gradient(135deg,#1D6AFF,#A259FF)"></div>
                 <span id="pdp-badge-overlay" class="hidden absolute top-4 left-4 z-20 text-white text-xs font-bold px-3 py-1 rounded-full"></span>
@@ -363,7 +368,7 @@
                             <div class="pdp-spec-row"><span class="pdp-spec-label">Kategorija</span><span class="pdp-spec-value" id="spec-category"></span></div>
                             <div class="pdp-spec-row"><span class="pdp-spec-label">Region</span><span class="pdp-spec-value">Global</span></div>
                             <div class="pdp-spec-row"><span class="pdp-spec-label">Dostava</span><span class="pdp-spec-value">Instant (Email)</span></div>
-                            <div class="pdp-spec-row"><span class="pdp-spec-label">Tip</span><span class="pdp-spec-value">Digitalni kljuc</span></div>
+                            <div class="pdp-spec-row"><span class="pdp-spec-label">Tip</span><span class="pdp-spec-value">Digitalni ključ</span></div>
                             <div class="pdp-spec-row" style="border:none"><span class="pdp-spec-label">Garancija</span><span class="pdp-spec-value">Da</span></div>
                         </div>
                     </div>
@@ -440,25 +445,25 @@
                             </div>
                             <div>
                                 <h3 class="font-display font-bold text-lg text-gray-900 mb-1">Keyify Garancija</h3>
-                                <p class="text-sm text-gray-500">Svaki proizvod na Keyify platformi dolazi sa nasim garantovanim obećanjem kvaliteta.</p>
+                                <p class="text-sm text-gray-500">Svaki proizvod na Keyify platformi dolazi sa našim garantovanim obećanjem kvaliteta.</p>
                             </div>
                         </div>
                         <div class="space-y-4 text-sm text-gray-600 leading-relaxed">
                             <div class="flex items-start gap-3">
                                 <div class="feature-check"><svg fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
-                                <p><strong class="text-gray-800">100% Originalni kljucevi</strong> — Svi nasi proizvodi su originalni i legalni. Garantujemo autenticnost svakog kljuca.</p>
+                                <p><strong class="text-gray-800">100% originalni ključevi</strong> - Svi naši proizvodi su originalni i legalni. Garantujemo autentičnost svakog ključa.</p>
                             </div>
                             <div class="flex items-start gap-3">
                                 <div class="feature-check"><svg fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
-                                <p><strong class="text-gray-800">Instant dostava</strong> — Kljuc dobijate na email odmah nakon potvrde uplate. Bez cekanja.</p>
+                                <p><strong class="text-gray-800">Instant dostava</strong> - Ključ dobijate na email odmah nakon potvrde uplate. Bez čekanja.</p>
                             </div>
                             <div class="flex items-start gap-3">
                                 <div class="feature-check"><svg fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
-                                <p><strong class="text-gray-800">Zamjena u slucaju problema</strong> — Ako kljuc ne radi, kontaktirajte nas i dobicete zamjenu ili povrat novca u roku od 24h.</p>
+                                <p><strong class="text-gray-800">Zamena u slučaju problema</strong> - Ako ključ ne radi, kontaktirajte nas i dobićete zamenu ili povrat novca u roku od 24h.</p>
                             </div>
                             <div class="flex items-start gap-3">
                                 <div class="feature-check"><svg fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
-                                <p><strong class="text-gray-800">24/7 Podrska</strong> — Nas tim za podrsku je dostupan non-stop putem live chata i email-a.</p>
+                                <p><strong class="text-gray-800">24/7 podrška</strong> - Naš tim za podršku je dostupan non-stop putem live chata i email-a.</p>
                             </div>
                         </div>
                     </div>
@@ -487,7 +492,7 @@
 <!-- ── FOOTER (minimal) ─────────────────────────────────────── -->
 <footer class="border-t border-gray-200 bg-white">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
-        <p class="text-xs text-gray-400">&copy; 2026 Keyify. Sva prava zadrzana.</p>
+        <p class="text-xs text-gray-400">&copy; 2026 Keyify. Sva prava zadržana.</p>
     </div>
 </footer>
 
@@ -527,6 +532,7 @@
         if (!res.ok) throw new Error();
         const p = await res.json();
         _currentProduct = p;
+        window.KEYIFY_PDP_PRODUCT = p;
         renderProduct(p);
         initImageZoom();
         loadRelated(p);
@@ -541,6 +547,8 @@
     }
 
     function renderProduct(p) {
+        _currentProduct = p;
+        window.KEYIFY_PDP_PRODUCT = p;
         const name = (lang === 'en' && p.name_en) ? p.name_en : (p.name_sr || '');
         const desc = (lang === 'en' && p.description_en) ? p.description_en : (p.description_sr || '');
         const price = parseFloat(p.price).toFixed(2);
@@ -559,8 +567,10 @@
 
         // Image
         if (p.image_url) {
-            document.getElementById('pdp-img').src = p.image_url;
-            document.getElementById('pdp-img').alt = name;
+            const imgEl = document.getElementById('pdp-img');
+            imgEl.classList.remove('hidden');
+            imgEl.src = p.image_url;
+            imgEl.alt = name;
             document.getElementById('pdp-lightbox-img').src = p.image_url;
         } else {
             document.getElementById('pdp-img').classList.add('hidden');
@@ -596,10 +606,10 @@
         }
 
         // Variants / Packages
+        const sec = document.getElementById('pdp-variants-section');
+        const container = document.getElementById('pdp-variants');
         if (p.variants && p.variants.length > 0) {
-            const sec = document.getElementById('pdp-variants-section');
             sec.style.display = 'block';
-            const container = document.getElementById('pdp-variants');
             container.innerHTML = p.variants.map((v, i) => {
                 const origHtml = v.original_price ? `<div class="vb-orig">&euro; ${parseFloat(v.original_price).toFixed(2)}</div>` : '';
                 return `<div class="variant-btn${i === 0 ? ' active' : ''}" data-idx="${i}" onclick="selectVariant(${i})">
@@ -611,6 +621,10 @@
             // Auto-select first variant
             _selectedVariant = p.variants[0];
             updatePriceDisplay(_selectedVariant.price, _selectedVariant.original_price);
+        } else {
+            sec.style.display = 'none';
+            container.innerHTML = '';
+            _selectedVariant = null;
         }
 
         // Features checklist
@@ -643,13 +657,13 @@
         if (desc) {
             descEl.innerHTML = desc.split('\n').map(line => `<p>${h(line)}</p>`).join('');
         } else {
-            descEl.innerHTML = `<p>Dobrodosli na stranicu proizvoda <strong>${h(name)}</strong>. Ovaj digitalni proizvod dolazi sa instant dostavom putem email-a nakon kupovine.</p>
-            <p>Svi nasi kljucevi su 100% originalni i verifikovani. Nakon kupovine, dobicete aktivacioni kljuc ili pristupne podatke direktno na vasu email adresu u roku od nekoliko minuta.</p>
-            <p>Ukoliko imate bilo kakvih pitanja ili vam je potrebna pomoc sa aktivacijom, nas tim za podrsku je dostupan 24/7 putem live chata ili email-a.</p>`;
+            descEl.innerHTML = `<p>Dobrodošli na stranicu proizvoda <strong>${h(name)}</strong>. Ovaj digitalni proizvod dolazi sa instant dostavom putem email-a nakon kupovine.</p>
+            <p>Svi naši ključevi su 100% originalni i verifikovani. Nakon kupovine, dobićete aktivacioni ključ ili pristupne podatke direktno na vašu email adresu u roku od nekoliko minuta.</p>
+            <p>Ukoliko imate bilo kakvih pitanja ili vam je potrebna pomoć sa aktivacijom, naš tim za podršku je dostupan 24/7 putem live chata ili email-a.</p>`;
         }
 
         // Add to cart
-        document.getElementById('pdp-add-cart').addEventListener('click', function() {
+        document.getElementById('pdp-add-cart').onclick = function() {
             const cartItem = {
                 id: p.id,
                 name: name,
@@ -674,12 +688,18 @@
                 btn.classList.remove('bg-green-500');
                 btn.classList.add('bg-blue-600','hover:bg-blue-700');
             }, 2000);
-        });
+        };
 
         // Show content
         document.getElementById('pdp-loading').classList.add('hidden');
         document.getElementById('pdp-content').classList.remove('hidden');
+        window.dispatchEvent(new CustomEvent('keyify:pdp-rendered', { detail: { product: p } }));
     }
+
+    window.KEYIFY_PDP_SET_PRODUCT = function(nextProduct) {
+        if (!nextProduct) return;
+        renderProduct(nextProduct);
+    };
 
     // Variant selection
     window.selectVariant = function(idx) {
@@ -743,8 +763,8 @@
             grid.innerHTML = related.map(p => {
                 const name = (lang === 'en' && p.name_en) ? p.name_en : (p.name_sr || '');
                 const price = parseFloat(p.price).toFixed(2);
-                const imgHtml = p.image_url
-                    ? `<img src="${h(p.image_url)}" alt="${h(name)}" class="relative z-10 object-contain drop-shadow-xl" style="max-height:130px;max-width:80%">`
+        const imgHtml = p.image_url
+            ? `<img src="${h(p.image_url)}" alt="${h(name)}" class="absolute inset-0 z-10 w-full h-full object-cover">`
                     : `<div class="relative z-10 w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-bold font-display" style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">${name.charAt(0)}</div>`;
                 return `
                 <a href="product.html?id=${p.id}" class="related-card block">

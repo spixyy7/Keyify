@@ -1424,6 +1424,18 @@
         <p class="text-xs text-dark-400 mt-1">HTML dozvoljen. Ako je prazno, šalje se standardni licencni ključ.</p>
       </div>
 
+      <div>
+        <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Dodatni podaci od kupca</label>
+        <select id="prod-required-inputs" class="admin-input">
+          <option value="none">Nista dodatno</option>
+          <option value="email">Email za isporuku</option>
+          <option value="email_password">Email + lozinka</option>
+          <option value="pin_code">PIN / kod</option>
+          <option value="redirect_to_chat">Preusmeri na live chat</option>
+        </select>
+        <p class="text-xs text-dark-400 mt-1">Ako proizvod trazi ove podatke, porudzbina ostaje na cekanju dok admin ne potvrdi isporuku.</p>
+      </div>
+
       <!-- Warranty / Garancija text -->
       <div>
         <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Tekst garancije</label>
@@ -1699,6 +1711,16 @@
   let allProducts    = [];
   let allUsers       = [];
   let editingProduct = null;
+  window.KEYIFY_ADMIN_STATE = {
+    get currentLang() { return currentLang; },
+    set currentLang(value) { currentLang = value; },
+    get allProducts() { return allProducts; },
+    set allProducts(value) { allProducts = Array.isArray(value) ? value : []; },
+    get allUsers() { return allUsers; },
+    set allUsers(value) { allUsers = Array.isArray(value) ? value : []; },
+    get editingProduct() { return editingProduct; },
+    set editingProduct(value) { editingProduct = value; },
+  };
 
   /* ── INIT ── */
   document.addEventListener('DOMContentLoaded', () => {
@@ -3704,6 +3726,7 @@
      PAYMENT VERIFICATIONS
   ───────────────────────────────────────────────────────── */
   let _vfCurrentFilter = 'pending';
+  let _vfById = {};
 
   async function loadVerifications(status) {
     _vfCurrentFilter = status || null;
@@ -3726,6 +3749,7 @@
       const res = await fetch(url, { headers: authHeaders() });
       if (!res.ok) { tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-red-400">Greška pri učitavanju</td></tr>'; return; }
       const data = await res.json();
+      _vfById = Object.fromEntries((data || []).map(v => [String(v.id), v]));
 
       if (!data.length) {
         tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-dark-300">Nema verifikacija</td></tr>';
@@ -3740,11 +3764,27 @@
           ? '<span style="color:#22c55e;background:rgba(34,197,94,0.15);padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600">Odobrena</span>'
           : '<span style="color:#ef4444;background:rgba(239,68,68,0.15);padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600">Odbijena</span>';
 
-        const proofCell = v.payment_type === 'paypal'
+        let proofCell = v.payment_type === 'paypal'
           ? (v.screenshot_url ? `<a href="${esc(v.screenshot_url)}" target="_blank" class="text-blue-400 hover:underline text-xs">📷 Screenshot</a>` : '<span class="text-dark-400 text-xs">—</span>')
           : (v.tx_hash ? `<span class="font-mono text-xs text-dark-200" title="${esc(v.tx_hash)}">${esc(v.tx_hash.substring(0,12))}…</span>` : '<span class="text-dark-400 text-xs">—</span>');
 
+        if (v.payment_type === 'manual_delivery') {
+          proofCell = '<span class="text-xs font-semibold" style="color:#a78bfa">Custom isporuka</span>';
+        }
+
         const date = new Date(v.created_at).toLocaleDateString('bs-BA', { day:'numeric', month:'short', year:'numeric' });
+
+        const paymentLabel = v.payment_type === 'paypal'
+          ? 'PayPal'
+          : v.payment_type === 'manual_delivery'
+          ? 'Manual delivery'
+          : 'Kripto' + (v.network ? ' · ' + v.network : '');
+
+        const paymentColor = v.payment_type === 'paypal'
+          ? '#1D6AFF'
+          : v.payment_type === 'manual_delivery'
+          ? '#a78bfa'
+          : '#f59e0b';
 
         const actions = v.status === 'pending'
           ? `<div class="flex gap-1.5">
@@ -3760,7 +3800,7 @@
         return `<tr>
           <td class="text-sm">${vAvatar}${esc(v.buyer_email)}</td>
           <td class="text-sm">${esc(tx.product_name || '—')}</td>
-          <td><span class="text-xs font-semibold uppercase" style="color:${v.payment_type === 'paypal' ? '#1D6AFF' : '#f59e0b'}">${v.payment_type === 'paypal' ? 'PayPal' : 'Kripto' + (v.network ? ' · ' + v.network : '')}</span></td>
+          <td><span class="text-xs font-semibold uppercase" style="color:${paymentColor}">${paymentLabel}</span></td>
           <td class="font-semibold text-sm" style="color:#1D6AFF">€ ${v.amount ? parseFloat(v.amount).toFixed(2) : (tx.amount ? parseFloat(tx.amount).toFixed(2) : '—')}</td>
           <td>${proofCell}</td>
           <td>${statusBadge}</td>
@@ -3804,6 +3844,93 @@
       loadVerifications(_vfCurrentFilter);
       loadVerifyBadge();
     } catch (e) { alert('Greška pri odbijanju'); }
+  }
+
+  function escVF(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function renderVerificationInputs(inputs) {
+    if (!inputs || typeof inputs !== 'object') {
+      return '<div class="text-sm text-dark-300">Nema dodatnih podataka od kupca.</div>';
+    }
+
+    const rows = Object.entries(inputs).map(([key, value]) => `
+      <div class="flex items-start justify-between gap-4 py-2 border-b border-dark-700/40">
+        <div class="text-xs uppercase tracking-wide text-dark-400">${escVF(key.replace(/_/g, ' '))}</div>
+        <div class="text-sm text-white font-medium text-right break-all">${escVF(value)}</div>
+      </div>
+    `).join('');
+
+    return rows || '<div class="text-sm text-dark-300">Nema dodatnih podataka od kupca.</div>';
+  }
+
+  function closeVerificationApprovalModal() {
+    const overlay = document.getElementById('vf-approve-overlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  function approveVerification(id) {
+    const verification = _vfById[String(id)];
+    if (!verification) {
+      alert('Detalji porudzbine nisu ucitani. Pokusajte ponovo.');
+      return;
+    }
+
+    const tx = verification.transactions || {};
+    const overlay = document.getElementById('vf-approve-overlay');
+    document.getElementById('vf-approve-id').value = verification.id;
+    document.getElementById('vf-approve-title').textContent = tx.product_name || 'Porudzbina';
+    document.getElementById('vf-approve-meta').textContent = verification.buyer_email || tx.buyer_email || 'Gost';
+    document.getElementById('vf-approve-proof').innerHTML = verification.screenshot_url
+      ? `<a href="${escVF(verification.screenshot_url)}" target="_blank" class="text-blue-400 hover:underline text-sm">Otvori screenshot uplate</a>`
+      : '<span class="text-dark-300 text-sm">Nema prilozenog screenshota.</span>';
+    document.getElementById('vf-approve-inputs').innerHTML = renderVerificationInputs(verification.customer_inputs);
+    document.getElementById('vf-approve-delivery').value = tx.delivery_payload || '';
+    document.getElementById('vf-approve-notes').value = verification.admin_notes || '';
+    overlay.style.display = 'flex';
+  }
+
+  async function submitVerificationApproval() {
+    const id = document.getElementById('vf-approve-id').value;
+    const deliveryPayload = document.getElementById('vf-approve-delivery').value.trim();
+    const notes = document.getElementById('vf-approve-notes').value.trim();
+
+    if (!deliveryPayload) {
+      alert('Unesite custom delivery poruku, kljuc ili instrukcije.');
+      return;
+    }
+
+    const btn = document.getElementById('vf-approve-submit');
+    const prev = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Cuvanje...';
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/verifications/${id}/approve`, {
+        method: 'PUT',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          admin_notes: notes || null,
+          delivery_payload: deliveryPayload,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Greska'); return; }
+      closeVerificationApprovalModal();
+      alert('Porudzbina je potvrdjena i isporuka je sacuvana.');
+      loadVerifications(_vfCurrentFilter);
+      loadVerifyBadge();
+    } catch (e) {
+      alert('Greska pri potvrdi porudzbine');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
   }
 
   async function loadVerifyBadge() {
@@ -4030,6 +4157,53 @@
   }
 
 </script>
+<div id="vf-approve-overlay" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.82);backdrop-filter:blur(16px);z-index:260;align-items:center;justify-content:center;padding:24px">
+  <div class="glass rounded-[28px] w-full max-w-3xl overflow-hidden" style="border:1px solid rgba(255,255,255,0.12);box-shadow:0 40px 120px rgba(0,0,0,0.45)">
+    <div class="flex items-center justify-between px-7 py-5" style="border-bottom:1px solid rgba(255,255,255,0.08);background:linear-gradient(135deg,rgba(29,106,255,0.18),rgba(162,89,255,0.10))">
+      <div>
+        <div class="text-[11px] uppercase tracking-[0.18em] text-blue-300 font-semibold">Admin Delivery</div>
+        <h3 id="vf-approve-title" class="font-display font-bold text-white text-xl mt-1">Porudzbina</h3>
+        <p id="vf-approve-meta" class="text-sm text-dark-300 mt-1"></p>
+      </div>
+      <button onclick="closeVerificationApprovalModal()" class="w-10 h-10 rounded-xl flex items-center justify-center text-dark-300 hover:text-white transition-colors" style="background:rgba(255,255,255,0.05)">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-[0.95fr_1.05fr] gap-0">
+      <div class="px-7 py-6 space-y-5" style="border-right:1px solid rgba(255,255,255,0.08)">
+        <input type="hidden" id="vf-approve-id"/>
+        <div class="rounded-2xl p-4" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08)">
+          <div class="text-xs uppercase tracking-[0.14em] text-dark-400 mb-3">Dokaz uplate</div>
+          <div id="vf-approve-proof"></div>
+        </div>
+        <div class="rounded-2xl p-4" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08)">
+          <div class="text-xs uppercase tracking-[0.14em] text-dark-400 mb-3">Podaci kupca</div>
+          <div id="vf-approve-inputs" class="space-y-1"></div>
+        </div>
+      </div>
+
+      <div class="px-7 py-6 space-y-5">
+        <div>
+          <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Custom Delivery Message</label>
+          <textarea id="vf-approve-delivery" rows="8" class="admin-input resize-none" placeholder="Unesite kljuc, invite link, URL, instrukcije ili custom poruku isporuke..."></textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wide">Admin napomena</label>
+          <textarea id="vf-approve-notes" rows="3" class="admin-input resize-none" placeholder="Interna napomena ili poruka za evidenciju..."></textarea>
+        </div>
+        <div class="rounded-2xl p-4 text-sm text-dark-300" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(29,106,255,0.08));border:1px solid rgba(16,185,129,0.18)">
+          Nakon potvrde status porudzbine ide na <strong class="text-white">completed</strong>, cuva se <strong class="text-white">delivery payload</strong> i korisnik tek tada vidi isporuku na svojoj purchases stranici.
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="button" onclick="closeVerificationApprovalModal()" class="flex-1 py-3 rounded-2xl text-sm font-semibold text-dark-200 border border-dark-600 hover:border-dark-400 transition-colors">Otkazi</button>
+          <button type="button" id="vf-approve-submit" onclick="submitVerificationApproval()" class="flex-1 py-3 rounded-2xl text-sm font-semibold text-white hover:opacity-90 transition-all" style="background:linear-gradient(135deg,#1D6AFF,#22c55e)">Potvrdi i isporuci</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="admin.js"></script>
 <script src="translations.js"></script>
 <script src="keyify.js"></script>
 <script src="session-guard.js"></script>

@@ -354,6 +354,96 @@ function decryptField(ciphertext) {
   }
 }
 
+const REQUIRED_USER_INPUT_TYPES = new Set([
+  'none',
+  'email',
+  'email_password',
+  'pin_code',
+  'redirect_to_chat',
+]);
+
+function normalizeRequiredUserInputs(value) {
+  const normalized = String(value || 'none')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z_]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  return REQUIRED_USER_INPUT_TYPES.has(normalized) ? normalized : 'none';
+}
+
+function safeParseJSON(text, fallback = null) {
+  try { return text ? JSON.parse(text) : fallback; }
+  catch { return fallback; }
+}
+
+function buildOptionalColumnAttempts(payload, removableKeys) {
+  const attempts = [];
+  const current = { ...payload };
+  attempts.push({ ...current });
+
+  removableKeys.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(current, key)) {
+      delete current[key];
+      attempts.push({ ...current });
+    }
+  });
+
+  return attempts;
+}
+
+function validateRequiredInputs(requiredType, payload, fallbackEmail) {
+  const type = normalizeRequiredUserInputs(requiredType);
+  const source = payload && typeof payload === 'object' ? payload : {};
+
+  if (type === 'none' || type === 'redirect_to_chat') return null;
+
+  if (type === 'email') {
+    const email = String(source.email || fallbackEmail || '').trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { error: 'Unesite validan email za isporuku proizvoda.' };
+    }
+    return { value: { email } };
+  }
+
+  if (type === 'email_password') {
+    const email = String(source.email || '').trim().toLowerCase();
+    const password = String(source.password || '').trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { error: 'Unesite validan email za nalog koji želite da koristite.' };
+    }
+    if (!password) {
+      return { error: 'Unesite lozinku za nalog koji želite da koristite.' };
+    }
+    return { value: { email, password } };
+  }
+
+  if (type === 'pin_code') {
+    const pin_code = String(source.pin_code || source.pinCode || '').trim();
+    if (!pin_code) {
+      return { error: 'Unesite PIN kod ili verifikacioni kod koji proizvod zahtijeva.' };
+    }
+    return { value: { pin_code } };
+  }
+
+  return null;
+}
+
+function buildDeliveryPayload({ adminDelivery, productDelivery, licenseKey }) {
+  const adminText = String(adminDelivery || '').trim();
+  if (adminText) return adminText;
+
+  const productText = String(productDelivery || '').trim();
+  if (productText) return productText;
+
+  return licenseKey ? String(licenseKey).trim() : null;
+}
+
+function deliveryPayloadToEmailHtml(payload) {
+  const safe = escServerHtml(payload || '').replace(/\n/g, '<br/>');
+  return safe.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#1D6AFF;text-decoration:none">$1</a>');
+}
+
 /* ─────────────────────────────────────────
    Password history helpers
    Prevents reuse of the last 5 passwords.
@@ -818,22 +908,39 @@ app.post('/api/admin/settings', authenticateToken, requireAdmin, async (req, res
     facebook_url, twitter_url, instagram_url,
   } = req.body;
 
+  const { data: existingSettings, error: existingError } = await supabase
+    .from('site_settings')
+    .select('*')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (existingError) {
+    console.error('Settings read error:', existingError);
+    return res.status(500).json({ error: 'Greška pri čitanju postojećih podešavanja' });
+  }
+
   const row = {
+    ...(existingSettings || {}),
     id: 1,
-    primary_color,
-    panel_bg,
-    paypal_email,
-    paypal_client_id: paypal_client_id || null,
-    btc_wallet,
-    eth_wallet,
-    usdt_wallet,
-    bank_iban,
-    bank_name,
-    facebook_url:  facebook_url  || null,
-    twitter_url:   twitter_url   || null,
-    instagram_url: instagram_url || null,
     updated_at: new Date().toISOString(),
   };
+
+  const assignIfProvided = (key, value, fallback = value) => {
+    if (value !== undefined) row[key] = fallback;
+  };
+
+  assignIfProvided('primary_color', primary_color);
+  assignIfProvided('panel_bg', panel_bg);
+  assignIfProvided('paypal_email', paypal_email);
+  assignIfProvided('paypal_client_id', paypal_client_id, paypal_client_id || null);
+  assignIfProvided('btc_wallet', btc_wallet);
+  assignIfProvided('eth_wallet', eth_wallet);
+  assignIfProvided('usdt_wallet', usdt_wallet);
+  assignIfProvided('bank_iban', bank_iban);
+  assignIfProvided('bank_name', bank_name);
+  assignIfProvided('facebook_url', facebook_url, facebook_url || null);
+  assignIfProvided('twitter_url', twitter_url, twitter_url || null);
+  assignIfProvided('instagram_url', instagram_url, instagram_url || null);
 
   // Encrypt PayPal secret if provided (never store in plaintext)
   if (paypal_secret && paypal_secret.trim()) {
@@ -868,6 +975,173 @@ app.get('/api/public/social-links', async (req, res) => {
   });
 });
 
+const FALLBACK_CATEGORIES = [
+  { id: null, slug: 'ai',        name: 'AI Alati',               page_slug: 'ai',        aliases: ['ai-tools', 'ai-alati'] },
+  { id: null, slug: 'design',    name: 'Design & Creativity',    page_slug: 'design',    aliases: ['design-creativity', 'design-and-creativity'] },
+  { id: null, slug: 'business',  name: 'Business Software',      page_slug: 'business',  aliases: ['business-software'] },
+  { id: null, slug: 'windows',   name: 'Windows & Office',       page_slug: 'windows',   aliases: ['windows-office', 'office'] },
+  { id: null, slug: 'music',     name: 'Music Streaming',        page_slug: 'music',     aliases: ['music-streaming', 'streaming-music'] },
+  { id: null, slug: 'streaming', name: 'TV/Video Streaming',     page_slug: 'streaming', aliases: ['video-streaming', 'tv-streaming', 'streaming-tv-video'] },
+];
+
+function normalizeCategoryValue(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[()]/g, ' ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function isMissingSchemaError(error) {
+  const message = error?.message || '';
+  return /relation .* does not exist|column .* does not exist|schema cache/i.test(message);
+}
+
+function findFallbackCategory(value) {
+  const normalized = normalizeCategoryValue(value);
+  if (!normalized) return null;
+
+  return FALLBACK_CATEGORIES.find((category) => {
+    const aliases = [category.slug, category.page_slug, ...(category.aliases || [])];
+    return aliases.some((alias) => normalizeCategoryValue(alias) === normalized);
+  }) || null;
+}
+
+async function listCategories() {
+  const columnAttempts = [
+    'id, slug, name, label, page_slug, sort_order, is_active',
+    'id, slug, name, page_slug, sort_order, is_active',
+    'id, slug, name, sort_order, is_active',
+    'id, slug, name',
+  ];
+
+  let data = null;
+  let error = null;
+
+  for (const columns of columnAttempts) {
+    let query = supabase
+      .from('categories')
+      .select(columns);
+
+    query = columns.includes('sort_order')
+      ? query.order('sort_order', { ascending: true })
+      : query.order('name', { ascending: true });
+
+    const result = await query;
+
+    data = result.data;
+    error = result.error;
+
+    if (!error) break;
+    if (!isMissingSchemaError(error)) {
+      console.error('[categories] load error:', error.message);
+      break;
+    }
+  }
+
+  if (error || !data?.length) {
+    return FALLBACK_CATEGORIES.map((category, index) => ({
+      ...category,
+      sort_order: index,
+      is_active: true,
+    }));
+  }
+
+  return data
+    .filter((row) => row.is_active !== false)
+    .map((row, index) => ({
+      id: row.id || null,
+      slug: normalizeCategoryValue(row.slug || row.page_slug || row.name || row.label),
+      name: row.name || row.label || row.slug || row.page_slug || 'Kategorija',
+      page_slug: normalizeCategoryValue(row.page_slug || row.slug || row.name || row.label),
+      sort_order: row.sort_order ?? index,
+      is_active: row.is_active !== false,
+    }))
+    .filter((category) => category.slug);
+}
+
+async function resolveCategoryInput({ category, category_slug, category_id } = {}) {
+  const categories = await listCategories();
+
+  if (category_id) {
+    const byId = categories.find((item) => item.id && String(item.id) === String(category_id));
+    if (byId) return byId;
+  }
+
+  const fallback = findFallbackCategory(category_slug || category);
+  const normalized = fallback?.slug || normalizeCategoryValue(category_slug || category);
+  if (!normalized) return null;
+
+  return categories.find((item) => item.slug === normalized || item.page_slug === normalized) || fallback || null;
+}
+
+function buildCategoryFilters(category) {
+  const filters = [];
+  if (category?.id) filters.push(`category_id.eq.${category.id}`);
+  if (category?.slug) filters.push(`category.eq.${category.slug}`);
+  return filters;
+}
+
+async function queryProducts({ resolvedCategory, orderColumn, ascending }) {
+  const filters = buildCategoryFilters(resolvedCategory);
+
+  const run = async (useCategoryId) => {
+    let query = supabase.from('products').select('*');
+
+    if (resolvedCategory?.slug) {
+      if (useCategoryId && filters.length > 1) {
+        query = query.or(filters.join(','));
+      } else {
+        query = query.eq('category', resolvedCategory.slug);
+      }
+    }
+
+    return query.order(orderColumn, { ascending });
+  };
+
+  let result = await run(true);
+  if (result.error && /category_id/i.test(result.error.message || '')) {
+    result = await run(false);
+  }
+  return result;
+}
+
+async function persistProductRecord(mode, id, payload) {
+  const apply = async (body) => {
+    const query = mode === 'insert'
+      ? supabase.from('products').insert(body)
+      : supabase.from('products').update(body).eq('id', id);
+
+    return query.select().single();
+  };
+
+  let result = await apply(payload);
+  if (result.error && payload.category_id && /category_id/i.test(result.error.message || '')) {
+    const legacyPayload = { ...payload };
+    delete legacyPayload.category_id;
+    result = await apply(legacyPayload);
+  }
+  if (result.error && payload.required_user_inputs && /required_user_inputs/i.test(result.error.message || '')) {
+    const legacyPayload = { ...payload };
+    delete legacyPayload.required_user_inputs;
+    result = await apply(legacyPayload);
+  }
+
+  return result;
+}
+
+app.get('/api/categories', async (req, res) => {
+  try {
+    const categories = await listCategories();
+    return res.json(categories);
+  } catch (error) {
+    console.error('[categories] response error:', error.message);
+    return res.status(500).json({ error: 'Greška pri dohvaćanju kategorija' });
+  }
+});
+
 /* ─────────────────────────────────────────
    PRODUCTS ROUTES
 ───────────────────────────────────────── */
@@ -896,17 +1170,24 @@ async function uploadProductImage(file) {
 
 /** GET /api/products – public */
 app.get('/api/products', async (req, res) => {
-  const { category } = req.query;
-  let query = supabase.from('products').select('*');
-  if (category) query = query.eq('category', category);
+  const resolvedCategory = await resolveCategoryInput(req.query);
+  const categories = await listCategories();
+  const categoryById = new Map(categories.filter((item) => item.id).map((item) => [String(item.id), item]));
 
   // Try ordering by grid_order; fall back to created_at if column doesn't exist
-  let { data, error } = await query.order('grid_order', { ascending: true });
+  let { data, error } = await queryProducts({
+    resolvedCategory,
+    orderColumn: 'grid_order',
+    ascending: true,
+  });
+
   if (error) {
     console.error('[products] grid_order query failed:', error.message);
-    query = supabase.from('products').select('*');
-    if (category) query = query.eq('category', category);
-    const res2 = await query.order('created_at', { ascending: false });
+    const res2 = await queryProducts({
+      resolvedCategory,
+      orderColumn: 'created_at',
+      ascending: false,
+    });
     data  = res2.data;
     error = res2.error;
   }
@@ -916,13 +1197,32 @@ app.get('/api/products', async (req, res) => {
     return res.status(500).json({ error: 'Greška pri dohvaćanju proizvoda' });
   }
 
+  data = (data || []).map((product) => {
+    const categoryMeta =
+      (product.category_id && categoryById.get(String(product.category_id))) ||
+      findFallbackCategory(product.category || product.category_slug);
+    const categorySlug = categoryMeta?.slug || normalizeCategoryValue(product.category || product.category_slug);
+
+    return {
+      ...product,
+      category: categorySlug || product.category || null,
+      category_slug: categorySlug || null,
+      category_label: categoryMeta?.name || categorySlug || 'Kategorija',
+      category_id: product.category_id || categoryMeta?.id || null,
+    };
+  });
+
   // Attach min/max variant prices for price-range display
   if (data && data.length) {
     const productIds = data.map(p => p.id);
-    const { data: variantPrices } = await supabase
+    const { data: variantPrices, error: variantError } = await supabase
       .from('product_variants')
       .select('product_id, price')
       .in('product_id', productIds);
+
+    if (variantError && !isMissingSchemaError(variantError)) {
+      console.error('[products] variant lookup failed:', variantError.message);
+    }
 
     if (variantPrices && variantPrices.length) {
       const priceMap = {};
@@ -932,9 +1232,10 @@ app.get('/api/products', async (req, res) => {
       });
       data.forEach(p => {
         const prices = priceMap[p.id];
-        if (prices && prices.length > 1) {
+        if (prices && prices.length) {
           p.min_variant_price = Math.min(...prices);
           p.max_variant_price = Math.max(...prices);
+          p.package_count = prices.length;
         }
       });
     }
@@ -960,6 +1261,14 @@ app.get('/api/products/:id', async (req, res) => {
   ]);
   data.variants = varRes.data || [];
   data.features = featRes.data || [];
+  const categoryMeta = await resolveCategoryInput({
+    category: data.category,
+    category_id: data.category_id,
+  });
+  data.category = categoryMeta?.slug || data.category || null;
+  data.category_slug = categoryMeta?.slug || null;
+  data.category_label = categoryMeta?.name || data.category || 'Kategorija';
+  data.category_id = data.category_id || categoryMeta?.id || null;
 
   return res.json(data);
 });
@@ -975,11 +1284,29 @@ app.post('/api/products', authenticateToken, requireAdmin, (req, res, next) => {
     name_sr, name_en,
     description_sr, description_en,
     price, original_price,
-    category, image_url, badge, stars,
+    category, category_slug, category_id,
+    image_url, badge, stars, required_user_inputs,
   } = req.body;
 
-  if (!name_sr || !price || !category)
-    return res.status(400).json({ error: 'Naziv, cijena i kategorija su obavezni' });
+  let variants = [];
+  let features = [];
+  try { variants = JSON.parse(req.body.variants || '[]'); } catch { return res.status(400).json({ error: 'Neispravan format paketa' }); }
+  try { features = JSON.parse(req.body.features || '[]'); } catch { return res.status(400).json({ error: 'Neispravan format karakteristika' }); }
+
+  const resolvedCategory = await resolveCategoryInput({ category, category_slug, category_id });
+  const requiredUserInputs = normalizeRequiredUserInputs(required_user_inputs);
+  const productNameSr = name_sr || name_en;
+  const productNameEn = name_en || name_sr || name_en;
+  const variantPrices = variants
+    .map((variant) => parseFloat(variant.price))
+    .filter((variantPrice) => Number.isFinite(variantPrice) && variantPrice > 0);
+  const basePrice = Number.isFinite(parseFloat(price)) && parseFloat(price) > 0
+    ? parseFloat(price)
+    : (variantPrices.length ? Math.min(...variantPrices) : NaN);
+
+  if (!productNameSr || !Number.isFinite(basePrice) || !resolvedCategory?.slug) {
+    return res.status(400).json({ error: 'Naziv, cijena i validna kategorija su obavezni' });
+  }
 
   // File upload takes priority over URL
   let finalImageUrl = image_url || null;
@@ -990,24 +1317,24 @@ app.post('/api/products', authenticateToken, requireAdmin, (req, res, next) => {
 
   const starsVal = stars !== undefined ? Math.min(5, Math.max(1, parseInt(stars) || 5)) : 5;
 
-  const { data, error } = await supabase
-    .from('products')
-    .insert({
-      name_sr, name_en,
-      description_sr, description_en,
-      price:          parseFloat(price),
+  const { data, error } = await persistProductRecord('insert', null, {
+      name_sr:        productNameSr,
+      name_en:        productNameEn,
+      description_sr,
+      description_en,
+      price:          basePrice,
       original_price: original_price ? parseFloat(original_price) : null,
-      category,
+      category:       resolvedCategory.slug,
+      category_id:    resolvedCategory.id || undefined,
       image_url:      finalImageUrl,
       badge:          badge || null,
       stars:          starsVal,
       bonus_coupon_id:  req.body.bonus_coupon_id || null,
       delivery_message: req.body.delivery_message || null,
+      required_user_inputs: requiredUserInputs,
       warranty_text:    req.body.warranty_text || null,
       created_at:     new Date().toISOString(),
-    })
-    .select()
-    .single();
+    });
 
   if (error) {
     console.error('Product create error:', error);
@@ -1016,13 +1343,11 @@ app.post('/api/products', authenticateToken, requireAdmin, (req, res, next) => {
 
   // Save variants and features if provided
   try {
-    const variants = JSON.parse(req.body.variants || '[]');
     if (variants.length) {
       await supabase.from('product_variants').insert(
         variants.map((v, i) => ({ product_id: data.id, label: v.label, variant_type: v.variant_type || 'duration', price: parseFloat(v.price), original_price: v.original_price ? parseFloat(v.original_price) : null, sort_order: i }))
       );
     }
-    const features = JSON.parse(req.body.features || '[]');
     if (features.length) {
       await supabase.from('product_features').insert(
         features.map((f, i) => ({ product_id: data.id, text_sr: f.text_sr, text_en: f.text_en || null, sort_order: i }))
@@ -1043,25 +1368,54 @@ app.put('/api/products/:id', authenticateToken, requireAdmin, (req, res, next) =
   const { id } = req.params;
   const {
     name_sr, name_en, description_sr, description_en,
-    price, original_price, category, image_url,
+    price, original_price, category, category_slug, category_id, image_url,
     badge, stars, card_size, grid_order,
   } = req.body;
+
+  let variants;
+  let features;
+  if (req.body.variants !== undefined) {
+    try { variants = JSON.parse(req.body.variants || '[]'); }
+    catch { return res.status(400).json({ error: 'Neispravan format paketa' }); }
+  }
+  if (req.body.features !== undefined) {
+    try { features = JSON.parse(req.body.features || '[]'); }
+    catch { return res.status(400).json({ error: 'Neispravan format karakteristika' }); }
+  }
 
   const updates = {};
   if (name_sr          !== undefined) updates.name_sr          = name_sr;
   if (name_en          !== undefined) updates.name_en          = name_en;
   if (description_sr   !== undefined) updates.description_sr   = description_sr;
   if (description_en   !== undefined) updates.description_en   = description_en;
-  if (price            !== undefined) updates.price            = parseFloat(price);
+  if (price            !== undefined && price !== '') updates.price = parseFloat(price);
   if (original_price   !== undefined) updates.original_price   = original_price ? parseFloat(original_price) : null;
-  if (category         !== undefined) updates.category         = category;
   if (badge            !== undefined) updates.badge            = badge || null;
   if (stars            !== undefined) updates.stars            = Math.min(5, Math.max(1, parseInt(stars) || 5));
   if (card_size        !== undefined) updates.card_size        = card_size;
   if (grid_order       !== undefined) updates.grid_order       = Number(grid_order);
   if (req.body.bonus_coupon_id !== undefined)  updates.bonus_coupon_id  = req.body.bonus_coupon_id || null;
   if (req.body.delivery_message !== undefined) updates.delivery_message = req.body.delivery_message || null;
+  if (req.body.required_user_inputs !== undefined) updates.required_user_inputs = normalizeRequiredUserInputs(req.body.required_user_inputs);
   if (req.body.warranty_text !== undefined) updates.warranty_text = req.body.warranty_text || null;
+
+  if (category !== undefined || category_slug !== undefined || category_id !== undefined) {
+    const resolvedCategory = await resolveCategoryInput({ category, category_slug, category_id });
+    if (!resolvedCategory?.slug) {
+      return res.status(400).json({ error: 'Odabrana kategorija ne postoji' });
+    }
+    updates.category = resolvedCategory.slug;
+    updates.category_id = resolvedCategory.id || undefined;
+  }
+
+  if (variants) {
+    const variantPrices = variants
+      .map((variant) => parseFloat(variant.price))
+      .filter((variantPrice) => Number.isFinite(variantPrice) && variantPrice > 0);
+    if (variantPrices.length && updates.price === undefined) {
+      updates.price = Math.min(...variantPrices);
+    }
+  }
 
   // File upload takes priority; fall back to URL field; undefined = keep existing
   if (req.file) {
@@ -1076,12 +1430,9 @@ app.put('/api/products/:id', authenticateToken, requireAdmin, (req, res, next) =
 
   updates.updated_at = new Date().toISOString();
 
-  const { data, error } = await supabase
-    .from('products')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
+  const persisted = await persistProductRecord('update', id, updates);
+  const data = persisted.data;
+  const error = persisted.error;
 
   if (error) {
     console.error('Product update error:', error);
@@ -1090,18 +1441,16 @@ app.put('/api/products/:id', authenticateToken, requireAdmin, (req, res, next) =
 
   // Update variants and features if provided
   try {
-    if (req.body.variants !== undefined) {
+    if (variants !== undefined) {
       await supabase.from('product_variants').delete().eq('product_id', id);
-      const variants = JSON.parse(req.body.variants || '[]');
       if (variants.length) {
         await supabase.from('product_variants').insert(
           variants.map((v, i) => ({ product_id: id, label: v.label, variant_type: v.variant_type || 'duration', price: parseFloat(v.price), original_price: v.original_price ? parseFloat(v.original_price) : null, sort_order: i }))
         );
       }
     }
-    if (req.body.features !== undefined) {
+    if (features !== undefined) {
       await supabase.from('product_features').delete().eq('product_id', id);
-      const features = JSON.parse(req.body.features || '[]');
       if (features.length) {
         await supabase.from('product_features').insert(
           features.map((f, i) => ({ product_id: id, text_sr: f.text_sr, text_en: f.text_en || null, sort_order: i }))
@@ -1116,8 +1465,27 @@ app.put('/api/products/:id', authenticateToken, requireAdmin, (req, res, next) =
 /** DELETE /api/products/:id – admin only */
 app.delete('/api/products/:id', authenticateToken, requireAdmin, async (req, res) => {
   const { id } = req.params;
+
+  try {
+    const variantDelete = await supabase.from('product_variants').delete().eq('product_id', id);
+    if (variantDelete.error && !isMissingSchemaError(variantDelete.error)) {
+      console.error('[products/delete] variants:', variantDelete.error.message);
+    }
+
+    const featureDelete = await supabase.from('product_features').delete().eq('product_id', id);
+    if (featureDelete.error && !isMissingSchemaError(featureDelete.error)) {
+      console.error('[products/delete] features:', featureDelete.error.message);
+    }
+  } catch (cleanupError) {
+    console.error('[products/delete] cleanup failed:', cleanupError.message);
+  }
+
   const { error } = await supabase.from('products').delete().eq('id', id);
-  if (error) return res.status(500).json({ error: 'Greška pri brisanju' });
+  if (error) {
+    console.error('[products/delete] product:', error.message);
+    return res.status(500).json({ error: 'Greška pri brisanju' });
+  }
+
   return res.json({ message: 'Proizvod je obrisan' });
 });
 
@@ -1215,6 +1583,89 @@ app.get('/api/user/purchases', async (req, res) => {
     if (!guestEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail))
       return res.status(401).json({ error: 'Prijavite se ili proslijedite ?email= parametar' });
   }
+
+  const purchaseQueryAttempts = userId
+    ? [
+        'id, product_id, product_name, product_image, amount, payment_method, status, verification_status, license_key, buyer_email, delivery_payload, proof_uploaded, created_at',
+        'id, product_id, product_name, product_image, amount, payment_method, status, verification_status, license_key, buyer_email, delivery_payload, created_at',
+        'id, product_id, product_name, amount, payment_method, status, verification_status, license_key, buyer_email, created_at',
+        'id, product_id, product_name, amount, payment_method, status, license_key, buyer_email, created_at',
+        'id, product_id, product_name, amount, payment_method, status, license_key, created_at',
+        'id, product_id, product_name, amount, payment_method, status, created_at',
+      ].map((select) => ({ select, filterColumn: 'user_id', filterValue: userId }))
+    : [
+        'id, product_id, product_name, product_image, amount, payment_method, status, verification_status, license_key, buyer_email, delivery_payload, proof_uploaded, created_at',
+        'id, product_id, product_name, product_image, amount, payment_method, status, verification_status, license_key, buyer_email, delivery_payload, created_at',
+        'id, product_id, product_name, amount, payment_method, status, verification_status, license_key, buyer_email, created_at',
+        'id, product_id, product_name, amount, payment_method, status, buyer_email, created_at',
+      ].map((select) => ({ select, filterColumn: 'buyer_email', filterValue: guestEmail }));
+
+  let purchaseData = null;
+  let purchaseError = null;
+  for (const attempt of purchaseQueryAttempts) {
+    const result = await supabase
+      .from('transactions')
+      .select(attempt.select)
+      .order('created_at', { ascending: false })
+      .limit(100)
+      .eq(attempt.filterColumn, attempt.filterValue);
+
+    purchaseData = result.data;
+    purchaseError = result.error;
+    if (!purchaseError) {
+      const txIds = (purchaseData || []).map((row) => row.id).filter(Boolean);
+      const productIds = [...new Set(
+        (purchaseData || [])
+          .filter((row) => !row.product_image && row.product_id)
+          .map((row) => row.product_id)
+      )];
+      let proofMap = {};
+      let productImageMap = {};
+
+      if (txIds.length) {
+        const { data: verifications } = await supabase
+          .from('payment_verifications')
+          .select('transaction_id')
+          .in('transaction_id', txIds);
+        if (verifications) {
+          verifications.forEach((row) => { proofMap[row.transaction_id] = true; });
+        }
+      }
+
+      if (productIds.length) {
+        const { data: products, error: productError } = await supabase
+          .from('products')
+          .select('id, image_url')
+          .in('id', productIds);
+
+        if (!productError && products) {
+          products.forEach((product) => {
+            if (product?.id && product?.image_url) {
+              productImageMap[product.id] = product.image_url;
+            }
+          });
+        } else if (productError) {
+          console.warn('[user/purchases] product image fallback failed:', productError.message);
+        }
+      }
+
+      return res.json((purchaseData || []).map((row) => ({
+        ...row,
+        product_image: row.product_image || productImageMap[row.product_id] || null,
+        delivery_payload: row.delivery_payload || row.license_key || null,
+        proof_uploaded: row.proof_uploaded === true || proofMap[row.id] === true,
+      })));
+    }
+    if (!isMissingSchemaError(purchaseError)) break;
+    console.warn('[user/purchases] retrying with reduced schema:', purchaseError.message);
+  }
+
+  console.error('[user/purchases] query error:', purchaseError?.message || 'Unknown error');
+  if (!userId && isMissingSchemaError(purchaseError)) {
+    return res.status(500).json({ error: 'Historija gost kupovina nije dostupna dok buyer_email kolona ne bude migrirana.' });
+  }
+  return res.status(500).json({ error: 'Greska pri ucitavanju narudzbi' });
+  return res.status(500).json({ error: 'GreÅ¡ka pri uÄitavanju narudÅ¾bi' });
 
   let q = supabase
     .from('transactions')
@@ -2708,11 +3159,11 @@ app.get('/api/admin/transaction-logs', authenticateToken, requireAdmin, async (r
 
 /** POST /api/checkout/confirm – confirm payment, send receipt, log encrypted entry */
 app.post('/api/checkout/confirm', async (req, res) => {
-  const { buyer_email, product_id, product_name, amount, payment_method, tx_reference } = req.body;
+  const { buyer_email, guest_email, buyer_inputs, product_id, product_name, amount, payment_method, tx_reference } = req.body;
 
   // Identify buyer
   let userId = null;
-  let email  = buyer_email?.trim().toLowerCase() || null;
+  let email  = buyer_email?.trim().toLowerCase() || guest_email?.trim().toLowerCase() || null;
   const authHeader = req.headers['authorization'];
   const jwtToken   = authHeader && authHeader.split(' ')[1];
   if (jwtToken) {
@@ -2743,44 +3194,121 @@ app.post('/api/checkout/confirm', async (req, res) => {
     year: 'numeric', month: 'long', day: 'numeric',
   });
 
-  // Fetch product image if product_id is known
-  let productImageUrl = null;
+  // Fetch product metadata if product_id is known
+  let productMeta = null;
   if (product_id) {
-    const { data: prod } = await supabase
-      .from('products').select('image_url').eq('id', product_id).maybeSingle();
-    productImageUrl = prod?.image_url || null;
+    const productSelectAttempts = [
+      'image_url, delivery_message, required_user_inputs',
+      'image_url, delivery_message',
+      'image_url',
+    ];
+
+    for (const columns of productSelectAttempts) {
+      const { data: prod, error: prodError } = await supabase
+        .from('products')
+        .select(columns)
+        .eq('id', product_id)
+        .maybeSingle();
+
+      if (!prodError) {
+        productMeta = prod || null;
+        break;
+      }
+      if (!isMissingSchemaError(prodError)) {
+        console.error('[checkout/confirm] product meta error:', prodError.message);
+        break;
+      }
+    }
   }
 
-  // 2. Check if this payment method requires manual verification
+  const productImageUrl = productMeta?.image_url || null;
+  const requiredUserInputs = normalizeRequiredUserInputs(productMeta?.required_user_inputs);
+  const buyerInputPayload = typeof buyer_inputs === 'string'
+    ? safeParseJSON(buyer_inputs, {})
+    : (buyer_inputs && typeof buyer_inputs === 'object' ? buyer_inputs : {});
+  const validatedInputs = validateRequiredInputs(requiredUserInputs, buyerInputPayload, email);
+  if (validatedInputs?.error) {
+    return res.status(400).json({ error: validatedInputs.error });
+  }
+
+  // Payment proof and manual delivery are separate concerns:
+  // - paypal/crypto => user must upload proof
+  // - products with required inputs => admin completes delivery after review
   const needsVerification = /^(paypal|crypto)/i.test(payment_method || '');
+  const requiresManualDelivery = requiredUserInputs !== 'none';
+  const isPendingOrder = needsVerification || requiresManualDelivery;
+  const deliveryPayload = isPendingOrder
+    ? null
+    : buildDeliveryPayload({
+        productDelivery: productMeta?.delivery_message,
+        licenseKey,
+      });
+  const encryptedBuyerInputs = validatedInputs?.value
+    ? encryptField(JSON.stringify(validatedInputs.value))
+    : null;
 
   // Save transaction record (includes license_key + buyer_email for guest retrieval)
   const ip = getClientIP(req);
-  const { data: tx, error: txErr } = await supabase
-    .from('transactions')
-    .insert({
-      user_id:          userId,
-      product_id:       product_id || null,
-      product_name:     product_name || null,
-      amount:           parsedAmount,
-      payment_method:   payment_method || 'manual',
-      status:              needsVerification ? 'pending' : 'completed',
-      verification_status: needsVerification ? 'pending' : null,
-      tx_reference:     tx_reference || null,
-      license_key:      licenseKey,
-      buyer_email:      email,
-      ip_address_enc:   encryptField(ip),
-    })
-    .select('id')
-    .single();
+  const txInsertWithVerification = {
+    user_id: userId,
+    product_id: product_id || null,
+    product_name: product_name || null,
+    product_image: productImageUrl,
+    amount: parsedAmount,
+    payment_method: payment_method || 'manual',
+    status: isPendingOrder ? 'pending' : 'completed',
+    verification_status: needsVerification ? 'pending' : null,
+    tx_reference: tx_reference || null,
+    license_key: licenseKey,
+    buyer_email: email,
+    delivery_payload: deliveryPayload,
+    proof_uploaded: false,
+    customer_inputs_enc: encryptedBuyerInputs,
+    ip_address_enc: encryptField(ip),
+  };
+  const txInsertAttempts = buildOptionalColumnAttempts(
+    txInsertWithVerification,
+    ['verification_status', 'product_image', 'delivery_payload', 'proof_uploaded', 'customer_inputs_enc', 'ip_address_enc', 'buyer_email']
+  );
+
+  let tx = null;
+  let txErr = null;
+  for (const attempt of txInsertAttempts) {
+    const result = await supabase
+      .from('transactions')
+      .insert(attempt)
+      .select('id')
+      .single();
+    tx = result.data;
+    txErr = result.error;
+    if (!txErr) break;
+    if (!isMissingSchemaError(txErr)) break;
+    console.warn('[checkout/confirm] retrying tx insert without optional columns:', txErr.message);
+  }
 
   if (txErr) {
     console.error('[checkout/confirm] tx insert error:', txErr.message);
     return res.status(500).json({ error: 'Greška pri snimanju transakcije' });
   }
 
+  if (requiresManualDelivery && !needsVerification) {
+    const { error: queueErr } = await supabase
+      .from('payment_verifications')
+      .insert({
+        transaction_id: tx.id,
+        user_id: userId,
+        buyer_email: email,
+        payment_type: 'manual_delivery',
+        amount: parsedAmount,
+      });
+
+    if (queueErr && !/duplicate/i.test(queueErr.message || '')) {
+      console.error('[checkout/confirm] manual delivery queue error:', queueErr.message);
+    }
+  }
+
   // 3. Write AES-256-CBC encrypted audit log (non-blocking)
-  const txStatus = needsVerification ? 'pending' : 'completed';
+  const txStatus = isPendingOrder ? 'pending' : 'completed';
   supabase.from('transaction_logs').insert({
     buyer_email_enc: encryptField(email),
     amount_enc:      encryptField(String(parsedAmount)),
@@ -2797,6 +3325,12 @@ app.post('/api/checkout/confirm', async (req, res) => {
          <img src="${escServerHtml(productImageUrl)}" alt="${escServerHtml(product_name || '')}"
               style="max-height:120px;max-width:220px;object-fit:contain;border-radius:12px;
                      border:1px solid rgba(255,255,255,0.08);"/>
+       </div>`
+    : '';
+  const deliveryBoxHtml = deliveryPayload && String(deliveryPayload).trim() !== String(licenseKey).trim()
+    ? `<div style="background:linear-gradient(135deg,#f0f4ff 0%,#faf5ff 100%);border:2px solid #A259FF;border-radius:14px;padding:22px;margin-bottom:24px">
+         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#7c3aed;margin-bottom:10px;text-align:center">Vaša isporuka</div>
+         <div style="font-size:14px;line-height:1.7;color:#334155;text-align:center">${deliveryPayloadToEmailHtml(deliveryPayload)}</div>
        </div>`
     : '';
 
@@ -2820,6 +3354,8 @@ app.post('/api/checkout/confirm', async (req, res) => {
     <div style="padding:28px 36px 0">
       <p style="margin:0 0 4px;font-size:15px;font-weight:700;color:#111827">Hvala na kupovini, ${escServerHtml(email.split('@')[0])}!</p>
       <p style="margin:0 0 24px;font-size:14px;color:#6b7280">Vaša narudžba je obrađena. Licencni ključ i detalji nalaze se ispod.</p>
+
+      ${deliveryBoxHtml}
 
       <!-- License key box -->
       <div style="background:linear-gradient(135deg,#f0f4ff 0%,#faf5ff 100%);border:2px solid #A259FF;border-radius:14px;padding:22px;text-align:center;margin-bottom:24px">
@@ -2863,14 +3399,15 @@ app.post('/api/checkout/confirm', async (req, res) => {
 </div>
 </body></html>`;
 
-  // Only send receipt email if payment doesn't need verification
+  // Only send receipt email once the order is fully completed
   let emailSent = false;
-  if (!needsVerification) {
+  if (!isPendingOrder) {
     try {
       await sendMailSafe({
         from:    process.env.EMAIL_FROM || `"Keyify" <${process.env.EMAIL_USER}>`,
         to:      email,
         subject: `🔑 Keyify – Vaš ključ za ${escServerHtml(product_name || 'narudžbu')} · ${licenseKey}`,
+        subject: `Keyify - Isporuka za ${escServerHtml(product_name || 'narudzbu')}`,
         html:    receiptHTML,
       });
       emailSent = true;
@@ -2882,8 +3419,12 @@ app.post('/api/checkout/confirm', async (req, res) => {
   return res.json({
     ok:                  true,
     transaction_id:      tx.id,
-    license_key:         needsVerification ? null : licenseKey,
+    license_key:         isPendingOrder ? null : licenseKey,
     needs_verification:  needsVerification,
+    requires_manual_delivery: requiresManualDelivery,
+    redirect_to_chat:    requiredUserInputs === 'redirect_to_chat',
+    required_user_inputs: requiredUserInputs,
+    delivery_payload:    deliveryPayload,
     product_name:        product_name || null,
     product_image:       productImageUrl,
     amount:              parsedAmount,
@@ -3023,16 +3564,35 @@ app.get('/api/admin/transactions', authenticateToken, checkPermission('can_view_
   const status = req.query.status || null;
   const method = req.query.method || null;
 
-  let query = supabase
-    .from('transactions')
-    .select('id, user_id, product_name, amount, payment_method, status, tx_reference, license_key, buyer_email, ip_address_enc, created_at', { count: 'exact' })
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+  const columnAttempts = [
+    'id, user_id, product_name, amount, payment_method, status, tx_reference, license_key, buyer_email, ip_address_enc, created_at',
+    'id, user_id, product_name, amount, payment_method, status, tx_reference, license_key, buyer_email, created_at',
+    'id, user_id, product_name, amount, payment_method, status, tx_reference, license_key, created_at',
+  ];
 
-  if (status) query = query.eq('status', status);
-  if (method) query = query.eq('payment_method', method);
+  let data = null;
+  let error = null;
+  let count = 0;
 
-  const { data, error, count } = await query;
+  for (const columns of columnAttempts) {
+    let query = supabase
+      .from('transactions')
+      .select(columns, { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (status) query = query.eq('status', status);
+    if (method) query = query.eq('payment_method', method);
+
+    const result = await query;
+    data = result.data;
+    error = result.error;
+    count = result.count || 0;
+
+    if (!error) break;
+    if (!isMissingSchemaError(error)) break;
+  }
+
   if (error) {
     console.error('[admin/transactions]', error.message);
     return res.status(500).json({ error: 'Greška pri dohvatanju transakcija' });
@@ -3050,7 +3610,13 @@ app.get('/api/admin/transactions', authenticateToken, checkPermission('can_view_
   const txIds = (data || []).map(r => r.id);
   let pvMap = {};
   if (txIds.length) {
-    const { data: pvs } = await supabase.from('payment_verifications').select('transaction_id, paypal_email, tx_hash, network').in('transaction_id', txIds);
+    const { data: pvs, error: pvError } = await supabase
+      .from('payment_verifications')
+      .select('transaction_id, paypal_email, tx_hash, network')
+      .in('transaction_id', txIds);
+    if (pvError && !isMissingSchemaError(pvError)) {
+      console.error('[admin/transactions] payment_verifications lookup failed:', pvError.message);
+    }
     if (pvs) pvs.forEach(pv => { pvMap[pv.transaction_id] = pv; });
   }
 
@@ -3965,6 +4531,18 @@ app.post('/api/verification/submit', (req, res) => {
       return res.status(500).json({ error: 'Greška pri slanju verifikacije' });
     }
 
+    const { error: txUpdateErr } = await supabase
+      .from('transactions')
+      .update({
+        proof_uploaded: true,
+        verification_status: 'pending',
+      })
+      .eq('id', transaction_id);
+
+    if (txUpdateErr && !isMissingSchemaError(txUpdateErr)) {
+      console.error('[verification/submit] transaction update error:', txUpdateErr.message);
+    }
+
     return res.json({ ok: true, verification_id: pv.id, message: 'Dokaz uplate je poslan na provjeru' });
   });
 });
@@ -3972,14 +4550,30 @@ app.post('/api/verification/submit', (req, res) => {
 /** GET /api/admin/verifications – list all payment verifications */
 app.get('/api/admin/verifications', authenticateToken, checkPermission('can_verify_payments'), async (req, res) => {
   const status = req.query.status || null;
-  let query = supabase
-    .from('payment_verifications')
-    .select('*, transactions(id, product_name, amount, payment_method, license_key, buyer_email)')
-    .order('created_at', { ascending: false });
+  const selectAttempts = [
+    '*, transactions(id, product_id, product_name, amount, payment_method, license_key, buyer_email, delivery_payload, proof_uploaded, customer_inputs_enc)',
+    '*, transactions(id, product_id, product_name, amount, payment_method, license_key, buyer_email, delivery_payload, customer_inputs_enc)',
+    '*, transactions(id, product_id, product_name, amount, payment_method, license_key, buyer_email, customer_inputs_enc)',
+    '*, transactions(id, product_id, product_name, amount, payment_method, license_key, buyer_email)',
+  ];
 
-  if (status) query = query.eq('status', status);
+  let data = null;
+  let error = null;
+  for (const columns of selectAttempts) {
+    let query = supabase
+      .from('payment_verifications')
+      .select(columns)
+      .order('created_at', { ascending: false });
 
-  const { data, error } = await query;
+    if (status) query = query.eq('status', status);
+
+    const result = await query;
+    data = result.data;
+    error = result.error;
+    if (!error) break;
+    if (!isMissingSchemaError(error)) break;
+    console.warn('[admin/verifications] retrying with reduced schema:', error.message);
+  }
   if (error) return res.status(500).json({ error: 'Greška pri učitavanju verifikacija' });
 
   // Fetch user avatars separately (ambiguous FK prevents join)
@@ -3990,10 +4584,49 @@ app.get('/api/admin/verifications', authenticateToken, checkPermission('can_veri
     if (users) users.forEach(u => { avatarMap[u.id] = { name: u.name, avatar_url: u.avatar_url }; });
   }
 
-  const result = (data || []).map(v => ({
-    ...v,
-    users: v.user_id ? avatarMap[v.user_id] || null : null,
-  }));
+  const productIds = [...new Set((data || []).map((entry) => entry.transactions?.product_id).filter(Boolean))];
+  let productMap = {};
+  if (productIds.length) {
+    let products = null;
+    let productError = null;
+    for (const columns of ['id, required_user_inputs, image_url', 'id, image_url']) {
+      const result = await supabase
+        .from('products')
+        .select(columns)
+        .in('id', productIds);
+      products = result.data;
+      productError = result.error;
+      if (!productError) break;
+      if (!isMissingSchemaError(productError)) break;
+    }
+    if (productError && !isMissingSchemaError(productError)) {
+      console.error('[admin/verifications] product lookup failed:', productError.message);
+    }
+    if (products) {
+      products.forEach((product) => { productMap[product.id] = product; });
+    }
+  }
+
+  const result = (data || []).map((v) => {
+    const tx = v.transactions || {};
+    const product = tx.product_id ? productMap[tx.product_id] || null : null;
+    const decryptedInputs = tx.customer_inputs_enc
+      ? safeParseJSON(decryptField(tx.customer_inputs_enc), null)
+      : null;
+
+    return {
+      ...v,
+      users: v.user_id ? avatarMap[v.user_id] || null : null,
+      transactions: {
+        ...tx,
+        delivery_payload: tx.delivery_payload || tx.license_key || null,
+        proof_uploaded: tx.proof_uploaded === true,
+        required_user_inputs: normalizeRequiredUserInputs(product?.required_user_inputs),
+        product_image: product?.image_url || null,
+      },
+      customer_inputs: decryptedInputs,
+    };
+  });
 
   return res.json(result);
 });
@@ -4010,12 +4643,12 @@ app.get('/api/admin/verifications/pending-count', authenticateToken, requireAdmi
 /** PUT /api/admin/verifications/:id/approve – approve payment */
 app.put('/api/admin/verifications/:id/approve', authenticateToken, checkPermission('can_verify_payments'), async (req, res) => {
   const { id } = req.params;
-  const { admin_notes } = req.body;
+  const { admin_notes, delivery_payload } = req.body;
 
   // Get verification + transaction
   const { data: pv } = await supabase
     .from('payment_verifications')
-    .select('*, transactions(id, buyer_email, product_name, license_key, amount, user_id, product_id)')
+    .select('*, transactions(id, buyer_email, product_name, license_key, amount, user_id, product_id, delivery_payload)')
     .eq('id', id)
     .maybeSingle();
 
@@ -4030,31 +4663,56 @@ app.put('/api/admin/verifications/:id/approve', authenticateToken, checkPermissi
     reviewed_at: new Date().toISOString(),
   }).eq('id', id);
 
+  const tx = pv.transactions;
+  let productMeta = null;
+  if (tx?.product_id) {
+    const { data: prod } = await supabase
+      .from('products')
+      .select('delivery_message, image_url')
+      .eq('id', tx.product_id)
+      .maybeSingle();
+    productMeta = prod || null;
+  }
+
+  const finalDeliveryPayload = buildDeliveryPayload({
+    adminDelivery: delivery_payload,
+    productDelivery: productMeta?.delivery_message || tx?.delivery_payload,
+    licenseKey: tx?.license_key,
+  });
+
+  if (!finalDeliveryPayload) {
+    return res.status(400).json({ error: 'Unesite poruku isporuke ili ključ prije potvrde porudžbine.' });
+  }
+
   // Update transaction
-  await supabase.from('transactions').update({
-    status:              'completed',
+  const txUpdateAttempts = buildOptionalColumnAttempts({
+    status: 'completed',
     verification_status: 'approved',
-  }).eq('id', pv.transaction_id);
+    delivery_payload: finalDeliveryPayload,
+    paid_at: new Date().toISOString(),
+  }, ['delivery_payload', 'paid_at', 'verification_status']);
+
+  for (const attempt of txUpdateAttempts) {
+    const { error: updateError } = await supabase.from('transactions').update(attempt).eq('id', pv.transaction_id);
+    if (!updateError) break;
+    if (!isMissingSchemaError(updateError)) {
+      console.error('[verify/approve] transaction update error:', updateError.message);
+      return res.status(500).json({ error: 'Greška pri potvrdi porudžbine' });
+    }
+  }
 
   // Send premium delivery email
-  const tx = pv.transactions;
   if (tx && tx.buyer_email) {
-    // Fetch product's custom delivery message if exists
-    let deliveryMsg = '';
-    if (tx.product_id) {
-      const { data: prod } = await supabase.from('products').select('delivery_message, image_url').eq('id', tx.product_id).maybeSingle();
-      if (prod?.delivery_message) deliveryMsg = prod.delivery_message;
-    }
 
     const orderDate = new Date().toLocaleDateString('bs-BA', { year: 'numeric', month: 'long', day: 'numeric' });
     const buyerName = tx.buyer_email.split('@')[0];
 
     // Build the delivery content block
-    const deliveryBlock = deliveryMsg
+    const deliveryBlock = finalDeliveryPayload
       ? `<!-- Custom admin message -->
         <div style="background:linear-gradient(135deg,#f0fdf4 0%,#ecfdf5 100%);border:2px solid #22c55e;border-radius:16px;padding:24px;text-align:center;margin-bottom:24px">
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#16a34a;margin-bottom:12px">Vaš proizvod</div>
-          <div style="font-size:14px;color:#374151;line-height:1.6">${deliveryMsg}</div>
+          <div style="font-size:14px;color:#374151;line-height:1.6">${deliveryPayloadToEmailHtml(finalDeliveryPayload)}</div>
         </div>`
       : '';
 

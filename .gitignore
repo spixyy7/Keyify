@@ -42,6 +42,58 @@ Thumbs.db
 npm-debug.log*
 logs/
 
+# Local runtime / temporary checks
+.tmp_*
+*.inline-check.js
+tmp/
+temp/
+.cache/
+
+# Local databases / exports / backups
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlitedb
+*.bak
+*.backup
+*.dump
+*.sql.gz
+*.tgz
+*.zip
+database/
+databases/
+db/
+data/
+backup/
+backups/
+
+# Sensitive app exports
+*transactions*.json
+*transactions*.csv
+*orders*.json
+*orders*.csv
+*users*.json
+*users*.csv
+*purchases*.json
+*payments*.json
+*payment*.csv
+
+# User uploads / proofs / generated assets
+uploads/
+storage/
+screenshots/
+verification-screenshots/
+verifications/
+receipts/
+exports/
+
+# Local Supabase / Vercel state
+.supabase/
+supabase/.temp/
+supabase/.branches/
+.vercel/
+
 # Build output
 dist/
 build/

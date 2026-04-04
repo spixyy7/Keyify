@@ -98,6 +98,8 @@ const KEYIFY = (() => {
         b.style.color      = isActive ? '#ffffff'      : '#6b7280';
         b.style.fontWeight = isActive ? '700'          : '500';
       });
+
+      repairVisibleText(document.body);
     },
   };
 
@@ -321,6 +323,92 @@ const KEYIFY = (() => {
       .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
   function escAttr(str) { return escHtml(str); }
+
+  const MOJIBAKE_REPLACEMENTS = [
+    ['â€”', '-'],
+    ['â€“', '-'],
+    ['â€¢', '•'],
+    ['â†’', '→'],
+    ['â†', '←'],
+    ['â‚¬', '€'],
+    ['â„¢', '™'],
+    ['âš¡', '⚡'],
+    ['Â©', '©'],
+    ['Â·', '·'],
+    ['Â', ''],
+    ['Ä', 'č'],
+    ['Ä‡', 'ć'],
+    ['Å¡', 'š'],
+    ['Å¾', 'ž'],
+    ['Å½', 'Ž'],
+    ['Ä‘', 'đ'],
+    ['Ä', 'Đ']
+  ];
+  const PLAIN_TEXT_REPLACEMENTS = [
+    ['Pocetna', 'Početna'],
+    ['Ucitavanje', 'Učitavanje'],
+    ['pronadjen', 'pronađen'],
+    ['Moguce', 'Moguće'],
+    ['pocetnu', 'početnu'],
+    ['kljuc', 'ključ'],
+    ['kljucevi', 'ključevi'],
+    ['dobicete', 'dobićete'],
+    ['vasu', 'vašu'],
+    ['podrsku', 'podršku'],
+    ['Dobrodosli', 'Dobrodošli'],
+    ['nasi', 'naši'],
+    ['nasim', 'našim'],
+    ['cekanja', 'čekanja'],
+    ['slucaju', 'slučaju'],
+    ['zadrzana', 'zadržana'],
+    ['Posalji', 'Pošalji'],
+    ['Napisite', 'Napišite']
+  ];
+
+  function repairMojibake(value) {
+    let fixed = String(value || '');
+    MOJIBAKE_REPLACEMENTS.forEach(([from, to]) => {
+      fixed = fixed.split(from).join(to);
+    });
+    PLAIN_TEXT_REPLACEMENTS.forEach(([from, to]) => {
+      fixed = fixed.replace(new RegExp(`\\b${from}\\b`, 'g'), to);
+    });
+    return fixed;
+  }
+
+  function repairVisibleText(root) {
+    if (!root) return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const parent = node.parentElement;
+        if (!parent) return NodeFilter.FILTER_REJECT;
+        if (parent.closest('script, style, noscript, textarea')) return NodeFilter.FILTER_REJECT;
+        const value = node.nodeValue || '';
+        return /[ÂÄÅâ]|Pocetna|Ucitavanje|pronadjen|Moguce|kljuc|kljucevi|dobicete|vasu|podrsku|Dobrodosli|nasi|nasim|cekanja|slucaju|zadrzana|Posalji|Napisite/.test(value)
+          ? NodeFilter.FILTER_ACCEPT
+          : NodeFilter.FILTER_REJECT;
+      }
+    });
+
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(node => {
+      const fixed = repairMojibake(node.nodeValue);
+      if (fixed !== node.nodeValue) node.nodeValue = fixed;
+    });
+
+    root.querySelectorAll?.('[placeholder],[title],[aria-label],[alt]').forEach(el => {
+      ['placeholder', 'title', 'aria-label', 'alt'].forEach(attr => {
+        const current = el.getAttribute(attr);
+        if (!current) return;
+        const fixed = repairMojibake(current);
+        if (fixed !== current) el.setAttribute(attr, fixed);
+      });
+    });
+
+    const fixedTitle = repairMojibake(document.title || '');
+    if (fixedTitle && fixedTitle !== document.title) document.title = fixedTitle;
+  }
 
 
   /* ─────────────────────────────────────────────────────────
@@ -1644,10 +1732,21 @@ const KEYIFY = (() => {
     CART.updateNavbarText();
     CART._renderDrawerItems();
     _loadSocialLinks();
+    repairVisibleText(document.body);
 
     /* Re-wire on any dynamic DOM changes (e.g. API-loaded products) */
-    const obs = new MutationObserver(() => _wireProductButtons());
-    obs.observe(document.body, { childList: true, subtree: true });
+    let repairQueued = false;
+    const scheduleRepair = () => {
+      if (repairQueued) return;
+      repairQueued = true;
+      requestAnimationFrame(() => {
+        repairQueued = false;
+        _wireProductButtons();
+        repairVisibleText(document.body);
+      });
+    };
+    const obs = new MutationObserver(scheduleRepair);
+    obs.observe(document.body, { childList: true, characterData: true, subtree: true });
   }
 
   /* Public API */
