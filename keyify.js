@@ -1879,6 +1879,7 @@ const KEYIFY = (() => {
   function _initStorefrontFilters() {
     const grid = document.getElementById('product-grid');
     if (!grid) return;
+    if (grid.dataset.kfInlineStorefront === '1') return;
 
     const sortSelect = document.getElementById('sort-select');
     const state = window.__kfyStorefrontState || { activeFilter: 'sve' };
@@ -1933,14 +1934,6 @@ const KEYIFY = (() => {
 
     syncButtons();
     apply();
-
-    if (grid.dataset.kfStorefrontObserved === '1') return;
-    grid.dataset.kfStorefrontObserved = '1';
-    const observer = new MutationObserver(() => {
-      syncButtons();
-      apply();
-    });
-    observer.observe(grid, { childList: true });
   }
 
   function init() {

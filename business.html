@@ -589,6 +589,7 @@
   var BADGE_MAP = {SALE:'bg-red-500 text-white',Bestseller:'bg-orange-500 text-white',Novo:'bg-blue-500 text-white',Popular:'bg-purple-500 text-white',New:'bg-blue-500 text-white'};
 
   var grid = document.getElementById('product-grid');
+  grid.dataset.kfInlineStorefront = '1';
   grid.innerHTML = '<div class="col-span-full flex flex-col items-center py-16 text-gray-400">' + SPINNER + '<p class="text-sm font-medium mt-2">UÄitavanje proizvoda...</p></div>';
 
   var _allProducts = [];
