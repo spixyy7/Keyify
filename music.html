@@ -588,6 +588,8 @@
   var CATEGORY = 'music';
   var COLORS   = ["#1DB954", "#FC3C44", "#FF6437", "#7C3AED", "#FF0000"];
   var STARS    = '<svg class="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg class="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg class="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg class="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg><svg class="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
+  var FILLED_STAR = '<svg class="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
+  var EMPTY_STAR  = '<svg class="w-3.5 h-3.5 text-gray-300" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
   var CART_SVG = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>';
   var SPINNER  = '<svg class="w-8 h-8 animate-spin text-blue-500 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
   var BADGE_MAP = {SALE:'bg-red-500 text-white',Bestseller:'bg-orange-500 text-white',Novo:'bg-blue-500 text-white',Popular:'bg-purple-500 text-white',New:'bg-blue-500 text-white'};
@@ -640,7 +642,7 @@
     switch (sortValue) {
       case 'price-asc':  sorted.sort(function(a,b){ return parseFloat(a.price) - parseFloat(b.price); }); break;
       case 'price-desc': sorted.sort(function(a,b){ return parseFloat(b.price) - parseFloat(a.price); }); break;
-      case 'popular':    sorted.sort(function(a,b){ return (parseInt(b.stars)||5) - (parseInt(a.stars)||5); }); break;
+      case 'popular':    sorted.sort(function(a,b){ var ratingDiff = getProductRatingValue(b) - getProductRatingValue(a); if (ratingDiff) return ratingDiff; var reviewDiff = getProductReviewCount(b) - getProductReviewCount(a); if (reviewDiff) return reviewDiff; return getProductPurchaseCount(b) - getProductPurchaseCount(a); }); break;
       case 'newest':     sorted.sort(function(a,b){ return new Date(b.created_at) - new Date(a.created_at); }); break;
       case 'discount':   sorted.sort(function(a,b){ var da = a.original_price ? (1 - a.price/a.original_price) : 0; var db = b.original_price ? (1 - b.price/b.original_price) : 0; return db - da; }); break;
       default: break;
@@ -749,7 +751,12 @@
       ? '<img src="' + h(p.image_url) + '" class="absolute inset-0 w-full h-full object-cover" alt="' + h(name) + '"/>'
       : '<div class="absolute inset-0 w-full h-full flex items-center justify-center" style="background:linear-gradient(135deg,' + color + '22,' + color + '55)"><span class="text-5xl font-black text-white">' + h(name.charAt(0)) + '</span></div>';
 
-    var dataProduct = ea(JSON.stringify({id:p.id, name:name, name_en:p.name_en||name, price:parseFloat(p.price), desc:desc, desc_en:p.description_en||desc, color:color, category:CATEGORY, imageUrl:p.image_url||null}));
+    var ratingValue = getProductRatingValue(p);
+    var reviewCount = getProductReviewCount(p);
+    var purchaseCount = getProductPurchaseCount(p);
+    var ratingLabel = reviewCount > 0 ? ratingValue.toFixed(1) + ' / 5.0 (' + reviewCount + ')' : (lang === 'en' ? 'No ratings (0)' : 'Nema ocena (0)');
+    var purchaseLabel = (lang === 'en' ? 'Bought' : 'Kupljeno') + ' (' + purchaseCount + ')';
+    var dataProduct = ea(JSON.stringify({id:p.id, name:name, name_en:p.name_en||name, price:parseFloat(p.price), desc:desc, desc_en:p.description_en||desc, color:color, category:CATEGORY, imageUrl:p.image_url||null, review_average:ratingValue, review_count:reviewCount, purchase_count:purchaseCount}));
 
     var priceRow;
     if (hasPackages) {
@@ -769,13 +776,39 @@
       + '<div class="quick-view-overlay absolute inset-0 bg-black/60 flex items-center justify-center z-30 rounded-2xl"><span class="bg-white text-gray-900 font-bold text-xs tracking-widest uppercase px-5 py-2.5 rounded-full shadow-lg">QUICK VIEW</span></div>'
       + '</div>'
       + '<div class="px-4 pb-4 pt-3 text-center">'
-      + '<div class="flex justify-center gap-0.5 mb-2">' + STARS + '</div>'
+      + '<div class="flex items-center justify-center gap-2 mb-1 kve-rating" data-stars="' + ratingValue.toFixed(1) + '" data-reviews="' + reviewCount + '" data-purchases="' + purchaseCount + '"><div class="flex justify-center gap-0.5">' + renderStars(ratingValue) + '</div><span class="text-[11px] font-semibold text-gray-500">' + h(ratingLabel) + '</span></div>'
+      + '<p class="text-[11px] text-gray-400 mb-2">' + h(purchaseLabel) + '</p>'
       + '<h3 class="font-display font-semibold text-gray-900 text-base mb-1">' + h(name) + '</h3>'
       + '<p class="text-xs text-gray-500 mb-2">' + h(desc) + '</p>'
       + '<div class="flex items-center justify-center gap-2 mb-3">' + priceRow + '</div>'
       + '<button class="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-sm font-semibold py-2.5 rounded-full transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-blue-200 hover:shadow-md" data-product=\'' + dataProduct + '\'>'
       + CART_SVG + 'Dodaj u korpu</button>'
       + '</div></div>';
+  }
+
+  function getProductRatingValue(product) {
+    var rating = Number(product && product.review_average);
+    if (!isFinite(rating) || rating <= 0) return 0;
+    return Math.max(0, Math.min(5, rating));
+  }
+
+  function getProductReviewCount(product) {
+    var count = parseInt(product && product.review_count, 10);
+    return count > 0 ? count : 0;
+  }
+
+  function getProductPurchaseCount(product) {
+    var count = parseInt(product && product.purchase_count, 10);
+    return count > 0 ? count : 0;
+  }
+
+  function renderStars(value) {
+    var rating = Number(value);
+    if (!isFinite(rating) || rating < 0) rating = 0;
+    var filled = Math.round(Math.max(0, Math.min(5, rating)));
+    var stars = '';
+    for (var i = 0; i < 5; i++) stars += i < filled ? FILLED_STAR : EMPTY_STAR;
+    return stars;
   }
 
   function h(s)  { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }

@@ -427,6 +427,7 @@
     let el = node?.nodeType === 1 ? node : node?.parentElement || null;
     while (el && el !== document.body) {
       if (el.hasAttribute?.('data-kve-editor') || el.closest?.('[data-kve-editor]')) return null;
+      if (isEditorNavigationElement(el)) return null;
       if (isButtonLikeEditableElement(el)) return el;
       el = el.parentElement;
     }
@@ -611,6 +612,95 @@
     return file.replace(/\.html$/i, '') || 'index';
   }
 
+  function getEditorPageStorageKey() {
+    return `keyify_page_override_${getPageSlug()}`;
+  }
+
+  function isEditorNavigationElement(node) {
+    const el = node?.nodeType === 1 ? node : node?.parentElement || null;
+    if (!el?.closest) return false;
+    return !!el.closest('nav, [role="navigation"], .dropdown-menu, .dropdown-content, .submenu, .menu-items');
+  }
+
+  function buildEditorPageSnapshotHtml() {
+    const target = document.querySelector('main') || document.body;
+    const clone = target.cloneNode(true);
+    const editorSelectors = [
+      '[data-kve-editor]',
+      '.kve-section-bar',
+      '.kve-card-bar',
+      '.kve-saved',
+      '.kve-draft-wrap',
+      '.kve-add-card-wrap',
+      '.kve-empty-placeholder',
+      '#kve-add-section-btn',
+      '#kve-toast',
+    ];
+    clone.querySelectorAll(editorSelectors.join(', ')).forEach((el) => el.remove());
+    clone.querySelectorAll('[contenteditable]').forEach((el) => el.removeAttribute('contenteditable'));
+    clone.querySelectorAll('[data-original-text]').forEach((el) => el.removeAttribute('data-original-text'));
+    clone.querySelectorAll('[data-kve-bg-class]').forEach((el) => el.removeAttribute('data-kve-bg-class'));
+    clone.querySelectorAll('[data-kve-smart]').forEach((el) => el.removeAttribute('data-kve-smart'));
+    clone.querySelectorAll('.kve-text-editable').forEach((el) => el.classList.remove('kve-text-editable'));
+    clone.querySelectorAll('.kve-smart-editing').forEach((el) => el.classList.remove('kve-smart-editing'));
+    return clone.innerHTML;
+  }
+
+  function persistEditorPageSnapshotLocally(html) {
+    try {
+      localStorage.setItem(getEditorPageStorageKey(), html);
+    } catch {}
+  }
+
+  async function autosaveEditorPageSnapshot(options = {}) {
+    const { remote = false, toastOnError = false } = options;
+    const html = buildEditorPageSnapshotHtml();
+    persistEditorPageSnapshotLocally(html);
+    if (!remote) return true;
+
+    try {
+      const slug = getPageSlug();
+      const res = await fetch(`${API}/pages/${encodeURIComponent(slug)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ slug, html }),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload.error || 'Greška pri čuvanju stranice.');
+      }
+      return true;
+    } catch (error) {
+      if (toastOnError) toastMsg(`✗ ${error.message || 'Greška pri čuvanju stranice.'}`, true);
+      return false;
+    }
+  }
+
+  async function hydrateEditorPageSnapshot() {
+    const target = document.querySelector('main') || document.body;
+    if (!target) return;
+
+    let html = '';
+    try {
+      html = localStorage.getItem(getEditorPageStorageKey()) || '';
+    } catch {}
+
+    if (!html) {
+      try {
+        const res = await fetch(`${API}/pages/${encodeURIComponent(getPageSlug())}`);
+        const payload = await res.json().catch(() => ({}));
+        if (res.ok && typeof payload.html === 'string' && payload.html.trim()) {
+          html = payload.html;
+          persistEditorPageSnapshotLocally(html);
+        }
+      } catch {}
+    }
+
+    if (html && html.trim()) {
+      target.innerHTML = html;
+    }
+  }
+
   const CATEGORIES = [
     { value: 'ai',        label: 'AI Alati',            page_slug: 'ai' },
     { value: 'design',    label: 'Design & Creativity', page_slug: 'design' },
@@ -721,7 +811,8 @@
     boot();
   }
 
-  function boot() {
+  async function boot() {
+    await hydrateEditorPageSnapshot();
     injectStyles();
     injectPdpVariantEditorStyles();
     injectButtonStudioStyles();
@@ -2322,42 +2413,10 @@
     const btn = document.getElementById('kve-save-page-btn');
     if (btn) { btn.textContent = '⏳ Čuvanje…'; btn.disabled = true; }
 
-    // Clone target — prefer <main>, fall back to <body>
-    const target = document.querySelector('main') || document.body;
-    const clone  = target.cloneNode(true);
-
-    // Strip every piece of editor UI injected at runtime
-    const editorSelectors = [
-      '[data-kve-editor]',
-      '.kve-section-bar',
-      '.kve-card-bar',
-      '.kve-saved',
-      '.kve-draft-wrap',
-      '.kve-add-card-wrap',
-      '.kve-empty-placeholder',
-      '#kve-add-section-btn',
-      '#kve-toast',
-    ];
-    clone.querySelectorAll(editorSelectors.join(', ')).forEach(el => el.remove());
-
-    // Remove runtime attributes injected by editor
-    clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
-    clone.querySelectorAll('[data-original-text]').forEach(el => el.removeAttribute('data-original-text'));
-    clone.querySelectorAll('[data-kve-bg-class]').forEach(el => el.removeAttribute('data-kve-bg-class'));
-    clone.querySelectorAll('[data-kve-smart]').forEach(el => el.removeAttribute('data-kve-smart'));
-    clone.querySelectorAll('.kve-text-editable').forEach(el => el.classList.remove('kve-text-editable'));
-    clone.querySelectorAll('.kve-smart-editing').forEach(el => el.classList.remove('kve-smart-editing'));
-
-    const html = clone.innerHTML;
-    const slug = getPageSlug();
-
     try {
-      const res = await fetch(`${API}/pages/${encodeURIComponent(slug)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ slug, html }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error || 'Server greška');
+      const ok = await autosaveEditorPageSnapshot({ remote: true });
+      if (!ok) throw new Error('Server greška');
+      const slug = getPageSlug();
       toastMsg(`🌐 Stranica "${slug}" sačuvana!`);
       if (btn) btn.textContent = '✓ Sačuvano';
       setTimeout(() => { if (btn) { btn.textContent = '🌐 Sačuvaj stranicu'; btn.disabled = false; } }, 2600);
@@ -3436,6 +3495,7 @@
     try {
       products = await fetchEditorProducts();
     } catch (error) {
+      await hideEditorLoadingOverlay(loadingState, 220);
       showKveToast(error.message || 'Greška pri učitavanju proizvoda.', 'error');
       return;
     }
@@ -3541,8 +3601,9 @@
         wrap.appendChild(button);
         findSectionInsertTarget(sec).appendChild(wrap);
         enableFlexibleEditorButton(button);
+        const snapshotSaved = await autosaveEditorPageSnapshot({ remote: true });
         closeModal(modal.overlay);
-        showKveToast('ATC dugme dodato. Klikni "Sačuvaj stranicu".');
+        showKveToast(snapshotSaved ? 'ATC dugme dodato.' : 'ATC dugme dodato lokalno — backend čuvanje nije prošlo.', snapshotSaved ? 'success' : 'error');
       } catch (error) {
         showKveToast(error.message || 'Greška pri dodavanju ATC dugmeta.', 'error');
         modal.ok.disabled = false;
@@ -3592,8 +3653,9 @@
         wrap.appendChild(button);
         findSectionInsertTarget(sec).appendChild(wrap);
         enableFlexibleEditorButton(button);
+        const snapshotSaved = await autosaveEditorPageSnapshot({ remote: true });
         closeModal(modal.overlay);
-        showKveToast('Link dugme dodato. Klikni "Sačuvaj stranicu".');
+        showKveToast(snapshotSaved ? 'Link dugme dodato.' : 'Link dugme dodato lokalno — backend čuvanje nije prošlo.', snapshotSaved ? 'success' : 'error');
       } catch (error) {
         showKveToast(error.message || 'Greška pri dodavanju link dugmeta.', 'error');
         modal.ok.disabled = false;
@@ -4428,6 +4490,7 @@
       if (SKIP_TAGS.has(el.tagName)) return true;
       if (el.hasAttribute('data-kve-editor')) return true;
       if (el.closest('[data-kve-editor]')) return true;
+      if (isEditorNavigationElement(el)) return true;
       if (el.classList.contains('kve-elem-wrap')) return true;
       // Product cards, add-card box, and empty placeholder have their own controls
       if (el.closest('.kve-wrap, .kve-card-bar, .kve-add-card-wrap, .kve-empty-placeholder')) return true;
@@ -4444,6 +4507,7 @@
     let _buttonResizeState = null;
 
     function getEditableHoverTarget(node) {
+      if (isEditorNavigationElement(node)) return null;
       return resolveButtonLikeEditableElement(node) || node;
     }
 
@@ -4813,7 +4877,7 @@
 
       txtarea.addEventListener('input', () => notice.style.display = 'block');
 
-      modal.ok.addEventListener('click', () => {
+      modal.ok.addEventListener('click', async () => {
         const combined = ((txtarea.value || '') + ' ' + (addInp.value || '')).trim().replace(/\s+/g,' ');
         closeModal(modal.overlay);
         el.className = combined;
@@ -4828,7 +4892,7 @@
       const modal = createModal(`🔗 Uredi ${attr}`, `
         <label>Trenutna vrijednost</label>
         <input type="text" id="kve-attr-val" value="${esc(el.getAttribute(attr)||'')}" placeholder="${attr==='href'?'https://...':'https://images.../slika.jpg'}"/>`);
-      modal.ok.addEventListener('click', () => {
+      modal.ok.addEventListener('click', async () => {
         const v = modal.overlay.querySelector('#kve-attr-val').value.trim();
         closeModal(modal.overlay);
         if (v) el.setAttribute(attr, v);
@@ -4847,7 +4911,7 @@
         productLoadError = error.message || 'Greška pri učitavanju proizvoda.';
       }
 
-      await hideEditorLoadingOverlay(loadingState);
+      await hideEditorLoadingOverlay(loadingState, 360);
       const currentMode = getEditorButtonMode(el);
       const currentLabel = getEditorButtonLabel(el);
       const currentHref = parseEditorButtonHref(el);
@@ -4970,7 +5034,8 @@
         el.className = cls;
         try {
           applyButtonFunctionConfig(el, { mode, label: txt, href, product, variant });
-          toastMsg('✓ Dugme ažurirano');
+          const snapshotSaved = await autosaveEditorPageSnapshot({ remote: true });
+          toastMsg(snapshotSaved ? '✓ Dugme ažurirano' : '⚠️ Dugme ažurirano lokalno — backend čuvanje nije prošlo.', !snapshotSaved);
           _offerSync(el, cls);
         } catch (error) {
           toastMsg(`✗ ${error.message}`, true);
@@ -4988,7 +5053,7 @@
         ${el.hasAttribute('href') ? `<label style="margin-top:10px">href link</label><input type="text" id="kve-el-href" value="${esc(el.getAttribute('href')||'')}"/>` : ''}
         ${el.tagName === 'IMG' ? `<label style="margin-top:10px">src (URL slika)</label><input type="text" id="kve-el-src" value="${esc(el.getAttribute('src')||'')}"/>` : ''}`);
 
-      modal.ok.addEventListener('click', () => {
+      modal.ok.addEventListener('click', async () => {
         const txt  = modal.overlay.querySelector('#kve-el-text')?.value;
         const cls  = modal.overlay.querySelector('#kve-el-cls')?.value;
         const href = modal.overlay.querySelector('#kve-el-href')?.value;
@@ -4998,7 +5063,8 @@
         if (cls  !== undefined) el.className = cls;
         if (href !== undefined) el.setAttribute('href', href);
         if (src  !== undefined) el.setAttribute('src', src);
-        toastMsg('✓ Element ažuriran');
+        const snapshotSaved = await autosaveEditorPageSnapshot({ remote: true });
+        toastMsg(snapshotSaved ? '✓ Element ažuriran' : '⚠️ Element ažuriran lokalno — backend čuvanje nije prošlo.', !snapshotSaved);
         _offerSync(el, cls);
       });
     }

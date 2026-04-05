@@ -777,13 +777,19 @@
         const imgHtml = p.image_url
             ? `<img src="${h(p.image_url)}" alt="${h(name)}" class="absolute inset-0 z-10 w-full h-full object-cover">`
                     : `<div class="relative z-10 w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-bold font-display" style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">${name.charAt(0)}</div>`;
+                const reviewCount = Math.max(0, parseInt(p.review_count, 10) || 0);
+                const purchaseCount = Math.max(0, parseInt(p.purchase_count, 10) || 0);
+                const ratingValue = reviewCount > 0 ? Math.max(0, Math.min(5, Number(p.review_average) || 0)) : 0;
+                const ratingLabel = reviewCount > 0 ? `${ratingValue.toFixed(1)} / 5.0 (${reviewCount})` : (lang === 'en' ? 'No ratings (0)' : 'Nema ocena (0)');
+                const purchaseLabel = `${lang === 'en' ? 'Bought' : 'Kupljeno'} (${purchaseCount})`;
                 return `
                 <a href="product.html?id=${p.id}" class="related-card block">
                     <div class="rc-img">${imgHtml}
                         ${p.badge ? `<span class="absolute top-3 left-3 z-20 bg-red-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full">${h(p.badge)}</span>` : ''}
                     </div>
                     <div class="p-4 text-center">
-                        <div class="flex justify-center gap-0.5 mb-1">${STAR_SVG.repeat(parseInt(p.stars)||5)}</div>
+                        <div class="flex items-center justify-center gap-2 mb-1"><div class="flex justify-center gap-0.5">${starsHtml(Math.round(ratingValue), 5)}</div><span class="text-[11px] font-semibold text-gray-500">${h(ratingLabel)}</span></div>
+                        <p class="text-[11px] text-gray-400 mb-1">${h(purchaseLabel)}</p>
                         <h3 class="font-display font-semibold text-gray-900 text-sm mb-1">${h(name)}</h3>
                         <div class="font-display font-bold text-gray-900">&euro; ${price}</div>
                     </div>

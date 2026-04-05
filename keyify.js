@@ -1702,8 +1702,14 @@ const KEYIFY = (() => {
     const imgHtml = p.image_url
       ? `<img src="${escHtml(p.image_url)}" alt="${escAttr(name)}" style="max-height:200px;max-width:85%;object-fit:contain;filter:drop-shadow(0 8px 24px rgba(0,0,0,0.4))">`
       : `<div style="width:80px;height:80px;border-radius:20px;background:linear-gradient(135deg,#1D6AFF,#A259FF);display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;font-weight:700">${name.charAt(0)}</div>`;
-    const stars = parseInt(p.stars) || 5;
+    const reviewCount = Math.max(0, parseInt(p.review_count, 10) || 0);
+    const purchaseCount = Math.max(0, parseInt(p.purchase_count, 10) || 0);
+    const ratingValue = reviewCount > 0 ? Math.max(0, Math.min(5, Number(p.review_average) || 0)) : 0;
+    const stars = Math.round(ratingValue);
     const starSvg = '<svg width="16" height="16" fill="#facc15" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
+    const emptyStarSvg = '<svg width="16" height="16" fill="#d1d5db" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
+    const ratingLabel = reviewCount > 0 ? `${ratingValue.toFixed(1)} / 5.0 (${reviewCount})` : (lang === 'en' ? 'No ratings (0)' : 'Nema ocena (0)');
+    const purchaseLabel = `${lang === 'en' ? 'Bought' : 'Kupljeno'} (${purchaseCount})`;
 
     const modal = document.createElement('div');
     modal.id = 'kfy-qv-modal';
@@ -1717,7 +1723,9 @@ const KEYIFY = (() => {
             ${p.badge ? `<span style="position:absolute;top:12px;left:12px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px">${escHtml(p.badge)}</span>` : ''}
           </div>
           <div style="padding:24px;text-align:center">
-            <div style="display:flex;justify-content:center;gap:2px;margin-bottom:8px">${starSvg.repeat(stars)}</div>
+            <div style="display:flex;justify-content:center;gap:2px;margin-bottom:4px">${starSvg.repeat(stars)}${emptyStarSvg.repeat(Math.max(0, 5 - stars))}</div>
+            <div style="color:#9ca3af;font-size:12px;font-weight:700;margin-bottom:4px">${escHtml(ratingLabel)}</div>
+            <div style="color:#7c7ca8;font-size:12px;margin-bottom:10px">${escHtml(purchaseLabel)}</div>
             <h3 style="color:#fff;font-size:18px;font-weight:700;margin:0 0 6px">${escHtml(name)}</h3>
             ${desc ? `<p style="color:#9090b8;font-size:13px;margin:0 0 16px;line-height:1.5">${escHtml(desc)}</p>` : ''}
             <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:20px">
