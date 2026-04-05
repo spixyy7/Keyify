@@ -70,12 +70,17 @@ const isRailwayRuntime = Boolean(
   process.env.RAILWAY_DEPLOYMENT_ID
 );
 
+const allowLocalhostCors = String(process.env.ALLOW_LOCALHOST_CORS || 'true').toLowerCase() !== 'false';
+
 function isAllowedCorsOrigin(origin) {
   if (!origin || origin === 'null') return true;
 
   const normalizedOrigin = normalizeOrigin(origin);
   if (configuredCorsOrigins.includes(normalizedOrigin)) return true;
-  if (!isRailwayRuntime && localDevelopmentOrigins.includes(normalizedOrigin)) return true;
+  if (localDevelopmentOrigins.includes(normalizedOrigin)) {
+    if (!isRailwayRuntime) return true;
+    if (allowLocalhostCors) return true;
+  }
 
   try {
     const { hostname, protocol } = new URL(normalizedOrigin);

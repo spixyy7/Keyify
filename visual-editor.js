@@ -115,6 +115,24 @@
     return sec.querySelector('.max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl, .max-w-3xl, .container, .mx-auto') || sec;
   }
 
+  function createEditorButtonWrap() {
+    const wrap = document.createElement('div');
+    wrap.dataset.kveButtonWrap = '1';
+    wrap.style.cssText = 'position:relative;display:block;width:100%;min-height:86px;margin-top:18px;';
+    return wrap;
+  }
+
+  function getEditorButtonWrap(el) {
+    if (!el?.closest) return null;
+    const wrap = el.closest('[data-kve-button-wrap="1"]');
+    return wrap && wrap.contains(el) ? wrap : null;
+  }
+
+  function getEditorRemovalTarget(el) {
+    if (!el) return null;
+    return isButtonLikeEditableElement(el) ? (getEditorButtonWrap(el) || el) : el;
+  }
+
   function getEditorVariantToken(variant) {
     if (!variant) return '';
     return String(variant.id || variant.variant_id || variant.label || '')
@@ -1856,6 +1874,7 @@
     try {
       await savePdpVariants(source.id, nextVariants, 'Paket uspešno obrisan!');
     } catch (error) {
+      await hideEditorLoadingOverlay(loadingState);
       showKveToast(error.message || 'Greška pri brisanju paketa', 'error');
     }
   }
@@ -2379,6 +2398,31 @@
   }
 
   function closeModal(overlay) { overlay?.remove(); }
+
+  function showEditorLoadingOverlay(text = 'Učitavanje panela...') {
+    const overlay = document.createElement('div');
+    overlay.className = 'kve-overlay';
+    overlay.setAttribute('data-kve-editor', '1');
+    overlay.style.zIndex = '1000002';
+    overlay.innerHTML = `
+      <div class="kve-modal" style="max-width:280px;text-align:center;padding:28px 24px">
+        <div style="width:42px;height:42px;margin:0 auto 16px;border-radius:999px;border:4px solid rgba(148,163,184,0.28);border-top-color:#60a5fa;animation:kve-elem-spin .7s linear infinite"></div>
+        <div style="color:#eef2ff;font-weight:700;font-size:15px;line-height:1.45">${esc(text)}</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    return { overlay, startedAt: Date.now() };
+  }
+
+  async function hideEditorLoadingOverlay(state, minDuration = 220) {
+    if (!state?.overlay) return;
+    const elapsed = Date.now() - (state.startedAt || Date.now());
+    const remaining = Math.max(0, minDuration - elapsed);
+    if (remaining) {
+      await new Promise((resolve) => setTimeout(resolve, remaining));
+    }
+    state.overlay.remove();
+  }
 
   /* ─────────────────────────────────────────────────────────────────
      16. DATA-CK PAGE CONTENT EDITOR (existing key/value system)
@@ -3388,6 +3432,7 @@
      Buttons: Move Up ▲ | Move Down ▼ | ⚙️ Stil | 🗑️ Obriši
   ──────────────────────────────────────────────────────────────────── */
   async function openInsertAtcModal(sec) {
+    const loadingState = showEditorLoadingOverlay('Učitavanje proizvoda...');
     let products = [];
     try {
       products = await fetchEditorProducts();
@@ -3396,6 +3441,7 @@
       return;
     }
 
+    await hideEditorLoadingOverlay(loadingState);
     if (!products.length) {
       showKveToast('Nema proizvoda za povezivanje ATC dugmeta.', 'error');
       return;
@@ -3492,8 +3538,7 @@
         const customIconUrl = customFile ? await uploadEditorAsset(customFile) : customUrlInput;
         const variant = resolveEditorVariant(product, variantToken);
         const button = buildAtcButtonNode(product, { label, iconPreset, customIconUrl, variant });
-        const wrap = document.createElement('div');
-        wrap.style.cssText = 'position:relative;display:block;width:100%;min-height:86px;margin-top:18px;';
+        const wrap = createEditorButtonWrap();
         wrap.appendChild(button);
         findSectionInsertTarget(sec).appendChild(wrap);
         enableFlexibleEditorButton(button);
@@ -3544,8 +3589,7 @@
       try {
         const customIconUrl = customFile ? await uploadEditorAsset(customFile) : customUrlInput;
         const button = buildHyperlinkButtonNode({ label, href, iconPreset, customIconUrl });
-        const wrap = document.createElement('div');
-        wrap.style.cssText = 'position:relative;display:block;width:100%;min-height:86px;margin-top:18px;';
+        const wrap = createEditorButtonWrap();
         wrap.appendChild(button);
         findSectionInsertTarget(sec).appendChild(wrap);
         enableFlexibleEditorButton(button);
@@ -4495,10 +4539,12 @@
       btnWrap.querySelector('.kve-elem-del').addEventListener('click', ev => {
         ev.stopPropagation();
         if (!confirm('Obrisati ovaj element?')) return;
-        el.style.transition = 'opacity .25s,transform .25s';
-        el.style.opacity = '0';
-        el.style.transform = 'scale(.95)';
-        setTimeout(() => el.remove(), 260);
+        const removeTarget = getEditorRemovalTarget(el);
+        removeTarget.style.transition = 'opacity .25s,transform .25s';
+        removeTarget.style.opacity = '0';
+        removeTarget.style.transform = 'scale(.95)';
+        setTimeout(() => removeTarget.remove(), 260);
+        clearActiveElementOverlay();
         toastMsg('🗑️ Element obrisan');
       });
       btnWrap.querySelector('.kve-elem-edit').addEventListener('click', ev => {
@@ -4583,9 +4629,12 @@
         btnWrap.querySelector('.kve-elem-del').addEventListener('click', ev => {
           ev.stopPropagation();
           if (!confirm('Obrisati ovaj element?')) return;
-          el.style.transition = 'opacity .25s,transform .25s';
-          el.style.opacity = '0'; el.style.transform = 'scale(.95)';
-          setTimeout(() => el.remove(), 260);
+          const removeTarget = getEditorRemovalTarget(el);
+          removeTarget.style.transition = 'opacity .25s,transform .25s';
+          removeTarget.style.opacity = '0';
+          removeTarget.style.transform = 'scale(.95)';
+          setTimeout(() => removeTarget.remove(), 260);
+          clearActiveElementOverlay();
           toastMsg('🗑️ Element obrisan');
         });
         btnWrap.querySelector('.kve-elem-edit').addEventListener('click', ev => {
@@ -4790,6 +4839,7 @@
     }
 
     async function openButtonEditModal(el) {
+      const loadingState = showEditorLoadingOverlay('Učitavanje panela dugmeta...');
       let products = [];
       let productLoadError = '';
       try {
