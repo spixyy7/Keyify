@@ -1700,6 +1700,81 @@ async function queryProducts({ resolvedCategory, orderColumn, ascending }) {
   return result;
 }
 
+async function attachProductAggregates(products) {
+  if (!Array.isArray(products) || !products.length) return products || [];
+
+  const productIds = Array.from(new Set(products.map((product) => product?.id).filter(Boolean)));
+  if (!productIds.length) return products;
+
+  const [variantResult, reviewResult, purchaseResult] = await Promise.all([
+    supabase
+      .from('product_variants')
+      .select('product_id, price')
+      .in('product_id', productIds),
+    supabase
+      .from('reviews')
+      .select('product_id, rating')
+      .in('product_id', productIds)
+      .eq('is_visible', true),
+    supabase
+      .from('transactions')
+      .select('product_id')
+      .in('product_id', productIds)
+      .eq('status', 'completed'),
+  ]);
+
+  if (variantResult.error && !isMissingSchemaError(variantResult.error)) {
+    console.error('[products] variant lookup failed:', variantResult.error.message);
+  }
+  if (reviewResult.error && !isMissingSchemaError(reviewResult.error)) {
+    console.error('[products] review aggregate lookup failed:', reviewResult.error.message);
+  }
+  if (purchaseResult.error && !isMissingSchemaError(purchaseResult.error)) {
+    console.error('[products] purchase aggregate lookup failed:', purchaseResult.error.message);
+  }
+
+  const priceMap = Object.create(null);
+  (variantResult.data || []).forEach((variant) => {
+    const price = Number(variant.price);
+    if (!isFinite(price)) return;
+    if (!priceMap[variant.product_id]) priceMap[variant.product_id] = [];
+    priceMap[variant.product_id].push(price);
+  });
+
+  const reviewMap = Object.create(null);
+  (reviewResult.data || []).forEach((review) => {
+    const rating = Number(review.rating);
+    if (!isFinite(rating)) return;
+    if (!reviewMap[review.product_id]) reviewMap[review.product_id] = { total: 0, count: 0 };
+    reviewMap[review.product_id].total += rating;
+    reviewMap[review.product_id].count += 1;
+  });
+
+  const purchaseMap = Object.create(null);
+  (purchaseResult.data || []).forEach((transaction) => {
+    if (!transaction.product_id) return;
+    purchaseMap[transaction.product_id] = (purchaseMap[transaction.product_id] || 0) + 1;
+  });
+
+  products.forEach((product) => {
+    const prices = priceMap[product.id];
+    if (prices && prices.length) {
+      product.min_variant_price = Math.min(...prices);
+      product.max_variant_price = Math.max(...prices);
+      product.package_count = prices.length;
+    }
+
+    const reviewSummary = reviewMap[product.id];
+    product.review_average = reviewSummary && reviewSummary.count
+      ? Math.round((reviewSummary.total / reviewSummary.count) * 10) / 10
+      : 0;
+    product.review_count = reviewSummary ? reviewSummary.count : 0;
+    product.purchase_count = purchaseMap[product.id] || 0;
+  });
+
+  return products;
+}
+
 async function persistProductRecord(mode, id, payload) {
   const apply = async (body) => {
     const query = mode === 'insert'
@@ -1804,34 +1879,7 @@ app.get('/api/products', async (req, res) => {
     };
   });
 
-  // Attach min/max variant prices for price-range display
-  if (data && data.length) {
-    const productIds = data.map(p => p.id);
-    const { data: variantPrices, error: variantError } = await supabase
-      .from('product_variants')
-      .select('product_id, price')
-      .in('product_id', productIds);
-
-    if (variantError && !isMissingSchemaError(variantError)) {
-      console.error('[products] variant lookup failed:', variantError.message);
-    }
-
-    if (variantPrices && variantPrices.length) {
-      const priceMap = {};
-      variantPrices.forEach(v => {
-        if (!priceMap[v.product_id]) priceMap[v.product_id] = [];
-        priceMap[v.product_id].push(parseFloat(v.price));
-      });
-      data.forEach(p => {
-        const prices = priceMap[p.id];
-        if (prices && prices.length) {
-          p.min_variant_price = Math.min(...prices);
-          p.max_variant_price = Math.max(...prices);
-          p.package_count = prices.length;
-        }
-      });
-    }
-  }
+  data = await attachProductAggregates(data || []);
 
   return res.json(data || []);
 });

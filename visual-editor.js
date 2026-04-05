@@ -1874,7 +1874,6 @@
     try {
       await savePdpVariants(source.id, nextVariants, 'Paket uspešno obrisan!');
     } catch (error) {
-      await hideEditorLoadingOverlay(loadingState);
       showKveToast(error.message || 'Greška pri brisanju paketa', 'error');
     }
   }
@@ -4848,6 +4847,7 @@
         productLoadError = error.message || 'Greška pri učitavanju proizvoda.';
       }
 
+      await hideEditorLoadingOverlay(loadingState);
       const currentMode = getEditorButtonMode(el);
       const currentLabel = getEditorButtonLabel(el);
       const currentHref = parseEditorButtonHref(el);
