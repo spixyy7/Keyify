@@ -348,6 +348,53 @@ async function _sendViaGmailApi({ from, to, subject, html }) {
   if (!res.ok) throw new Error(data.error?.message || 'Gmail API send failed');
 }
 
+function getGoogleSupportFromAddress() {
+  const gmailUser = String(process.env.EMAIL_USER || '').trim();
+  if (!gmailUser) {
+    throw new Error('EMAIL_USER nije podešen za Gmail slanje.');
+  }
+  return `"Keyify" <${gmailUser}>`;
+}
+
+async function sendMailViaGoogle({ from, to, subject, html }) {
+  await _sendViaGmailApi({
+    from: from || getGoogleSupportFromAddress(),
+    to,
+    subject,
+    html,
+  });
+}
+
+async function updateSupportTicketReplyState(ticketId, replyText) {
+  const repliedAt = new Date().toISOString();
+  const payloadVariants = [
+    { status: 'replied', reply_text: replyText, replied_at: repliedAt },
+    { status: 'replied', reply_text: replyText },
+    { status: 'replied', replied_at: repliedAt },
+    { status: 'replied' },
+  ];
+
+  let lastError = null;
+
+  for (const payload of payloadVariants) {
+    const { error } = await supabase
+      .from('support_tickets')
+      .update(payload)
+      .eq('id', ticketId);
+
+    if (!error) return payload;
+    lastError = error;
+
+    const msg = String(error.message || '');
+    if (/column .* does not exist|schema cache|Could not find the .* column/i.test(msg)) {
+      continue;
+    }
+    break;
+  }
+
+  throw lastError || new Error('Greška pri ažuriranju support ticketa.');
+}
+
 /**
  * Mail sender via Gmail REST API (HTTPS port 443 – SMTP blocked on Railway).
  * Requires: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, EMAIL_USER
@@ -755,6 +802,19 @@ async function relinkGuestPurchasesToUser(email, userId) {
   if (pvRelinkError && !isMissingSchemaError(pvRelinkError)) {
     console.warn('[guest/relink] payment verifications warning:', pvRelinkError.message);
   }
+}
+
+function resolvePurchaseStatus(row) {
+  const status = String(row?.status || '').trim().toLowerCase();
+  const verificationStatus = String(row?.verification_status || '').trim().toLowerCase();
+
+  if (['failed', 'rejected', 'refunded'].includes(status) || verificationStatus === 'rejected') {
+    return 'failed';
+  }
+  if (status === 'completed' || verificationStatus === 'approved') {
+    return 'completed';
+  }
+  return status || 'pending';
 }
 
 function buildGuestAuthPayload(user, req, extra = {}) {
@@ -2101,6 +2161,7 @@ app.get('/api/user/purchases', async (req, res) => {
 
     return rows.map((row) => ({
       ...row,
+      status: resolvePurchaseStatus(row),
       product_image: row.product_image || productImageMap[row.product_id] || null,
       delivery_payload: row.delivery_payload || row.license_key || null,
       proof_uploaded: row.proof_uploaded === true || proofMap[row.id] === true,
@@ -2267,6 +2328,7 @@ app.get('/api/user/purchases', async (req, res) => {
 
       return res.json((purchaseData || []).map((row) => ({
         ...row,
+        status: resolvePurchaseStatus(row),
         product_image: row.product_image || productImageMap[row.product_id] || null,
         delivery_payload: row.delivery_payload || row.license_key || null,
         proof_uploaded: row.proof_uploaded === true || proofMap[row.id] === true,
@@ -2496,7 +2558,7 @@ app.patch('/api/admin/users/:id/permissions', authenticateToken, checkPermission
 
 /** POST /api/contact – public, saves ticket to support_tickets */
 app.post('/api/contact', async (req, res) => {
-  const { name, email, subject, message } = req.body;
+  const { name, email, subject, subject_label, message } = req.body;
   if (!name || !email || !subject || !message)
     return res.status(400).json({ error: 'Sva polja su obavezna' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
@@ -2514,6 +2576,40 @@ app.post('/api/contact', async (req, res) => {
     console.error('Contact insert error:', error);
     return res.status(500).json({ error: 'Greška pri slanju poruke' });
   }
+
+  const topicValue = String(subject || '').trim().toLowerCase();
+  const topicMap = {
+    podrska:    { category: 'rad_sajta', label: 'Tehnička podrška' },
+    narudzba:   { category: 'nalog',     label: 'Pitanje o narudžbi' },
+    povrat:     { category: 'zalba',     label: 'Povrat novca / Zamjena ključa' },
+    partnerstvo:{ category: 'predlog',   label: 'Partnerstvo / Saradnja' },
+    ostalo:     { category: 'predlog',   label: 'Ostalo' },
+  };
+  const topicMeta = topicMap[topicValue] || {
+    category: 'predlog',
+    label: String(subject_label || subject || 'Kontakt').trim(),
+  };
+
+  const { error: feedbackInsertError } = await supabase.from('feedbacks').insert({
+    email: email.toLowerCase().trim(),
+    category: topicMeta.category,
+    message: message.trim(),
+    page_url: req.headers.referer || null,
+    status: 'new',
+    meta: {
+      source: 'contact_form',
+      contact_name: name.trim(),
+      contact_topic: topicValue || null,
+      contact_topic_label: topicMeta.label,
+      original_subject: String(subject || '').trim(),
+      user_agent: req.headers['user-agent'] || '',
+      ip: getClientIP(req),
+    },
+  });
+  if (feedbackInsertError) {
+    console.warn('[contact->feedback] sync failed:', feedbackInsertError.message);
+  }
+
   return res.status(201).json({ message: 'Poruka uspješno poslana!' });
 });
 
@@ -2546,7 +2642,7 @@ app.put('/api/admin/tickets/:id/reply', authenticateToken, checkPermission('can_
 
   const { data: ticket } = await supabase
     .from('support_tickets')
-    .select('name, email, subject')
+    .select('id, name, email, subject, message, status')
     .eq('id', id)
     .maybeSingle();
   if (!ticket) return res.status(404).json({ error: 'Tiket nije pronađen' });
@@ -2567,8 +2663,8 @@ app.put('/api/admin/tickets/:id/reply', authenticateToken, checkPermission('can_
     </div>`;
 
   try {
-    await sendMailSafe({
-      from:    process.env.EMAIL_FROM || `"Keyify" <${process.env.EMAIL_USER}>`,
+    await sendMailViaGoogle({
+      from:    getGoogleSupportFromAddress(),
       to:      ticket.email,
       subject: `Re: ${ticket.subject}`,
       html:    replyHTML,
@@ -2578,11 +2674,12 @@ app.put('/api/admin/tickets/:id/reply', authenticateToken, checkPermission('can_
     return res.status(500).json({ error: 'Greška pri slanju emaila: ' + emailErr.message });
   }
 
-  const { error } = await supabase
-    .from('support_tickets')
-    .update({ status: 'replied', reply_text: reply_text.trim(), replied_at: new Date().toISOString() })
-    .eq('id', id);
-  if (error) return res.status(500).json({ error: 'Email poslan, ali greška pri ažuriranju tiketa' });
+  try {
+    await updateSupportTicketReplyState(id, reply_text.trim());
+  } catch (updateErr) {
+    console.error('Ticket reply update failed:', updateErr.message);
+    return res.status(500).json({ error: 'Email poslan, ali greška pri ažuriranju tiketa' });
+  }
 
   return res.json({ message: 'Odgovor poslan i tiket ažuriran' });
 });
@@ -2659,7 +2756,7 @@ app.get('/api/admin/feedbacks', authenticateToken, checkPermission('can_manage_s
   const category = String(req.query?.category || '').trim().toLowerCase();
   let query = supabase
     .from('feedbacks')
-    .select('id, email, category, message, page_url, status, created_at, updated_at')
+    .select('id, email, category, message, page_url, status, meta, created_at, updated_at')
     .order('category', { ascending: true })
     .order('created_at', { ascending: false });
 
@@ -2673,6 +2770,93 @@ app.get('/api/admin/feedbacks', authenticateToken, checkPermission('can_manage_s
   }
 
   return res.json(data || []);
+});
+
+app.put('/api/admin/feedbacks/:id/reply', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  const { id } = req.params;
+  const replyText = String(req.body?.reply_text || '').trim();
+  if (!replyText) {
+    return res.status(400).json({ error: 'Odgovor ne može biti prazan.' });
+  }
+
+  const { data: feedback, error: feedbackError } = await supabase
+    .from('feedbacks')
+    .select('id, email, category, message, meta, status')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (feedbackError) {
+    console.error('[feedback/reply] lookup error:', feedbackError.message);
+    return res.status(500).json({ error: 'Greška pri učitavanju feedback poruke.' });
+  }
+  if (!feedback) {
+    return res.status(404).json({ error: 'Feedback nije pronađen.' });
+  }
+  if (!feedback.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(feedback.email)) {
+    return res.status(400).json({ error: 'Feedback nema validnu email adresu za odgovor.' });
+  }
+
+  const categoryLabels = {
+    nalog: 'Nalog',
+    rad_sajta: 'Rad sajta',
+    predlog: 'Predlog',
+    zalba: 'Žalba',
+  };
+  const topicLabel =
+    String(feedback?.meta?.contact_topic_label || '').trim()
+    || categoryLabels[feedback.category]
+    || 'Korisnički feedback';
+
+  const replyHTML = `
+    <div style="font-family:'Inter',Arial,sans-serif;max-width:560px;margin:0 auto;background:#f8fafc;border-radius:18px;overflow:hidden;border:1px solid #e5e7eb">
+      <div style="background:linear-gradient(135deg,#1D6AFF,#A259FF);padding:24px 28px">
+        <h1 style="margin:0;font-size:20px;font-weight:800;color:#fff">Keyify podrška</h1>
+        <p style="margin:6px 0 0;font-size:13px;color:rgba(255,255,255,0.82)">Odgovor na temu: ${escHTML(topicLabel)}</p>
+      </div>
+      <div style="padding:28px;background:#fff">
+        <p style="margin:0 0 14px;color:#475569;font-size:14px;line-height:1.7">Poslali ste upit ili feedback putem Keyify platforme. Ispod je odgovor našeg tima:</p>
+        <div style="margin:0 0 18px;padding:16px 18px;border-radius:14px;background:#eff6ff;border:1px solid #bfdbfe;color:#0f172a;font-size:14px;line-height:1.7;white-space:pre-wrap">${escHTML(replyText)}</div>
+        <div style="padding:14px 16px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:8px">Vaša poruka</div>
+          <div style="font-size:13px;line-height:1.65;color:#475569;white-space:pre-wrap">${escHTML(String(feedback.message || '').trim() || '—')}</div>
+        </div>
+      </div>
+    </div>`;
+
+  try {
+    await sendMailViaGoogle({
+      from: getGoogleSupportFromAddress(),
+      to: feedback.email,
+      subject: `Keyify odgovor: ${topicLabel}`,
+      html: replyHTML,
+    });
+  } catch (mailError) {
+    console.error('[feedback/reply] email failed:', mailError.message);
+    return res.status(500).json({ error: 'Greška pri slanju email odgovora: ' + mailError.message });
+  }
+
+  const mergedMeta = {
+    ...(feedback.meta || {}),
+    admin_reply: replyText,
+    replied_at: new Date().toISOString(),
+    replied_by_email: req.user?.email || null,
+  };
+
+  const { error: updateError } = await supabase
+    .from('feedbacks')
+    .update({
+      status: feedback.status === 'closed' ? 'closed' : 'reviewed',
+      meta: mergedMeta,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id);
+
+  if (updateError) {
+    console.error('[feedback/reply] update error:', updateError.message);
+    return res.status(500).json({ error: 'Email je poslan, ali status feedbacka nije ažuriran.' });
+  }
+
+  return res.json({ message: 'Odgovor je poslan korisniku.' });
 });
 
 app.patch('/api/admin/feedbacks/:id/status', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
@@ -4295,6 +4479,11 @@ app.get('/api/orders/guest/:token', async (req, res) => {
     existingUser = data || null;
   }
 
+  const guestOrderStatus = resolvePurchaseStatus({
+    status: tx?.status || order.status || 'pending',
+    verification_status: tx?.verification_status || null,
+  });
+
   return res.json({
     id: order.id,
     transaction_id: order.transaction_id || tx?.id || null,
@@ -4306,7 +4495,7 @@ app.get('/api/orders/guest/:token', async (req, res) => {
     product_image: tx?.product_image || order.product_image || null,
     amount: Number(tx?.amount ?? order.amount ?? 0),
     payment_method: tx?.payment_method || order.payment_method || 'manual',
-    status: tx?.status || order.status || 'pending',
+    status: guestOrderStatus,
     verification_status: tx?.verification_status || null,
     proof_uploaded: order.proof_uploaded === true || tx?.proof_uploaded === true,
     delivery_payload: tx?.delivery_payload || order.delivery_payload || tx?.license_key || null,

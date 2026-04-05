@@ -92,7 +92,7 @@
       position:fixed !important;
       bottom:24px !important;
       right:24px !important;
-      z-index:99999 !important;
+      z-index:1000001 !important;
       width:56px !important;
       height:56px !important;
       min-width:56px !important;
@@ -160,9 +160,10 @@
       position:fixed !important;
       bottom:92px !important;
       right:24px !important;
-      z-index:99998 !important;
+      z-index:1000000 !important;
       width:368px !important;
-      max-height:540px !important;
+      height:min(82vh, 680px) !important;
+      max-height:min(82vh, 680px) !important;
       border-radius:22px !important;
       overflow:hidden !important;
       box-shadow:0 32px 80px rgba(0,0,0,.32),0 8px 24px rgba(0,0,0,.16),0 0 0 1px rgba(0,0,0,.05) !important;
@@ -190,12 +191,19 @@
       flex-direction:column !important;
       align-items:center !important;
       justify-content:center !important;
-      padding:28px 24px !important;
+      overflow-y:auto !important;
+      padding:24px !important;
       background:var(--kfy-header-bg,#fff) !important;
       text-align:center !important;
       transition:background .25s ease !important;
     }
     #kfy-guest-gate.kfy-gate-hidden { display:none !important; }
+    .kfy-gate-title,
+    .kfy-gate-sub,
+    .kfy-gate-step {
+      width:100%;
+      max-width:320px;
+    }
     .kfy-gate-icon {
       width:56px;height:56px;border-radius:16px;margin-bottom:16px;
       background:linear-gradient(135deg,#3b82f6,#60a5fa);
@@ -235,7 +243,7 @@
       font-family:inherit;
     }
     .kfy-gate-skip:hover { color:#3b82f6; }
-    .kfy-gate-step { width:100%; }
+    .kfy-gate-step { width:100%; flex-shrink:0; }
     .kfy-gate-choice-grid {
       width:100%;
       display:grid;
@@ -359,12 +367,17 @@
     .kfy-dot { width:7px;height:7px;border-radius:50%;background:#10b981;flex-shrink:0;box-shadow:0 0 5px #10b981; }
     .kfy-status-text { font-size:11px;color:#6b7280; }
 
+    #kfy-panel-chat {
+      background:var(--kfy-body-bg,#f9fafb) !important;
+      min-height:0 !important;
+    }
+
     /* ── Message body ── */
     .kfy-body {
-      flex:1;overflow-y:auto;
+      flex:1 1 auto;overflow-y:auto;
       background:var(--kfy-body-bg,#f9fafb);
       padding:14px;display:flex;flex-direction:column;
-      gap:8px;min-height:160px;max-height:276px;
+      gap:8px;min-height:0;max-height:none;
       transition:background .25s ease;
     }
     .kfy-body::-webkit-scrollbar { width:4px; }
@@ -531,8 +544,11 @@
     }
 
     @media (max-width:420px) {
-      #kfy-chat-win { width:calc(100vw - 20px) !important; right:10px !important; bottom:84px !important; }
+      #kfy-chat-win { width:calc(100vw - 20px) !important; right:10px !important; bottom:84px !important; height:calc(100vh - 112px) !important; max-height:calc(100vh - 112px) !important; }
       #kfy-fab      { right:14px !important; bottom:16px !important; }
+    }
+    @media (max-height:760px) {
+      #kfy-chat-win { height:calc(100vh - 132px) !important; max-height:calc(100vh - 132px) !important; }
     }
   `;
 
@@ -763,14 +779,73 @@
   const gateInp      = document.getElementById('kfy-gate-inp');
   const gateBtn      = document.getElementById('kfy-gate-btn');
   const gateErr      = document.getElementById('kfy-gate-err');
+  const gateTitle    = guestGate?.querySelector('.kfy-gate-title');
+  const gateSub      = guestGate?.querySelector('.kfy-gate-sub');
   const gateStepEmail = document.getElementById('kfy-gate-step-email');
   const gateStepChoice = document.getElementById('kfy-gate-step-choice');
   const gateStepFeedback = document.getElementById('kfy-gate-step-feedback');
+  const gateBackToEmailBtn = gateStepChoice?.querySelector('.kfy-gate-skip');
   const feedbackCategory = document.getElementById('kfy-feedback-category');
   const feedbackTextLabel = document.querySelector('label[for="kfy-feedback-text"]');
   const feedbackText = document.getElementById('kfy-feedback-text');
   const feedbackBtn = document.getElementById('kfy-feedback-btn');
   const feedbackErr = document.getElementById('kfy-feedback-err');
+
+  function _isLoggedInUser() {
+    return !!STORAGE.getToken();
+  }
+
+  function _getKnownEmail() {
+    return (
+      STORAGE.getEmail()
+      || localStorage.getItem('keyify_email')
+      || sessionStorage.getItem('keyify_email')
+      || localStorage.getItem('email')
+      || null
+    );
+  }
+
+  function _resetChatUiForGate() {
+    STORAGE.clearSession();
+    _stopPoll();
+    _stopQueuePoll();
+    _adminInfo = null;
+    _lastMsgCount = 0;
+
+    const qi = document.getElementById('kfy-queue-indicator');
+    if (qi) qi.style.display = 'none';
+
+    inputRow.style.display = 'none';
+    closedNotice.style.display = 'none';
+    if (exitBtn) exitBtn.style.display = 'none';
+    emailCard.style.display = 'none';
+    body.querySelectorAll('[data-kfy-msg]').forEach((el) => el.remove());
+  }
+
+  function _resolveGateStartStep(preferredStep) {
+    if (preferredStep) return preferredStep;
+    if (_isLoggedInUser()) return 'choice';
+    return _getKnownEmail() ? 'choice' : 'email';
+  }
+
+  function _configureGateUi(step) {
+    const loggedIn = _isLoggedInUser();
+
+    if (gateTitle) {
+      gateTitle.textContent = loggedIn ? 'Izaberite opciju' : 'Počnite razgovor';
+    }
+    if (gateSub) {
+      gateSub.textContent = loggedIn
+        ? 'Izaberite da li želite live podršku ili feedback tok.'
+        : 'Unesite email, pa izaberite da li želite live podršku ili feedback tok.';
+    }
+    if (gateBackToEmailBtn) {
+      gateBackToEmailBtn.style.display = loggedIn ? 'none' : '';
+    }
+    if (!loggedIn && step === 'email' && gateInp) {
+      gateInp.value = _getKnownEmail() || '';
+    }
+  }
 
   function _clearGateErr() {
     if (gateErr) { gateErr.textContent = ''; gateErr.style.display = 'none'; }
@@ -786,6 +861,11 @@
       if (!node) return;
       node.style.display = key === step ? '' : 'none';
     });
+    if (guestGate) {
+      guestGate.style.justifyContent = step === 'feedback' ? 'flex-start' : 'center';
+      guestGate.style.padding = step === 'feedback' ? '28px 24px 32px' : '24px';
+      guestGate.scrollTop = 0;
+    }
   }
 
   function _syncFeedbackFlow() {
@@ -802,8 +882,9 @@
     }
   }
 
-  function _showGate() {
+  function _showGate(preferredStep) {
     _clearGateErr();
+    const nextStep = _resolveGateStartStep(preferredStep);
     if (gateBtn) {
       gateBtn.disabled = false;
       gateBtn.textContent = 'Nastavi →';
@@ -815,11 +896,14 @@
       feedbackBtn.textContent = 'Pošalji feedback';
     }
     _syncFeedbackFlow();
-    _setGateStep(STORAGE.getEmail() ? 'choice' : 'email');
+    _configureGateUi(nextStep);
+    _setGateStep(nextStep);
     guestGate.classList.remove('kfy-gate-hidden');
     setTimeout(() => {
-      if (STORAGE.getEmail()) {
+      if (nextStep === 'choice') {
         gateStepChoice?.querySelector('.kfy-gate-card')?.focus?.();
+      } else if (nextStep === 'feedback') {
+        feedbackCategory && feedbackCategory.focus();
       } else {
         gateInp && gateInp.focus();
       }
@@ -848,6 +932,11 @@
   };
 
   window._kfyGateBackToEmail = function () {
+    if (_isLoggedInUser()) {
+      _setGateStep('choice');
+      setTimeout(() => gateStepChoice?.querySelector('.kfy-gate-card')?.focus?.(), 60);
+      return;
+    }
     _clearGateErr();
     if (gateBtn) {
       gateBtn.disabled = false;
@@ -860,7 +949,7 @@
   window._kfyChooseGateMode = async function (mode) {
     _clearGateErr();
     if (mode === 'choice') {
-      _setGateStep('choice');
+      _setGateStep(_resolveGateStartStep('choice'));
       return;
     }
     if (mode === 'feedback') {
@@ -870,14 +959,16 @@
       return;
     }
 
-    const email = STORAGE.getEmail() || (gateInp?.value || '').trim() || null;
+    const email = _isLoggedInUser()
+      ? null
+      : (_getKnownEmail() || (gateInp?.value || '').trim() || null);
     _hideGate();
     emailCard.style.display = 'none';
     await _startSession(email);
   };
 
   window._kfySubmitFeedback = async function () {
-    const email = STORAGE.getEmail() || (gateInp?.value || '').trim();
+    const email = _getKnownEmail() || (gateInp?.value || '').trim();
     const category = String(feedbackCategory?.value || '').trim();
     const message = String(feedbackText?.value || '').trim();
 
@@ -947,27 +1038,69 @@
     }
   });
 
+  async function _resumeExistingSession(sid) {
+    try {
+      const res = await fetch(`${API()}/chat/messages/${sid}`);
+      if (!res.ok) {
+        _resetChatUiForGate();
+        _showGate();
+        return;
+      }
+
+      const payload = await res.json().catch(() => ({}));
+      const messages = Array.isArray(payload?.messages) ? payload.messages : [];
+      const sessionStatus = String(payload?.session_status || '').trim().toLowerCase();
+      const hasRealConversation = messages.some((m) => ['user', 'admin'].includes(m?.sender));
+
+      if (payload?.admin_info) _adminInfo = payload.admin_info;
+
+      if (sessionStatus === 'closed') {
+        _showClosed();
+        return;
+      }
+
+      if (_isLoggedInUser() && sessionStatus === 'pending' && !hasRealConversation) {
+        _resetChatUiForGate();
+        _showGate('choice');
+        return;
+      }
+
+      _activateChat();
+      _renderMessages(messages);
+      _lastMsgCount = messages.length;
+
+      const qi = document.getElementById('kfy-queue-indicator');
+      if (qi) qi.style.display = sessionStatus === 'pending' ? 'flex' : 'none';
+      if (sessionStatus === 'pending') _startQueuePoll(sid);
+      else _stopQueuePoll();
+
+      _startPoll(sid);
+    } catch {
+      _activateChat();
+      _loadMessages(sid);
+      _startPoll(sid);
+    }
+  }
+
   /* ─────────────────────────────────────────────────────────────
      INIT STATE (called when window opens)
   ───────────────────────────────────────────────────────────── */
   function _initState() {
     if (_starting) return;
     const sid   = STORAGE.getSessionId();
-    const token = STORAGE.getToken();
 
     if (sid) {
-      _activateChat();
-      _loadMessages(sid);
-      _startPoll(sid);
-    } else if (token) {
-      // Logged-in user — skip gate entirely
-      _hideGate();
-      emailCard.style.display = 'none';
-      _startSession(null);
+      _resumeExistingSession(sid);
     } else {
+      // Logged-in user — skip gate entirely
+      _showGate();
+    }
+    /*
       // Guest — always show the gate (email or skip)
       _showGate();
     }
+    }
+    */
   }
 
   if (_autoOpenChat) {
@@ -1333,7 +1466,7 @@
     const qi = document.getElementById('kfy-queue-indicator');
     if (qi) qi.style.display = 'none';
 
-    const isLoggedIn = !!STORAGE.getToken();
+    const isLoggedIn = _isLoggedInUser();
 
     if (isLoggedIn) {
       // Logged-in user: just show "open new session" button
@@ -1341,8 +1474,8 @@
         <div>Ova chat sesija je zatvorena.</div>
         <button class="kfy-new-session-btn" id="kfy-new-session-btn">Otvori novu sesiju</button>`;
       closedNotice.querySelector('#kfy-new-session-btn').addEventListener('click', () => {
-        closedNotice.style.display = 'none';
-        _startSession(null);
+        _resetChatUiForGate();
+        _showGate('choice');
       });
     } else {
       // Guest: show choice — email or guest
@@ -1362,8 +1495,8 @@
         </div>`;
 
       closedNotice.querySelector('#kfy-closed-guest-btn').addEventListener('click', () => {
-        closedNotice.style.display = 'none';
-        _startSession(null);
+        _resetChatUiForGate();
+        _showGate('email');
       });
 
       closedNotice.querySelector('#kfy-closed-email-btn').addEventListener('click', () => {

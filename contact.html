@@ -749,6 +749,7 @@
                     name:    document.getElementById('full-name').value.trim(),
                     email:   document.getElementById('email').value.trim(),
                     subject: document.getElementById('tema').value,
+                    subject_label: document.getElementById('tema').selectedOptions?.[0]?.textContent?.trim() || '',
                     message: document.getElementById('poruka').value.trim(),
                 }),
             });

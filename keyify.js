@@ -853,9 +853,10 @@ const KEYIFY = (() => {
      and attaches cart logic + data-attribute markup.
   ───────────────────────────────────────────────────────── */
   function _wireProductButtons() {
-    document.querySelectorAll('button').forEach(btn => {
+    document.querySelectorAll('button, a').forEach(btn => {
       /* Skip already-wired buttons and non-cart buttons */
       if (btn.dataset.addToCart !== undefined) return;
+      if (btn.dataset.kveButtonFunction === 'hyperlink') return;
 
       const txt = btn.textContent.trim();
       const isAddBtn = txt === 'Dodaj u korpu'
@@ -872,6 +873,7 @@ const KEYIFY = (() => {
       btn.dataset.addToCart = '1';
 
       btn.addEventListener('click', function(e) {
+        if (btn.tagName === 'A') e.preventDefault();
         e.stopPropagation();
         const product = _extractProduct(btn);
         if (!product) return;
@@ -1207,6 +1209,12 @@ const KEYIFY = (() => {
         return;
       }
       body.style.display = 'block';
+      const statusBadge = (status) => {
+        const s = String(status || '').toLowerCase();
+        if (s === 'completed') return '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:9px;font-size:11px;font-weight:600">Plaćeno</span>';
+        if (['failed', 'rejected', 'refunded'].includes(s)) return '<span style="background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:9px;font-size:11px;font-weight:600">Neuspešno</span>';
+        return '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:9px;font-size:11px;font-weight:600">Na čekanju</span>';
+      };
       body.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead><tr style="border-bottom:2px solid #f3f4f6">
           <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Proizvod</th>
@@ -1222,6 +1230,10 @@ const KEYIFY = (() => {
             : '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:9px;font-size:11px;font-weight:600">Na čekanju</span>'}</td>
           <td style="padding:10px;color:#6b7280;font-size:12px">${t.created_at ? new Date(t.created_at).toLocaleDateString('sr-RS') : '–'}</td>
         </tr>`).join('')}</tbody></table>`;
+      Array.from(body.querySelectorAll('tbody tr')).forEach((row, index) => {
+        const statusCell = row.children[2];
+        if (statusCell) statusCell.innerHTML = statusBadge(data[index]?.status);
+      });
     } catch (err) {
       body.innerHTML = `<div style="text-align:center;padding:24px;color:#ef4444;font-size:13px">Greška: ${escHtml(err.message)}</div>`;
     }
@@ -1761,6 +1773,176 @@ const KEYIFY = (() => {
   /* ─────────────────────────────────────────────────────────
      INIT
   ───────────────────────────────────────────────────────── */
+  const _SHOP_FILTER_ALIASES = {
+    chatbot: ['chatgpt', 'claude', 'gemini', 'copilot'],
+    kreativni_ai: ['midjourney', 'firefly', 'dall e', 'dalle', 'runway', 'canva ai'],
+    productivity: ['productivity', 'workspace', 'notion', 'office', 'microsoft 365'],
+    godisnji_plan: ['godisnji', 'godisnji plan', 'annual', 'year', '12 meseci', '12 mjeseci'],
+    '3d_alati': ['3d', 'blender', 'autocad', 'maya', 'sketchup'],
+    windows_11: ['windows 11', 'windows'],
+    office_2024: ['office 2024', 'office', 'microsoft office'],
+  };
+
+  function _normalizeShopFilterText(value) {
+    return String(value || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+  }
+
+  function _getStorefrontFilterButtons(grid) {
+    const scope = grid?.closest('main') || document;
+    return Array.from(scope.querySelectorAll('button.text-xs.font-semibold.rounded-full')).filter((btn) => {
+      const text = btn.textContent.trim();
+      return !!text && !btn.querySelector('svg');
+    });
+  }
+
+  function _extractStorefrontCardPayload(card) {
+    const dataBtn = card.querySelector('[data-product]');
+    if (!dataBtn) return null;
+    const raw = dataBtn.getAttribute('data-product');
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw.replace(/&#39;/g, "'"));
+    } catch {
+      return null;
+    }
+  }
+
+  function _getStorefrontCardBlob(card) {
+    const payload = _extractStorefrontCardPayload(card);
+    if (payload) {
+      return _normalizeShopFilterText([
+        payload.name,
+        payload.name_en,
+        payload.desc,
+        payload.desc_en,
+        payload.category,
+      ].join(' '));
+    }
+    return _normalizeShopFilterText(card.textContent || '');
+  }
+
+  function _storefrontCardMatchesFilter(card, filterValue) {
+    if (!filterValue || filterValue === 'sve' || filterValue === 'all') return true;
+    const haystack = _getStorefrontCardBlob(card);
+    const terms = [filterValue.replace(/_/g, ' ')].concat(_SHOP_FILTER_ALIASES[filterValue] || []);
+    return terms.some((term) => haystack.includes(_normalizeShopFilterText(term)));
+  }
+
+  function _readStorefrontCardPrice(card) {
+    const payload = _extractStorefrontCardPayload(card);
+    if (payload && Number(payload.price) > 0) return Number(payload.price);
+    const text = card.textContent || '';
+    const matches = [...text.matchAll(/€\s*([0-9]+(?:[.,][0-9]+)?)/g)];
+    if (!matches.length) return 0;
+    return parseFloat(String(matches[matches.length - 1][1]).replace(',', '.')) || 0;
+  }
+
+  function _readStorefrontCardStars(card) {
+    return card.querySelectorAll('svg.text-yellow-400').length || 0;
+  }
+
+  function _readStorefrontCardDiscount(card) {
+    const match = (card.textContent || '').match(/-([0-9]{1,3})%/);
+    return match ? parseInt(match[1], 10) || 0 : 0;
+  }
+
+  function _sortStorefrontCards(cards, sortValue) {
+    const sorted = cards.slice();
+    switch (sortValue) {
+      case 'price-asc':
+        sorted.sort((a, b) => _readStorefrontCardPrice(a) - _readStorefrontCardPrice(b));
+        break;
+      case 'price-desc':
+        sorted.sort((a, b) => _readStorefrontCardPrice(b) - _readStorefrontCardPrice(a));
+        break;
+      case 'popular':
+        sorted.sort((a, b) => _readStorefrontCardStars(b) - _readStorefrontCardStars(a));
+        break;
+      case 'discount':
+        sorted.sort((a, b) => _readStorefrontCardDiscount(b) - _readStorefrontCardDiscount(a));
+        break;
+      case 'newest':
+        sorted.sort((a, b) => Number(b.dataset.kfOriginalIndex || 0) - Number(a.dataset.kfOriginalIndex || 0));
+        break;
+      default:
+        sorted.sort((a, b) => Number(a.dataset.kfOriginalIndex || 0) - Number(b.dataset.kfOriginalIndex || 0));
+        break;
+    }
+    return sorted;
+  }
+
+  function _initStorefrontFilters() {
+    const grid = document.getElementById('product-grid');
+    if (!grid) return;
+
+    const sortSelect = document.getElementById('sort-select');
+    const state = window.__kfyStorefrontState || { activeFilter: 'sve' };
+    window.__kfyStorefrontState = state;
+
+    const syncButtons = () => {
+      _getStorefrontFilterButtons(grid).forEach((btn) => {
+        const value = _normalizeShopFilterText(btn.dataset.filter || btn.textContent);
+        btn.dataset.filter = value;
+        btn.classList.remove('bg-blue-600', 'text-white', 'bg-gray-100', 'text-gray-600', 'hover:bg-blue-50', 'hover:text-blue-600');
+        if (value === state.activeFilter) {
+          btn.classList.add('bg-blue-600', 'text-white');
+        } else {
+          btn.classList.add('bg-gray-100', 'text-gray-600', 'hover:bg-blue-50', 'hover:text-blue-600');
+        }
+      });
+    };
+
+    const apply = () => {
+      const cards = Array.from(grid.querySelectorAll('.product-card'));
+      if (!cards.length) return;
+
+      cards.forEach((card, index) => {
+        if (!card.dataset.kfOriginalIndex) card.dataset.kfOriginalIndex = String(index);
+        if (card.style.display && card.style.display !== 'none') {
+          card.dataset.kfOriginalDisplay = card.style.display;
+        }
+      });
+
+      _sortStorefrontCards(cards, sortSelect?.value || 'default').forEach((card) => {
+        const visible = _storefrontCardMatchesFilter(card, state.activeFilter);
+        card.style.display = visible ? (card.dataset.kfOriginalDisplay || '') : 'none';
+        grid.appendChild(card);
+      });
+    };
+
+    _getStorefrontFilterButtons(grid).forEach((btn) => {
+      if (btn.dataset.kfStorefrontBound === '1') return;
+      btn.dataset.kfStorefrontBound = '1';
+      btn.dataset.filter = _normalizeShopFilterText(btn.dataset.filter || btn.textContent);
+      btn.addEventListener('click', () => {
+        state.activeFilter = btn.dataset.filter || 'sve';
+        syncButtons();
+        apply();
+      });
+    });
+
+    if (sortSelect && sortSelect.dataset.kfStorefrontBound !== '1') {
+      sortSelect.dataset.kfStorefrontBound = '1';
+      sortSelect.addEventListener('change', apply);
+    }
+
+    syncButtons();
+    apply();
+
+    if (grid.dataset.kfStorefrontObserved === '1') return;
+    grid.dataset.kfStorefrontObserved = '1';
+    const observer = new MutationObserver(() => {
+      syncButtons();
+      apply();
+    });
+    observer.observe(grid, { childList: true });
+  }
+
   function init() {
     _initTheme();
     _injectCartDrawer();
@@ -1769,6 +1951,7 @@ const KEYIFY = (() => {
     _wireProductButtons();
     _updateAccountNavbar();
     _initQuickView();
+    _initStorefrontFilters();
     LANG.apply();
     CART.updateNavbarText();
     CART._renderDrawerItems();
@@ -1783,6 +1966,7 @@ const KEYIFY = (() => {
       requestAnimationFrame(() => {
         repairQueued = false;
         _wireProductButtons();
+        _initStorefrontFilters();
         repairVisibleText(document.body);
       });
     };

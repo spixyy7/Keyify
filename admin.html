@@ -963,6 +963,10 @@
             <p class="text-xs text-dark-300 mt-0.5">Sve povratne informacije korisnika, odvojeno od live podrške.</p>
           </div>
           <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 rounded-2xl border border-dark-600 p-1" style="background:rgba(255,255,255,0.04)">
+              <button id="feedback-view-active" onclick="setFeedbackView('active')" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-white transition-all" style="background:rgba(29,106,255,0.24)">Aktivni</button>
+              <button id="feedback-view-closed" onclick="setFeedbackView('closed')" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-dark-200 transition-all">Završeni</button>
+            </div>
             <select id="feedback-category-filter" class="admin-input" style="width:auto" onchange="loadFeedbacks()">
               <option value="">Sve kategorije</option>
               <option value="nalog">Nalog</option>
@@ -984,6 +988,7 @@
             <thead>
               <tr>
                 <th>Kategorija</th>
+                <th>Tema</th>
                 <th>Korisnik</th>
                 <th>Poruka</th>
                 <th>Stranica</th>
@@ -993,9 +998,15 @@
               </tr>
             </thead>
             <tbody id="feedback-table-body">
-              <tr><td colspan="7" class="text-center py-10 text-dark-300">Učitavanje feedback liste...</td></tr>
+              <tr><td colspan="8" class="text-center py-10 text-dark-300">Učitavanje feedback liste...</td></tr>
             </tbody>
           </table>
+        </div>
+        <div id="feedback-list-loader" class="admin-pane-loader" aria-hidden="true">
+          <div class="admin-loading-shell">
+            <div class="admin-loading-spinner"></div>
+            <div id="feedback-list-loader-text" class="admin-loading-text">Učitavanje feedback liste...</div>
+          </div>
         </div>
       </div>
     </div>
@@ -1494,6 +1505,12 @@
     <div class="text-sm text-dark-300 space-y-1">
       <div>Primaoc: <span id="ticket-reply-email" class="text-white font-semibold"></span></div>
       <div>Tema: <span id="ticket-reply-subject" class="text-white"></span></div>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Poruka korisnika</label>
+      <div id="ticket-reply-original"
+           class="rounded-xl border border-dark-600 bg-dark-800/60 text-dark-100 text-sm whitespace-pre-wrap"
+           style="padding:14px 16px;min-height:92px;max-height:220px;overflow:auto">—</div>
     </div>
     <div>
       <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Vaš odgovor *</label>
@@ -3120,9 +3137,47 @@
     return `<span class="badge" style="background:${bg};color:${color}">${escHtml(label)}</span>`;
   }
 
+  let feedbackViewMode = 'active';
+
+  function setFeedbackPaneLoader(visible, text = 'Učitavanje feedback liste...') {
+    setLoadingOverlay('feedback-list-loader', 'feedback-list-loader-text', visible, text);
+  }
+
+  function feedbackTopicLabel(item) {
+    const meta = item && typeof item.meta === 'object' ? item.meta : {};
+    if (meta.contact_topic_label) return String(meta.contact_topic_label);
+    return String(meta.source || '') === 'contact_form' ? 'Kontakt forma' : 'Chat feedback';
+  }
+
+  function feedbackSourceBadge(item) {
+    const meta = item && typeof item.meta === 'object' ? item.meta : {};
+    const isContact = String(meta.source || '') === 'contact_form';
+    return `<span class="badge" style="background:${isContact ? 'rgba(99,102,241,0.18)' : 'rgba(16,185,129,0.16)'};color:${isContact ? '#a5b4fc' : '#34d399'}">${isContact ? 'Kontakt' : 'Widget'}</span>`;
+  }
+
+  function updateFeedbackViewButtons() {
+    const activeBtn = document.getElementById('feedback-view-active');
+    const closedBtn = document.getElementById('feedback-view-closed');
+    if (activeBtn) {
+      activeBtn.style.background = feedbackViewMode === 'active' ? 'rgba(29,106,255,0.24)' : 'transparent';
+      activeBtn.style.color = feedbackViewMode === 'active' ? '#fff' : '#cbd5e1';
+    }
+    if (closedBtn) {
+      closedBtn.style.background = feedbackViewMode === 'closed' ? 'rgba(29,106,255,0.24)' : 'transparent';
+      closedBtn.style.color = feedbackViewMode === 'closed' ? '#fff' : '#cbd5e1';
+    }
+  }
+
+  function setFeedbackView(mode) {
+    feedbackViewMode = mode === 'closed' ? 'closed' : 'active';
+    updateFeedbackViewButtons();
+    loadFeedbacks();
+  }
+
   async function loadFeedbacks() {
     const tbody = document.getElementById('feedback-table-body');
     if (!tbody) return;
+    setFeedbackPaneLoader(true, feedbackViewMode === 'closed' ? 'Učitavanje završenih feedback poruka...' : 'Učitavanje aktivnih feedback poruka...');
     tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10 text-dark-300">Učitavanje feedback liste...</td></tr>';
     try {
       const params = new URLSearchParams();
@@ -3130,18 +3185,24 @@
       const status = document.getElementById('feedback-status-filter')?.value || '';
       if (category) params.set('category', category);
       if (status) params.set('status', status);
+      else if (feedbackViewMode === 'closed') params.set('status', 'closed');
       const res = await fetch(`${API_BASE}/admin/feedbacks${params.toString() ? `?${params.toString()}` : ''}`, { headers: authHeaders() });
-      const data = await res.json();
+      let data = await res.json();
+      if (feedbackViewMode === 'active' && !status) {
+        data = (Array.isArray(data) ? data : []).filter(item => String(item.status || '').toLowerCase() !== 'closed');
+      }
       if (!res.ok) throw new Error(data.error || 'Greška pri dohvatanju feedback liste.');
 
       if (!data.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10 text-dark-300">Nema feedback zapisa.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-10 text-dark-300">Nema feedback zapisa.</td></tr>';
+        setFeedbackPaneLoader(false);
         return;
       }
 
       tbody.innerHTML = data.map((item) => `
         <tr>
           <td>${feedbackCategoryBadge(item.category)}</td>
+          <td><div class="space-y-1"><div class="text-sm text-white font-medium">${escHtml(feedbackTopicLabel(item))}</div><div>${feedbackSourceBadge(item)}</div></div></td>
           <td>
             <div class="font-medium text-white text-sm">${escHtml(item.email || '—')}</div>
           </td>
@@ -3152,16 +3213,20 @@
           <td>${feedbackStatusBadge(item.status)}</td>
           <td class="text-xs text-dark-300">${fmtDate(item.created_at)}</td>
           <td>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
+              <button onclick="openFeedbackReply('${escHtml(item.id)}','${escHtml(item.email || '')}','${escHtml(feedbackTopicLabel(item))}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white" style="background:rgba(29,106,255,0.7)">Odgovori</button>
               <button onclick="updateFeedbackStatus('${escHtml(item.id)}','reviewed')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white" style="background:rgba(59,130,246,0.24)">Pregledano</button>
               <button onclick="updateFeedbackStatus('${escHtml(item.id)}','closed')" class="px-3 py-1.5 rounded-lg text-xs font-semibold" style="background:rgba(255,255,255,0.08);color:#cbd5e1">Zatvori</button>
             </div>
           </td>
         </tr>`).join('');
+      setFeedbackPaneLoader(false);
     } catch (err) {
+      setFeedbackPaneLoader(false);
       tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-red-400">${escHtml(err.message || 'Greška')}</td></tr>`;
     }
   }
+
 
   async function updateFeedbackStatus(id, status) {
     try {
@@ -3214,7 +3279,9 @@
      SUPPORT HUB
   ══════════════════════════════════════════════════════ */
 
-  let _replyingTicketId = null;
+  let _replyContext = { type: 'ticket', id: null, originalMessage: '', subject: '', email: '' };
+  let _ticketDetailMap = new Map();
+  let _feedbackDetailMap = new Map();
 
   async function loadTickets() {
     const tbody = document.getElementById('tickets-table-body');
@@ -3223,6 +3290,7 @@
       const res  = await fetch(`${API_BASE}/admin/tickets`, { headers: authHeaders() });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      _ticketDetailMap = new Map((Array.isArray(data) ? data : []).map((ticket) => [String(ticket.id), ticket]));
 
       // Update badge
       const openCount = data.filter(t => t.status === 'open').length;
@@ -3244,7 +3312,7 @@
           <td class="text-xs">${fmtDate(t.created_at)}</td>
           <td>
             <div class="flex gap-2">
-              <button onclick="openTicketReply('${escHtml(t.id)}','${escHtml(t.email)}','${escHtml(t.subject)}')"
+              <button onclick="openTicketReply('${escHtml(t.id)}')"
                       class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white hover:opacity-90 transition-all"
                       style="background:rgba(29,106,255,0.7)">Odgovori</button>
               <button onclick="closeTicket('${escHtml(t.id)}')"
@@ -3260,18 +3328,27 @@
 
   function ticketStatusBadge(status) {
     const map = {
-      open:    'background:rgba(239,68,68,0.2);color:#f87171',
+      open:    'background:rgba(245,158,11,0.18);color:#fbbf24',
       replied: 'background:rgba(16,185,129,0.2);color:#10b981',
       closed:  'background:rgba(255,255,255,0.06);color:#9090b8',
     };
-    const labels = { open: 'Otvoren', replied: 'Odgovoreno', closed: 'Zatvoren' };
+    const labels = { open: 'Primljen', replied: 'Odgovoreno', closed: 'Zatvoren' };
     return `<span class="badge" style="${map[status] || ''}">${labels[status] || status}</span>`;
   }
 
   function openTicketReply(id, email, subject) {
-    _replyingTicketId = id;
+    _replyContext = { type: 'ticket', id };
     document.getElementById('ticket-reply-email').textContent   = email;
     document.getElementById('ticket-reply-subject').textContent = subject;
+    document.getElementById('ticket-reply-text').value = '';
+    document.getElementById('ticket-reply-msg').style.display = 'none';
+    document.getElementById('ticket-reply-overlay').style.display = 'flex';
+  }
+
+  function openFeedbackReply(id, email, topic) {
+    _replyContext = { type: 'feedback', id };
+    document.getElementById('ticket-reply-email').textContent   = email || '—';
+    document.getElementById('ticket-reply-subject').textContent = `Feedback: ${topic || 'Poruka korisnika'}`;
     document.getElementById('ticket-reply-text').value = '';
     document.getElementById('ticket-reply-msg').style.display = 'none';
     document.getElementById('ticket-reply-overlay').style.display = 'flex';
@@ -3284,15 +3361,21 @@
     const btn = document.getElementById('ticket-send-btn');
     btn.disabled = true; btn.textContent = 'Slanje...';
     try {
-      const res  = await fetch(`${API_BASE}/admin/tickets/${_replyingTicketId}/reply`, {
+      const isFeedbackReply = _replyContext.type === 'feedback';
+      const endpoint = isFeedbackReply ? `${API_BASE}/admin/feedbacks/${_replyContext.id}/reply` : `${API_BASE}/admin/tickets/${_replyContext.id}/reply`;
+      const res  = await fetch(endpoint, {
         method: 'PUT', headers: authHeaders(),
         body: JSON.stringify({ reply_text: text }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       document.getElementById('ticket-reply-overlay').style.display = 'none';
-      showToast('Odgovor poslan!');
-      loadTickets();
+      showToast(isFeedbackReply ? 'Odgovor na feedback je poslat!' : 'Odgovor poslan!');
+      if (isFeedbackReply) {
+        loadFeedbacks();
+      } else {
+        loadTickets();
+      }
     } catch (err) {
       msgEl.textContent = err.message;
       msgEl.style.cssText = 'display:block;background:rgba(220,38,38,0.15);color:#f87171;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:500';
@@ -4772,6 +4855,126 @@
     </div>
   </div>
 </div>
+<script>
+  (function () {
+    function decodeHtml(value) {
+      const textarea = document.createElement('textarea');
+      textarea.innerHTML = value || '';
+      return textarea.value;
+    }
+
+    function buildFeedbackDetailMapFromTable() {
+      const tbody = document.getElementById('feedback-table-body');
+      const map = new Map();
+      if (!tbody) return map;
+      tbody.querySelectorAll('tr').forEach((row) => {
+        const replyBtn = row.querySelector('button[onclick*="openFeedbackReply"]');
+        if (!replyBtn) return;
+        const raw = replyBtn.getAttribute('onclick') || '';
+        const match = raw.match(/openFeedbackReply\('([^']*)','([^']*)','([^']*)'\)/);
+        if (!match) return;
+        map.set(String(match[1]), {
+          id: match[1],
+          email: decodeHtml(match[2]),
+          topic: decodeHtml(match[3]),
+          message: (row.cells[3]?.innerText || '').trim(),
+        });
+      });
+      return map;
+    }
+
+    async function openReplyOverlay(context) {
+      const emailEl = document.getElementById('ticket-reply-email');
+      const subjectEl = document.getElementById('ticket-reply-subject');
+      const originalEl = document.getElementById('ticket-reply-original');
+      const textEl = document.getElementById('ticket-reply-text');
+      const msgEl = document.getElementById('ticket-reply-msg');
+      const overlay = document.getElementById('ticket-reply-overlay');
+      if (!emailEl || !subjectEl || !originalEl || !textEl || !msgEl || !overlay) return;
+
+      if (typeof setAdminPageLoader === 'function') {
+        setAdminPageLoader(true, 'Ucitavanje poruke korisnika...');
+      }
+      if (typeof waitForAdminLoaderPaint === 'function') {
+        await waitForAdminLoaderPaint(260);
+      }
+
+      try {
+        _replyContext = {
+          type: context.type,
+          id: context.id,
+          originalMessage: context.originalMessage || '',
+          subject: context.subject || '',
+          email: context.email || '',
+        };
+        emailEl.textContent = context.email || '—';
+        subjectEl.textContent = context.subject || 'Poruka korisnika';
+        originalEl.textContent = (context.originalMessage || '').trim() || 'Korisnik nije poslao dodatnu poruku.';
+        textEl.value = '';
+        msgEl.style.display = 'none';
+        msgEl.textContent = '';
+        overlay.style.display = 'flex';
+      } catch (err) {
+        if (typeof showToast === 'function') {
+          showToast(err.message || 'Greska pri ucitavanju poruke', 'error');
+        }
+      } finally {
+        if (typeof setAdminPageLoader === 'function') {
+          setAdminPageLoader(false);
+        }
+      }
+    }
+
+    if (typeof loadFeedbacks === 'function') {
+      const originalLoadFeedbacks = loadFeedbacks;
+      loadFeedbacks = async function (...args) {
+        const result = await originalLoadFeedbacks.apply(this, args);
+        try {
+          _feedbackDetailMap = buildFeedbackDetailMapFromTable();
+        } catch (_) {}
+        return result;
+      };
+      window.loadFeedbacks = loadFeedbacks;
+    }
+
+    window.openTicketReply = async function (id) {
+      const ticket = typeof _ticketDetailMap !== 'undefined' && _ticketDetailMap instanceof Map
+        ? _ticketDetailMap.get(String(id))
+        : null;
+      if (!ticket) {
+        if (typeof showToast === 'function') {
+          showToast('Poruka nije pronadjena. Osvjezi listu i pokusaj ponovo.', 'error');
+        }
+        return;
+      }
+      await openReplyOverlay({
+        type: 'ticket',
+        id,
+        email: ticket.email || '',
+        subject: ticket.subject || 'Kontakt poruka',
+        originalMessage: ticket.message || '',
+      });
+    };
+
+    window.openFeedbackReply = async function (id, email, topic) {
+      if ((typeof _feedbackDetailMap === 'undefined' || !(_feedbackDetailMap instanceof Map) || !_feedbackDetailMap.size)) {
+        try {
+          _feedbackDetailMap = buildFeedbackDetailMapFromTable();
+        } catch (_) {}
+      }
+      const item = typeof _feedbackDetailMap !== 'undefined' && _feedbackDetailMap instanceof Map
+        ? (_feedbackDetailMap.get(String(id)) || { id, email, topic, message: '' })
+        : { id, email, topic, message: '' };
+      await openReplyOverlay({
+        type: 'feedback',
+        id,
+        email: item.email || email || '',
+        subject: `Feedback: ${item.topic || topic || 'Poruka korisnika'}`,
+        originalMessage: item.message || '',
+      });
+    };
+  })();
+</script>
 <script src="admin.js"></script>
 <script src="translations.js"></script>
 <script src="keyify.js"></script>

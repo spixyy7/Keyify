@@ -177,6 +177,14 @@
         return date.toLocaleString('sr-RS', { dateStyle: 'long', timeStyle: 'short' });
       }
 
+      function resolveOrderStatus(order) {
+        const verificationStatus = String(order?.verification_status || '').toLowerCase();
+        const rawStatus = String(order?.status || 'pending').toLowerCase();
+        if (verificationStatus === 'rejected') return 'failed';
+        if (verificationStatus === 'approved' && rawStatus !== 'completed') return 'completed';
+        return rawStatus;
+      }
+
       function statusMeta(status, proofUploaded) {
         if (status === 'completed') {
           return {
@@ -184,6 +192,14 @@
             title: 'Porudžbina je završena',
             copy: 'Isporuka je spremna. Otvorite box ispod i preuzmite pristup, ključ ili instrukcije.',
             proof: 'Admin je potvrdio uplatu i finalizovao isporuku.',
+          };
+        }
+        if (status === 'failed' || status === 'rejected' || status === 'refunded') {
+          return {
+            badge: 'bg-rose-500/90 text-white',
+            title: 'Porudzbina nije uspesna',
+            copy: 'Admin nije mogao da potvrdi uplatu ili je porudzbina odbijena.',
+            proof: 'Kontaktirajte podrsku ako zelite dodatne informacije ili novu proveru.',
           };
         }
         if (proofUploaded) {
@@ -294,7 +310,8 @@
         errorBox.classList.add('hidden');
         content.classList.remove('hidden');
 
-        const meta = statusMeta(order.status, order.proof_uploaded);
+        const resolvedStatus = resolveOrderStatus(order);
+        const meta = statusMeta(resolvedStatus, order.proof_uploaded);
         const image = document.getElementById('guest-order-image');
         const imageFallback = document.getElementById('guest-order-image-fallback');
         const fallbackLetter = (order.product_name || 'K').trim().charAt(0).toUpperCase() || 'K';
@@ -302,6 +319,7 @@
         document.getElementById('guest-order-product-name').textContent = order.product_name || 'Digitalni proizvod';
         document.getElementById('guest-order-status-badge').className = `absolute left-6 top-6 inline-flex items-center rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] ${meta.badge}`;
         document.getElementById('guest-order-status-badge').textContent = order.status === 'completed' ? 'Završeno' : (order.proof_uploaded ? 'U obradi' : 'Na čekanju');
+        document.getElementById('guest-order-status-badge').textContent = resolvedStatus === 'completed' ? 'Zavrseno' : (resolvedStatus === 'failed' ? 'Neuspesno' : (order.proof_uploaded ? 'U obradi' : 'Na cekanju'));
         document.getElementById('guest-order-status-title').textContent = meta.title;
         document.getElementById('guest-order-status-copy').textContent = meta.copy;
         document.getElementById('guest-order-proof-box').textContent = meta.proof;
@@ -326,7 +344,7 @@
 
         const deliveryBox = document.getElementById('guest-order-delivery');
         const copyBtn = document.getElementById('guest-order-copy-btn');
-        if (order.status === 'completed' && order.delivery_payload) {
+        if (resolvedStatus === 'completed' && order.delivery_payload) {
           deliveryBox.innerHTML = deliveryToHtml(order.delivery_payload);
           deliveryBox.className = 'mt-5 rounded-3xl border border-emerald-100 bg-emerald-50/80 px-5 py-5 text-sm leading-7 text-slate-700';
           copyBtn.classList.remove('hidden');

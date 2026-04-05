@@ -597,10 +597,12 @@
 
   var _allProducts = [];
   var apiBase = (window.KEYIFY_CONFIG && window.KEYIFY_CONFIG.API_BASE) || 'http://localhost:3001/api';
+  var apiCandidates = (window.KEYIFY_CONFIG && window.KEYIFY_CONFIG.API_CANDIDATES) || [apiBase];
   var lang    = localStorage.getItem('keyify_lang') || 'sr';
   var activeFilter = 'sve';
-  var filterButtons = Array.from(document.querySelectorAll('button.text-xs.font-semibold')).filter(function(btn) {
-    return !!btn.closest('.flex.flex-wrap.items-center.gap-2');
+  var sortSelect = document.getElementById('sort-select');
+  var filterButtons = Array.from(document.querySelectorAll('button.text-xs.font-semibold.rounded-full')).filter(function(btn) {
+    return !btn.querySelector('svg');
   });
   var FILTER_ALIASES = {
     chatbot: ['chatgpt', 'claude', 'gemini', 'copilot'],
@@ -619,6 +621,17 @@
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '_')
       .replace(/^_+|_+$/g, '');
+  }
+
+  function normalizeProductList(payload) {
+    if (Array.isArray(payload)) return payload;
+    if (payload && Array.isArray(payload.data)) return payload.data;
+    if (payload && Array.isArray(payload.value)) return payload.value;
+    return [];
+  }
+
+  function getActiveSortValue() {
+    return sortSelect && sortSelect.value ? sortSelect.value : 'default';
   }
 
   function sortProducts(list, sortValue) {
@@ -663,17 +676,35 @@
     });
   }
 
+  function renderAll(products) {
+    grid.innerHTML = products.map(function(p, i) { return renderCard(p, i, lang); }).join('');
+  }
+
   function applyActiveFilters() {
     var filtered = _allProducts.filter(function(product) {
       return productMatchesFilter(product, activeFilter);
     });
-    renderAll(sortProducts(filtered, document.getElementById('sort-select').value));
+    renderAll(sortProducts(filtered, getActiveSortValue()));
+  }
+
+  async function loadProductsFromApi() {
+    var lastError = null;
+    for (var i = 0; i < apiCandidates.length; i++) {
+      var candidate = apiCandidates[i];
+      try {
+        var res = await fetch(candidate + '/products?category=' + CATEGORY);
+        if (!res.ok) throw new Error('api ' + res.status);
+        apiBase = candidate;
+        return normalizeProductList(await res.json());
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError || new Error('api');
   }
 
   try {
-    var res     = await fetch(apiBase + '/products?category=' + CATEGORY);
-    if (!res.ok) throw new Error('api');
-    _allProducts = await res.json();
+    _allProducts = normalizeProductList(await loadProductsFromApi());
 
     if (!_allProducts.length) {
       grid.innerHTML = '<div class="col-span-full text-center py-16 text-gray-400 text-sm">Nema dostupnih proizvoda.</div>';
@@ -683,7 +714,7 @@
     syncFilterButtons();
     applyActiveFilters();
 
-    document.getElementById('sort-select').addEventListener('change', function() {
+    if (sortSelect) sortSelect.addEventListener('change', function() {
       applyActiveFilters();
     });
 
@@ -695,11 +726,8 @@
       });
     });
 
-  function renderAll(products) {
-    grid.innerHTML = products.map(function(p, i) { return renderCard(p, i, lang); }).join('');
-  } // end renderAll
-
   } catch(e) {
+    console.error('[music] product listing failed:', e);
     grid.innerHTML = '<div class="col-span-full text-center py-16 text-red-400 text-sm font-medium">GreÅ¡ka pri uÄitavanju. PokuÅ¡ajte ponovo.</div>';
   }
 

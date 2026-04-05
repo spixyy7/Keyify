@@ -77,6 +77,8 @@
         .product-card:hover .pc-img-wrap img {
             transform: scale(1.05);
         }
+        .quick-view-overlay { opacity: 0; transition: opacity 0.2s ease; }
+        .product-card:hover .quick-view-overlay { opacity: 1; }
 
         /* Animated underline nav links */
         .nav-link { position: relative; }
@@ -591,10 +593,12 @@
 
   var _allProducts = [];
   var apiBase = (window.KEYIFY_CONFIG && window.KEYIFY_CONFIG.API_BASE) || 'http://localhost:3001/api';
+  var apiCandidates = (window.KEYIFY_CONFIG && window.KEYIFY_CONFIG.API_CANDIDATES) || [apiBase];
   var lang    = localStorage.getItem('keyify_lang') || 'sr';
   var activeFilter = 'sve';
-  var filterButtons = Array.from(document.querySelectorAll('button.text-xs.font-semibold')).filter(function(btn) {
-    return !!btn.closest('.flex.flex-wrap.items-center.gap-2');
+  var sortSelect = document.getElementById('sort-select');
+  var filterButtons = Array.from(document.querySelectorAll('button.text-xs.font-semibold.rounded-full')).filter(function(btn) {
+    return !btn.querySelector('svg');
   });
   var FILTER_ALIASES = {
     chatbot: ['chatgpt', 'claude', 'gemini', 'copilot'],
@@ -613,6 +617,17 @@
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '_')
       .replace(/^_+|_+$/g, '');
+  }
+
+  function normalizeProductList(payload) {
+    if (Array.isArray(payload)) return payload;
+    if (payload && Array.isArray(payload.data)) return payload.data;
+    if (payload && Array.isArray(payload.value)) return payload.value;
+    return [];
+  }
+
+  function getActiveSortValue() {
+    return sortSelect && sortSelect.value ? sortSelect.value : 'default';
   }
 
   function sortProducts(list, sortValue) {
@@ -657,17 +672,35 @@
     });
   }
 
+  function renderAll(products) {
+    grid.innerHTML = products.map(function(p, i) { return renderCard(p, i, lang); }).join('');
+  }
+
   function applyActiveFilters() {
     var filtered = _allProducts.filter(function(product) {
       return productMatchesFilter(product, activeFilter);
     });
-    renderAll(sortProducts(filtered, document.getElementById('sort-select').value));
+    renderAll(sortProducts(filtered, getActiveSortValue()));
+  }
+
+  async function loadProductsFromApi() {
+    var lastError = null;
+    for (var i = 0; i < apiCandidates.length; i++) {
+      var candidate = apiCandidates[i];
+      try {
+        var res = await fetch(candidate + '/products?category=' + CATEGORY);
+        if (!res.ok) throw new Error('api ' + res.status);
+        apiBase = candidate;
+        return normalizeProductList(await res.json());
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError || new Error('api');
   }
 
   try {
-    var res     = await fetch(apiBase + '/products?category=' + CATEGORY);
-    if (!res.ok) throw new Error('api');
-    _allProducts = await res.json();
+    _allProducts = normalizeProductList(await loadProductsFromApi());
 
     if (!_allProducts.length) {
       grid.innerHTML = '<div class="col-span-full text-center py-16 text-gray-400 text-sm">Nema dostupnih proizvoda.</div>';
@@ -677,8 +710,7 @@
     syncFilterButtons();
     applyActiveFilters();
 
-    // Sort handler
-    document.getElementById('sort-select').addEventListener('change', function() {
+    if (sortSelect) sortSelect.addEventListener('change', function() {
       applyActiveFilters();
     });
 
@@ -690,12 +722,8 @@
       });
     });
 
-  function renderAll(products) {
-    grid.innerHTML = products.map(function(p, i) { return renderCard(p, i, lang); }).join('');
-
-  } // end renderAll
-
   } catch(e) {
+    console.error('[business] product listing failed:', e);
     grid.innerHTML = '<div class="col-span-full text-center py-16 text-red-400 text-sm font-medium">GreÅ¡ka pri uÄitavanju. PokuÅ¡ajte ponovo.</div>';
   }
 
@@ -706,38 +734,49 @@
     var price = parseFloat(p.price).toFixed(2);
     var orig  = p.original_price ? parseFloat(p.original_price).toFixed(2) : null;
     var disc  = orig ? Math.round((1 - p.price / p.original_price) * 100) : 0;
-    var hasRange = p.min_variant_price && p.max_variant_price && p.min_variant_price !== p.max_variant_price;
+    var hasPackages = (parseInt(p.package_count, 10) || 0) > 0 && Number(p.min_variant_price) > 0;
+    var productHref = p.id ? 'product.html?id=' + encodeURIComponent(p.id) : null;
 
-    var badgeHtml = '';
-    if (disc > 0) {
-      badgeHtml = '<div class="absolute top-3 left-3 z-10"><span class="bg-red-600 text-white text-[11px] font-bold uppercase px-2.5 py-1 rounded-md shadow-lg">-' + disc + '%</span></div>';
-    } else if (p.badge) {
-      badgeHtml = '<div class="absolute top-3 left-3 z-10"><span class="' + (BADGE_MAP[p.badge] || 'bg-gray-700 text-white') + ' text-[11px] font-bold uppercase px-2.5 py-1 rounded-md shadow-lg">' + h(p.badge) + '</span></div>';
-    }
+    var badgeHtml = p.badge
+      ? '<div class="absolute top-3 left-3 z-20"><span class="' + (BADGE_MAP[p.badge] || 'bg-gray-600 text-white') + ' text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full shadow">' + h(p.badge) + '</span></div>'
+      : '';
 
     var imgHtml = p.image_url
-      ? '<img src="' + h(p.image_url) + '" class="w-full h-full object-cover" alt="' + h(name) + '"/>'
-      : '<div class="w-full h-full flex items-center justify-center" style="background:linear-gradient(135deg,' + color + '22,' + color + '44)"><span class="text-5xl font-black" style="color:' + color + '">' + h(name.charAt(0)) + '</span></div>';
+      ? '<img src="' + h(p.image_url) + '" class="absolute inset-0 w-full h-full object-cover" alt="' + h(name) + '"/>'
+      : '<div class="absolute inset-0 w-full h-full flex items-center justify-center" style="background:linear-gradient(135deg,' + color + '22,' + color + '55)"><span class="text-5xl font-black text-white">' + h(name.charAt(0)) + '</span></div>';
 
     var dataProduct = ea(JSON.stringify({id:p.id, name:name, name_en:p.name_en||name, price:parseFloat(p.price), desc:desc, desc_en:p.description_en||desc, color:color, category:CATEGORY, imageUrl:p.image_url||null}));
 
     var priceRow;
-    if (hasRange || ((parseInt(p.package_count, 10) || 0) > 0 && Number(p.min_variant_price) > 0)) {
-      priceRow = '<span class="text-xs text-gray-400">Od</span> <span class="text-lg font-bold text-gray-900">\u20ac ' + parseFloat(p.min_variant_price || p.price).toFixed(2) + '</span>';
+    if (hasPackages) {
+      priceRow = '<span class="text-xs text-gray-400">Od</span> <span class="text-base font-bold text-blue-600">\u20ac ' + parseFloat(p.min_variant_price).toFixed(2) + '</span>';
     } else {
-      priceRow = (orig ? '<span class="text-sm text-gray-400 line-through">\u20ac ' + orig + '</span> ' : '')
-        + '<span class="text-lg font-bold text-gray-900">\u20ac ' + price + '</span>';
+      priceRow = (orig ? '<span class="text-xs text-gray-400 line-through">\u20ac ' + orig + '</span>' : '')
+        + '<span class="text-base font-bold text-blue-600">\u20ac ' + price + '</span>'
+        + (disc > 0 ? '<span class="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">-' + disc + '%</span>' : '');
     }
 
+    var mediaOpen = productHref
+      ? '<a href="' + h(productHref) + '" class="block relative rounded-2xl m-3 overflow-hidden" style="background:linear-gradient(145deg,#0f0f1a,#1a1a2e);height:220px">'
+      : '<div class="relative rounded-2xl m-3 overflow-hidden" style="background:linear-gradient(145deg,#0f0f1a,#1a1a2e);height:220px">';
+    var mediaClose = productHref ? '</a>' : '</div>';
+
     return '<div class="product-card card-animate bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">'
-      + '<div class="pc-img-wrap relative overflow-hidden rounded-t-2xl" style="aspect-ratio:4/5">'
+      + mediaOpen
       + badgeHtml
+      + '<div class="absolute top-3 right-3 z-20"><span class="bg-green-500/20 text-green-400 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-green-500/30">Na Stanju</span></div>'
+      + '<div class="absolute inset-0 flex items-center justify-center"><div class="absolute w-32 h-32 rounded-full opacity-30" style="background:radial-gradient(circle,' + color + ',transparent);filter:blur(25px)"></div></div>'
       + imgHtml
-      + '</div>'
-      + '<div class="px-4 pb-4 pt-3">'
-      + '<h3 class="font-display font-semibold text-gray-900 text-sm leading-tight mb-1 line-clamp-2">' + h(name) + '</h3>'
-      + '<div class="flex items-center gap-2 mb-3">' + priceRow + '</div>'
-      + '<button class="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-sm font-semibold py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-blue-200 hover:shadow-md" data-product=\'' + dataProduct + '\'>'
+      + '<div class="quick-view-overlay absolute inset-0 bg-black/60 flex items-center justify-center z-30 rounded-2xl"><span class="bg-white text-gray-900 font-bold text-xs tracking-widest uppercase px-5 py-2.5 rounded-full shadow-lg">QUICK VIEW</span></div>'
+      + mediaClose
+      + '<div class="px-4 pb-4 pt-3 text-center">'
+      + '<div class="flex justify-center gap-0.5 mb-2">' + STARS + '</div>'
+      + (productHref ? '<a href="' + h(productHref) + '" class="block">' : '')
+      + '<h3 class="font-display font-semibold text-gray-900 text-base mb-1">' + h(name) + '</h3>'
+      + (productHref ? '</a>' : '')
+      + '<p class="text-xs text-gray-500 mb-2">' + h(desc) + '</p>'
+      + '<div class="flex items-center justify-center gap-2 mb-3">' + priceRow + '</div>'
+      + '<button class="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-sm font-semibold py-2.5 rounded-full transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-blue-200 hover:shadow-md" data-product=\'' + dataProduct + '\'>'
       + CART_SVG + 'Dodaj u korpu</button>'
       + '</div></div>';
   }

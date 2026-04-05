@@ -13,14 +13,26 @@
 window.KEYIFY_CONFIG = {
   // ── Change this to your Railway URL after deployment ──────────────────
   API_URL: 'https://keyify-production.up.railway.app/api',
+  PREFER_LOCAL_API: false,
   // ─────────────────────────────────────────────────────────────────────
 
-  // Falls back to localhost in development automatically
-  get API_BASE() {
-    const isLocal = location.hostname === 'localhost'
+  get IS_LOCAL_ENV() {
+    return location.hostname === 'localhost'
       || location.hostname === '127.0.0.1'
       || location.protocol === 'file:';
-    return isLocal ? 'http://localhost:3001/api' : this.API_URL;
+  },
+
+  get API_CANDIDATES() {
+    const candidates = [];
+    if (this.IS_LOCAL_ENV && this.PREFER_LOCAL_API) candidates.push('http://localhost:3001/api');
+    if (this.API_URL) candidates.push(this.API_URL);
+    if (this.IS_LOCAL_ENV && !this.PREFER_LOCAL_API) candidates.push('http://localhost:3001/api');
+    return [...new Set(candidates.filter(Boolean))];
+  },
+
+  // Uses Railway by default, with localhost available as manual fallback
+  get API_BASE() {
+    return this.API_CANDIDATES[0] || this.API_URL;
   },
 };
 
