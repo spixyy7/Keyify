@@ -346,6 +346,7 @@ async function _sendViaGmailApi({ from, to, subject, html }) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error?.message || 'Gmail API send failed');
+  return data;
 }
 
 function getGoogleSupportFromAddress() {
@@ -357,7 +358,7 @@ function getGoogleSupportFromAddress() {
 }
 
 async function sendMailViaGoogle({ from, to, subject, html }) {
-  await _sendViaGmailApi({
+  return _sendViaGmailApi({
     from: from || getGoogleSupportFromAddress(),
     to,
     subject,
@@ -2663,25 +2664,35 @@ app.put('/api/admin/tickets/:id/reply', authenticateToken, checkPermission('can_
     </div>`;
 
   try {
-    await sendMailViaGoogle({
+    const gmailResult = await sendMailViaGoogle({
       from:    getGoogleSupportFromAddress(),
       to:      ticket.email,
       subject: `Re: ${ticket.subject}`,
       html:    replyHTML,
     });
+    console.log('[support/reply] gmail sent:', gmailResult?.id || '(no id)', 'to', ticket.email);
+
+    try {
+      await updateSupportTicketReplyState(id, reply_text.trim());
+    } catch (updateErr) {
+      console.error('Ticket reply update failed:', updateErr.message);
+      return res.json({
+        ok: true,
+        warning: true,
+        gmail_message_id: gmailResult?.id || null,
+        message: 'Odgovor je poslan putem Google Gmail-a, ali status tiketa nije ažuriran.',
+      });
+    }
+
+    return res.json({
+      ok: true,
+      gmail_message_id: gmailResult?.id || null,
+      message: 'Odgovor poslan i tiket ažuriran',
+    });
   } catch (emailErr) {
     console.error('Ticket reply email failed:', emailErr.message);
-    return res.status(500).json({ error: 'Greška pri slanju emaila: ' + emailErr.message });
+    return res.status(500).json({ error: 'Greška pri slanju Google Gmail odgovora: ' + emailErr.message });
   }
-
-  try {
-    await updateSupportTicketReplyState(id, reply_text.trim());
-  } catch (updateErr) {
-    console.error('Ticket reply update failed:', updateErr.message);
-    return res.status(500).json({ error: 'Email poslan, ali greška pri ažuriranju tiketa' });
-  }
-
-  return res.json({ message: 'Odgovor poslan i tiket ažuriran' });
 });
 
 /** PUT /api/admin/tickets/:id/status – change ticket status */
@@ -2824,15 +2835,16 @@ app.put('/api/admin/feedbacks/:id/reply', authenticateToken, checkPermission('ca
     </div>`;
 
   try {
-    await sendMailViaGoogle({
+    const gmailResult = await sendMailViaGoogle({
       from: getGoogleSupportFromAddress(),
       to: feedback.email,
       subject: `Keyify odgovor: ${topicLabel}`,
       html: replyHTML,
     });
+    console.log('[feedback/reply] gmail sent:', gmailResult?.id || '(no id)', 'to', feedback.email);
   } catch (mailError) {
     console.error('[feedback/reply] email failed:', mailError.message);
-    return res.status(500).json({ error: 'Greška pri slanju email odgovora: ' + mailError.message });
+    return res.status(500).json({ error: 'Greška pri slanju Google Gmail odgovora: ' + mailError.message });
   }
 
   const mergedMeta = {

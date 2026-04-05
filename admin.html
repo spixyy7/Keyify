@@ -3370,7 +3370,11 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       document.getElementById('ticket-reply-overlay').style.display = 'none';
-      showToast(isFeedbackReply ? 'Odgovor na feedback je poslat!' : 'Odgovor poslan!');
+      if (data && data.warning) {
+        showToast(data.message || 'Google Gmail odgovor je poslan, ali status nije potpuno ažuriran.', 'info');
+      } else {
+        showToast(isFeedbackReply ? 'Odgovor na feedback je poslat!' : 'Odgovor poslan!');
+      }
       if (isFeedbackReply) {
         loadFeedbacks();
       } else {
