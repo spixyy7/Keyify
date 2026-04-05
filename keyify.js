@@ -863,7 +863,8 @@ const KEYIFY = (() => {
         || txt === 'Add to Cart'
         || txt === 'Buy Now'
         || btn.innerHTML.includes('Dodaj u korpu')
-        || btn.innerHTML.includes('Kupi Sada');
+        || btn.innerHTML.includes('Kupi Sada')
+        || btn.dataset.kfAtc === '1';
 
       if (!isAddBtn) return;
 

@@ -592,6 +592,77 @@
   var _allProducts = [];
   var apiBase = (window.KEYIFY_CONFIG && window.KEYIFY_CONFIG.API_BASE) || 'http://localhost:3001/api';
   var lang    = localStorage.getItem('keyify_lang') || 'sr';
+  var activeFilter = 'sve';
+  var filterButtons = Array.from(document.querySelectorAll('button.text-xs.font-semibold')).filter(function(btn) {
+    return !!btn.closest('.flex.flex-wrap.items-center.gap-2');
+  });
+  var FILTER_ALIASES = {
+    chatbot: ['chatgpt', 'claude', 'gemini', 'copilot'],
+    kreativni_ai: ['midjourney', 'firefly', 'dall e', 'dalle', 'runway', 'canva ai'],
+    productivity: ['productivity', 'workspace', 'notion', 'office', 'microsoft 365'],
+    godisnji_plan: ['godisnji', 'annual', 'year', '12 meseci', '12 mjeseci'],
+    '3d_alati': ['3d', 'blender', 'autocad', 'maya', 'sketchup'],
+    windows_11: ['windows 11', 'windows'],
+    office_2024: ['office 2024', 'office', 'microsoft office'],
+  };
+
+  function normalizeFilterText(value) {
+    return String(value || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+  }
+
+  function sortProducts(list, sortValue) {
+    var sorted = list.slice();
+    switch (sortValue) {
+      case 'price-asc':  sorted.sort(function(a,b){ return parseFloat(a.price) - parseFloat(b.price); }); break;
+      case 'price-desc': sorted.sort(function(a,b){ return parseFloat(b.price) - parseFloat(a.price); }); break;
+      case 'popular':    sorted.sort(function(a,b){ return (parseInt(b.stars)||5) - (parseInt(a.stars)||5); }); break;
+      case 'newest':     sorted.sort(function(a,b){ return new Date(b.created_at) - new Date(a.created_at); }); break;
+      case 'discount':   sorted.sort(function(a,b){ var da = a.original_price ? (1 - a.price/a.original_price) : 0; var db = b.original_price ? (1 - b.price/b.original_price) : 0; return db - da; }); break;
+      default: break;
+    }
+    return sorted;
+  }
+
+  function productMatchesFilter(product, filterValue) {
+    if (!filterValue || filterValue === 'sve' || filterValue === 'all') return true;
+    var haystack = normalizeFilterText([
+      product.name_sr,
+      product.name_en,
+      product.description_sr,
+      product.description_en,
+      product.badge,
+      product.category,
+      product.category_label
+    ].join(' '));
+    var searchTerms = [filterValue.replace(/_/g, ' ')].concat(FILTER_ALIASES[filterValue] || []);
+    return searchTerms.some(function(term) {
+      return haystack.indexOf(normalizeFilterText(term)) !== -1;
+    });
+  }
+
+  function syncFilterButtons() {
+    filterButtons.forEach(function(btn) {
+      var isActive = normalizeFilterText(btn.getAttribute('data-filter') || btn.textContent) === activeFilter;
+      btn.classList.remove('bg-blue-600', 'text-white', 'bg-gray-100', 'text-gray-600', 'hover:bg-blue-50', 'hover:text-blue-600');
+      if (isActive) {
+        btn.classList.add('bg-blue-600', 'text-white');
+      } else {
+        btn.classList.add('bg-gray-100', 'text-gray-600', 'hover:bg-blue-50', 'hover:text-blue-600');
+      }
+    });
+  }
+
+  function applyActiveFilters() {
+    var filtered = _allProducts.filter(function(product) {
+      return productMatchesFilter(product, activeFilter);
+    });
+    renderAll(sortProducts(filtered, document.getElementById('sort-select').value));
+  }
 
   try {
     var res     = await fetch(apiBase + '/products?category=' + CATEGORY);
@@ -603,20 +674,20 @@
       return;
     }
 
-    renderAll(_allProducts);
+    syncFilterButtons();
+    applyActiveFilters();
 
     // Sort handler
     document.getElementById('sort-select').addEventListener('change', function() {
-      var sorted = _allProducts.slice();
-      switch (this.value) {
-        case 'price-asc':  sorted.sort(function(a,b){ return parseFloat(a.price) - parseFloat(b.price); }); break;
-        case 'price-desc': sorted.sort(function(a,b){ return parseFloat(b.price) - parseFloat(a.price); }); break;
-        case 'popular':    sorted.sort(function(a,b){ return (parseInt(b.stars)||5) - (parseInt(a.stars)||5); }); break;
-        case 'newest':     sorted.sort(function(a,b){ return new Date(b.created_at) - new Date(a.created_at); }); break;
-        case 'discount':   sorted.sort(function(a,b){ var da = a.original_price ? (1 - a.price/a.original_price) : 0; var db = b.original_price ? (1 - b.price/b.original_price) : 0; return db - da; }); break;
-        default: break;
-      }
-      renderAll(sorted);
+      applyActiveFilters();
+    });
+
+    filterButtons.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        activeFilter = normalizeFilterText(btn.getAttribute('data-filter') || btn.textContent);
+        syncFilterButtons();
+        applyActiveFilters();
+      });
     });
 
   function renderAll(products) {

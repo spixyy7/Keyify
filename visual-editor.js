@@ -52,6 +52,106 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  const KVE_ATC_ICON_PRESETS = {
+    cart: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.6"></circle><circle cx="18" cy="20" r="1.6"></circle><path d="M3 4h2l2.4 10.2a1 1 0 0 0 .98.78h8.9a1 1 0 0 0 .97-.76L21 7H7.4"></path></svg>`,
+    spotify: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.4a9.6 9.6 0 1 0 0 19.2 9.6 9.6 0 0 0 0-19.2Zm4.28 13.85a.86.86 0 0 1-1.18.28c-2.54-1.55-5.73-1.9-9.5-1.03a.86.86 0 1 1-.38-1.67c4.22-.96 7.84-.55 10.77 1.24.4.24.52.78.29 1.18Zm1.2-2.67a1.07 1.07 0 0 1-1.46.35c-2.9-1.78-7.31-2.29-10.73-1.23a1.07 1.07 0 0 1-.64-2.04c4.02-1.25 8.97-.67 12.48 1.49.5.31.66.97.35 1.43Zm.14-2.77C14.3 8.7 8.5 8.5 5.34 9.46a1.28 1.28 0 1 1-.75-2.45c3.65-1.12 10.07-.9 14.57 1.77a1.28 1.28 0 0 1-1.34 2.03Z"/></svg>`,
+    netflix: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.2 3h3.3l5 11.56V3h3.3v18c-1.14-.2-2.26-.47-3.37-.82L9.5 8.74V20.4A24.7 24.7 0 0 1 6.2 21V3Z"/></svg>`,
+    adobe: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14.35 3H21v18h-4.2l-2.45-5.88H9.77L7.32 21H3L10.42 3h3.93Zm-1.01 8.83-1.25-3.36-1.32 3.36h2.57Z"/></svg>`,
+  };
+  const KVE_SOCIAL_ICON_PRESETS = {
+    facebook: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.36 21v-7.12h2.4l.36-2.78h-2.76V9.33c0-.8.23-1.34 1.38-1.34H16V5.5c-.3-.04-1.03-.1-1.96-.1-1.93 0-3.25 1.18-3.25 3.35v1.87H8.6v2.78h2.2V21h2.56Z"/></svg>`,
+    x: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.86 3H20l-4.67 5.34L21 21h-4.46l-3.5-4.84L8.8 21H6.64l4.99-5.7L3 3h4.57l3.16 4.42L14.58 3Zm-.78 16.59h1.19L7.02 4.33H5.74l11.34 15.26Z"/></svg>`,
+    instagram: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5Zm0 2.2A2.8 2.8 0 0 0 4.2 7v10A2.8 2.8 0 0 0 7 19.8h10a2.8 2.8 0 0 0 2.8-2.8V7A2.8 2.8 0 0 0 17 4.2H7Zm10.4 1.65a.95.95 0 1 1 0 1.9.95.95 0 0 1 0-1.9ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2.2A2.8 2.8 0 1 0 12 14.8 2.8 2.8 0 0 0 12 9.2Z"/></svg>`,
+  };
+
+  function normalizeKveText(value) {
+    return String(value || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+  }
+
+  function getKvePresetIcon(key) {
+    return KVE_ATC_ICON_PRESETS[key] || KVE_ATC_ICON_PRESETS.cart;
+  }
+
+  async function uploadEditorAsset(file) {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`${API}/admin/upload-asset`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: fd,
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(payload.error || `Greška ${res.status}`);
+    return payload.url;
+  }
+
+  async function fetchEditorProducts() {
+    const res = await fetch(`${API}/products`);
+    const payload = await res.json().catch(() => []);
+    if (!res.ok) throw new Error(payload.error || 'Greška pri učitavanju proizvoda.');
+    return Array.isArray(payload) ? payload : [];
+  }
+
+  function findSectionInsertTarget(sec) {
+    return sec.querySelector('.max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl, .max-w-3xl, .container, .mx-auto') || sec;
+  }
+
+  function buildAtcDataPayload(product) {
+    return {
+      id: product.id,
+      name: product.name_sr || product.name || 'Proizvod',
+      name_en: product.name_en || product.name_sr || product.name || 'Product',
+      price: parseFloat(product.price || 0),
+      desc: product.description_sr || '',
+      desc_en: product.description_en || '',
+      color: '#2563eb',
+      category: product.category || product.category_slug || '',
+      imageUrl: product.image_url || null,
+    };
+  }
+
+  function buildAtcButtonNode(product, options) {
+    const button = document.createElement('button');
+    const iconMarkup = options.customIconUrl
+      ? `<img src="${esc(options.customIconUrl)}" alt="" style="width:20px;height:20px;object-fit:contain;border-radius:999px" />`
+      : getKvePresetIcon(options.iconPreset);
+    button.type = 'button';
+    button.dataset.kfAtc = '1';
+    button.setAttribute('data-product', JSON.stringify(buildAtcDataPayload(product)));
+    button.className = 'kve-inline-atc';
+    button.style.cssText = 'display:inline-flex;align-items:center;gap:12px;padding:14px 24px;border:none;border-radius:18px;background:linear-gradient(135deg,#ffffff,#f8fafc);color:#2563eb;font-size:16px;font-weight:700;box-shadow:0 18px 40px rgba(37,99,235,0.18);cursor:pointer;transition:transform .25s ease, box-shadow .25s ease;';
+    button.innerHTML = `<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:currentColor">${iconMarkup}</span><span>${esc(options.label || 'Dodaj u korpu')}</span>`;
+    button.addEventListener('mouseenter', () => {
+      button.style.transform = 'translateY(-3px) scale(1.01)';
+      button.style.boxShadow = '0 22px 48px rgba(37,99,235,0.24)';
+    });
+    button.addEventListener('mouseleave', () => {
+      button.style.transform = '';
+      button.style.boxShadow = '0 18px 40px rgba(37,99,235,0.18)';
+    });
+    return button;
+  }
+
+  function buildSocialLinkNode(options) {
+    const wrap = document.createElement('a');
+    wrap.href = options.href || '#';
+    wrap.target = '_blank';
+    wrap.rel = 'noopener';
+    wrap.className = 'kf-social-link';
+    wrap.dataset.kfAnim = options.animation || 'float';
+    wrap.dataset.kveSmart = 'sociallink';
+    wrap.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:16px;background:rgba(15,23,42,0.72);color:#f8fafc;text-decoration:none;box-shadow:0 14px 30px rgba(15,23,42,0.18);backdrop-filter:blur(12px);';
+    wrap.innerHTML = options.customIconUrl
+      ? `<img src="${esc(options.customIconUrl)}" alt="${esc(options.network)}" style="width:22px;height:22px;object-fit:contain" />`
+      : (KVE_SOCIAL_ICON_PRESETS[options.network] || KVE_SOCIAL_ICON_PRESETS.facebook);
+    return wrap;
+  }
+
   function makeStarsSVG(n) {
     const filled = Math.min(5, Math.max(0, parseInt(n) || 5));
     const sf = '<svg class="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
@@ -2768,6 +2868,11 @@
       'footer-tw': 'twitter_url',
       'footer-ig': 'instagram_url',
     };
+    const socialAnimationFieldById = {
+      'footer-fb': 'facebook_animation',
+      'footer-tw': 'twitter_animation',
+      'footer-ig': 'instagram_animation',
+    };
 
     const m = createModal('🔗 Uredi social link', `
       <label>URL (href)</label>
@@ -2780,14 +2885,32 @@
       <label style="margin-top:14px">SVG / Icon kod <span style="color:#5050a0;font-weight:400">(opciono — zalijepite novi SVG)</span></label>
       <textarea id="kve-soc-svg" rows="5" placeholder="&lt;svg …&gt;…&lt;/svg&gt;">${esc(curIcon)}</textarea>
     `);
+    const socialTargetSelect = m.overlay.querySelector('#kve-soc-tgt');
+    if (socialTargetSelect && socialTargetSelect.parentNode && !m.overlay.querySelector('#kve-soc-anim')) {
+      const animLabel = document.createElement('label');
+      animLabel.style.marginTop = '14px';
+      animLabel.textContent = 'Animacija';
+      const animSelect = document.createElement('select');
+      animSelect.id = 'kve-soc-anim';
+      animSelect.innerHTML = `
+        <option value="float" ${String(el.dataset.kfAnim || 'float') === 'float' ? 'selected' : ''}>Float</option>
+        <option value="pulse" ${String(el.dataset.kfAnim || '') === 'pulse' ? 'selected' : ''}>Pulse</option>
+        <option value="bounce" ${String(el.dataset.kfAnim || '') === 'bounce' ? 'selected' : ''}>Bounce</option>
+      `;
+      socialTargetSelect.parentNode.insertBefore(animSelect, socialTargetSelect);
+      socialTargetSelect.parentNode.insertBefore(animLabel, animSelect);
+    }
     m.ok.addEventListener('click', async () => {
       const href    = m.overlay.querySelector('#kve-soc-href').value.trim();
+      const anim    = m.overlay.querySelector('#kve-soc-anim').value;
       const tgt     = m.overlay.querySelector('#kve-soc-tgt').value;
       const svgCode = m.overlay.querySelector('#kve-soc-svg').value.trim();
       closeModal(m.overlay);
 
       if (href) el.setAttribute('href', href);
       el.setAttribute('target', tgt);
+      el.classList.add('kf-social-link');
+      el.dataset.kfAnim = anim || 'float';
 
       if (svgCode) {
         const existing = el.querySelector('svg, i');
@@ -2799,6 +2922,7 @@
       }
 
       const socialField = socialFieldById[el.id];
+      const socialAnimationField = socialAnimationFieldById[el.id];
       if (socialField) {
         try {
           const response = await fetch(`${API}/admin/settings`, {
@@ -2807,7 +2931,10 @@
               'Content-Type': 'application/json',
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({ [socialField]: href || null }),
+            body: JSON.stringify({
+              [socialField]: href || null,
+              ...(socialAnimationField ? { [socialAnimationField]: anim || 'float' } : {}),
+            }),
           });
           const payload = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(payload.error || `Greška ${response.status}`);
@@ -2830,6 +2957,157 @@
      Injects a floating toolbar into every section/header/article.
      Buttons: Move Up ▲ | Move Down ▼ | ⚙️ Stil | 🗑️ Obriši
   ──────────────────────────────────────────────────────────────────── */
+  async function openInsertAtcModal(sec) {
+    let products = [];
+    try {
+      products = await fetchEditorProducts();
+    } catch (error) {
+      showKveToast(error.message || 'Greška pri učitavanju proizvoda.', 'error');
+      return;
+    }
+
+    if (!products.length) {
+      showKveToast('Nema proizvoda za povezivanje ATC dugmeta.', 'error');
+      return;
+    }
+
+    const options = products.map((product) => {
+      const name = product.name_sr || product.name || 'Proizvod';
+      return `<option value="${esc(product.id)}">${esc(name)} — €${esc(Number(product.price || 0).toFixed(2))}</option>`;
+    }).join('');
+
+    const modal = createModal('🛒 Dodaj ATC dugme', `
+      <label>Poveži sa proizvodom</label>
+      <select id="kve-atc-product">${options}</select>
+      <label style="margin-top:14px">Tekst dugmeta</label>
+      <input type="text" id="kve-atc-label" value="Dodaj u korpu" placeholder="npr. Dodaj u korpu"/>
+      <label style="margin-top:14px">Preset ikonica</label>
+      <select id="kve-atc-icon">
+        <option value="cart">Korpa</option>
+        <option value="spotify">Spotify</option>
+        <option value="netflix">Netflix</option>
+        <option value="adobe">Adobe</option>
+      </select>
+      <label style="margin-top:14px">Custom ikonica URL <span style="color:#5050a0;font-weight:400">(opciono)</span></label>
+      <input type="url" id="kve-atc-icon-url" placeholder="https://.../icon.png"/>
+      <label style="margin-top:14px">Ili upload ikonice <span style="color:#5050a0;font-weight:400">(PNG / SVG)</span></label>
+      <input type="file" id="kve-atc-icon-file" accept="image/png,image/svg+xml,image/webp,image/jpeg"/>
+    `);
+
+    modal.ok.addEventListener('click', async () => {
+      const productId = modal.overlay.querySelector('#kve-atc-product').value;
+      const label = modal.overlay.querySelector('#kve-atc-label').value.trim() || 'Dodaj u korpu';
+      const iconPreset = modal.overlay.querySelector('#kve-atc-icon').value || 'cart';
+      const customUrlInput = modal.overlay.querySelector('#kve-atc-icon-url').value.trim();
+      const customFile = modal.overlay.querySelector('#kve-atc-icon-file').files?.[0] || null;
+      const product = products.find((item) => String(item.id) === String(productId));
+      if (!product) {
+        showKveToast('Proizvod nije pronađen.', 'error');
+        return;
+      }
+
+      modal.ok.disabled = true;
+      modal.ok.textContent = 'Dodajem...';
+
+      try {
+        const customIconUrl = customFile ? await uploadEditorAsset(customFile) : customUrlInput;
+        const button = buildAtcButtonNode(product, { label, iconPreset, customIconUrl });
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;justify-content:flex-start;align-items:center;gap:16px;margin-top:18px;flex-wrap:wrap;';
+        wrap.appendChild(button);
+        findSectionInsertTarget(sec).appendChild(wrap);
+        closeModal(modal.overlay);
+        showKveToast('ATC dugme dodato. Klikni "Sačuvaj stranicu".');
+      } catch (error) {
+        showKveToast(error.message || 'Greška pri dodavanju ATC dugmeta.', 'error');
+        modal.ok.disabled = false;
+        modal.ok.textContent = 'Sačuvaj';
+      }
+    });
+  }
+
+  async function openInsertSocialModal(sec) {
+    const modal = createModal('# Dodaj social ikonicu', `
+      <label>Mreža</label>
+      <select id="kve-social-network">
+        <option value="facebook">Facebook</option>
+        <option value="x">X / Twitter</option>
+        <option value="instagram">Instagram</option>
+      </select>
+      <label style="margin-top:14px">URL link</label>
+      <input type="url" id="kve-social-href" placeholder="https://..."/>
+      <label style="margin-top:14px">Animacija</label>
+      <select id="kve-social-anim">
+        <option value="float">Float</option>
+        <option value="pulse">Pulse</option>
+        <option value="bounce">Bounce</option>
+      </select>
+      <label style="margin-top:14px">Custom ikonica URL <span style="color:#5050a0;font-weight:400">(opciono)</span></label>
+      <input type="url" id="kve-social-icon-url" placeholder="https://.../icon.png"/>
+      <label style="margin-top:14px">Ili upload ikonice</label>
+      <input type="file" id="kve-social-icon-file" accept="image/png,image/svg+xml,image/webp,image/jpeg"/>
+    `);
+
+    modal.ok.addEventListener('click', async () => {
+      const network = modal.overlay.querySelector('#kve-social-network').value;
+      const href = modal.overlay.querySelector('#kve-social-href').value.trim();
+      const animation = modal.overlay.querySelector('#kve-social-anim').value || 'float';
+      const customUrlInput = modal.overlay.querySelector('#kve-social-icon-url').value.trim();
+      const customFile = modal.overlay.querySelector('#kve-social-icon-file').files?.[0] || null;
+
+      if (!href) {
+        showKveToast('URL link je obavezan.', 'error');
+        return;
+      }
+
+      modal.ok.disabled = true;
+      modal.ok.textContent = 'Dodajem...';
+
+      try {
+        const customIconUrl = customFile ? await uploadEditorAsset(customFile) : customUrlInput;
+        const link = buildSocialLinkNode({ network, href, animation, customIconUrl });
+        const footerLike = sec.tagName === 'FOOTER' || !!sec.closest('footer');
+        const idMap = { facebook: 'footer-fb', x: 'footer-tw', instagram: 'footer-ig' };
+        if (footerLike && !document.getElementById(idMap[network])) {
+          link.id = idMap[network];
+        }
+
+        const existingFooterIcon = footerLike ? document.getElementById(idMap[network]) : null;
+        if (existingFooterIcon) {
+          existingFooterIcon.replaceWith(link);
+        } else {
+          const target = sec.querySelector('#footer-fb, #footer-tw, #footer-ig')?.parentElement || findSectionInsertTarget(sec);
+          target.appendChild(link);
+        }
+
+        if (footerLike) {
+          const fieldMap = { facebook: 'facebook_url', x: 'twitter_url', instagram: 'instagram_url' };
+          const animFieldMap = { facebook: 'facebook_animation', x: 'twitter_animation', instagram: 'instagram_animation' };
+          const response = await fetch(`${API}/admin/settings`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              [fieldMap[network]]: href,
+              [animFieldMap[network]]: animation,
+            }),
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(payload.error || `Greška ${response.status}`);
+        }
+
+        closeModal(modal.overlay);
+        showKveToast('Social ikonica dodata. Klikni "Sačuvaj stranicu".');
+      } catch (error) {
+        showKveToast(error.message || 'Greška pri dodavanju social ikonice.', 'error');
+        modal.ok.disabled = false;
+        modal.ok.textContent = 'Sačuvaj';
+      }
+    });
+  }
+
   function initSectionHoverControls() {
     document.querySelectorAll('section, header, article').forEach(sec => {
       if (sec.closest('[data-kve-editor]')) return;
@@ -2855,6 +3133,10 @@
       <button class="kve-sec-style"     title="Uredi pozadinu / stil">⚙️ Stil</button>
       ${!isHeader ? `<button class="kve-sec-delete" title="Obriši sekciju">🗑️ Obriši</button>` : ''}
     `;
+    bar.insertAdjacentHTML('beforeend', `
+      <button class="kve-sec-add-atc" title="Dodaj ATC dugme">ðŸ›’ ATC</button>
+      <button class="kve-sec-add-social" title="Dodaj social ikonicu"># Social</button>
+    `);
     sec.appendChild(bar);
 
     bar.querySelector('.kve-sec-delete')?.addEventListener('click', e => {
@@ -2870,6 +3152,16 @@
     bar.querySelector('.kve-sec-style').addEventListener('click', e => {
       e.stopPropagation();
       openSectionStyleModal(sec);
+    });
+
+    bar.querySelector('.kve-sec-add-atc')?.addEventListener('click', e => {
+      e.stopPropagation();
+      openInsertAtcModal(sec);
+    });
+
+    bar.querySelector('.kve-sec-add-social')?.addEventListener('click', e => {
+      e.stopPropagation();
+      openInsertSocialModal(sec);
     });
 
     bar.querySelector('.kve-sec-header-edit')?.addEventListener('click', e => {

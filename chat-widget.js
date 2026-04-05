@@ -763,15 +763,67 @@
   const gateInp      = document.getElementById('kfy-gate-inp');
   const gateBtn      = document.getElementById('kfy-gate-btn');
   const gateErr      = document.getElementById('kfy-gate-err');
+  const gateStepEmail = document.getElementById('kfy-gate-step-email');
+  const gateStepChoice = document.getElementById('kfy-gate-step-choice');
+  const gateStepFeedback = document.getElementById('kfy-gate-step-feedback');
+  const feedbackCategory = document.getElementById('kfy-feedback-category');
+  const feedbackTextLabel = document.querySelector('label[for="kfy-feedback-text"]');
+  const feedbackText = document.getElementById('kfy-feedback-text');
+  const feedbackBtn = document.getElementById('kfy-feedback-btn');
+  const feedbackErr = document.getElementById('kfy-feedback-err');
 
   function _clearGateErr() {
     if (gateErr) { gateErr.textContent = ''; gateErr.style.display = 'none'; }
+    if (feedbackErr) {
+      feedbackErr.textContent = '';
+      feedbackErr.style.display = 'none';
+      feedbackErr.style.color = '#ef4444';
+    }
+  }
+
+  function _setGateStep(step) {
+    [[gateStepEmail, 'email'], [gateStepChoice, 'choice'], [gateStepFeedback, 'feedback']].forEach(([node, key]) => {
+      if (!node) return;
+      node.style.display = key === step ? '' : 'none';
+    });
+  }
+
+  function _syncFeedbackFlow() {
+    const showDetails = !!String(feedbackCategory?.value || '').trim();
+    if (feedbackTextLabel) feedbackTextLabel.style.display = showDetails ? '' : 'none';
+    if (feedbackText) feedbackText.style.display = showDetails ? '' : 'none';
+    if (feedbackBtn) feedbackBtn.style.display = showDetails ? '' : 'none';
+    if (!showDetails) {
+      if (feedbackText) feedbackText.value = '';
+      if (feedbackErr) {
+        feedbackErr.textContent = '';
+        feedbackErr.style.display = 'none';
+      }
+    }
   }
 
   function _showGate() {
     _clearGateErr();
+    if (gateBtn) {
+      gateBtn.disabled = false;
+      gateBtn.textContent = 'Nastavi →';
+    }
+    if (feedbackCategory) feedbackCategory.disabled = false;
+    if (feedbackText) feedbackText.disabled = false;
+    if (feedbackBtn) {
+      feedbackBtn.disabled = false;
+      feedbackBtn.textContent = 'Pošalji feedback';
+    }
+    _syncFeedbackFlow();
+    _setGateStep(STORAGE.getEmail() ? 'choice' : 'email');
     guestGate.classList.remove('kfy-gate-hidden');
-    setTimeout(() => gateInp && gateInp.focus(), 220);
+    setTimeout(() => {
+      if (STORAGE.getEmail()) {
+        gateStepChoice?.querySelector('.kfy-gate-card')?.focus?.();
+      } else {
+        gateInp && gateInp.focus();
+      }
+    }, 220);
   }
 
   function _hideGate() {
@@ -787,16 +839,95 @@
       return;
     }
     _clearGateErr();
-    gateBtn.disabled      = true;
-    gateBtn.textContent   = 'Pokretanje...';
+    gateBtn.disabled = true;
+    gateBtn.textContent = 'Nastavljam...';
     STORAGE.setEmail(val);
+    _setGateStep('choice');
+    gateBtn.disabled = false;
+    gateBtn.textContent = 'Nastavi →';
+  };
+
+  window._kfyGateBackToEmail = function () {
+    _clearGateErr();
+    if (gateBtn) {
+      gateBtn.disabled = false;
+      gateBtn.textContent = 'Nastavi →';
+    }
+    _setGateStep('email');
+    setTimeout(() => gateInp && gateInp.focus(), 60);
+  };
+
+  window._kfyChooseGateMode = async function (mode) {
+    _clearGateErr();
+    if (mode === 'choice') {
+      _setGateStep('choice');
+      return;
+    }
+    if (mode === 'feedback') {
+      _setGateStep('feedback');
+      _syncFeedbackFlow();
+      setTimeout(() => feedbackCategory && feedbackCategory.focus(), 60);
+      return;
+    }
+
+    const email = STORAGE.getEmail() || (gateInp?.value || '').trim() || null;
     _hideGate();
     emailCard.style.display = 'none';
+    await _startSession(email);
+  };
+
+  window._kfySubmitFeedback = async function () {
+    const email = STORAGE.getEmail() || (gateInp?.value || '').trim();
+    const category = String(feedbackCategory?.value || '').trim();
+    const message = String(feedbackText?.value || '').trim();
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      feedbackErr.textContent = 'Email nije ispravan.';
+      feedbackErr.style.display = 'block';
+      return;
+    }
+    if (!category) {
+      feedbackErr.textContent = 'Izaberite kategoriju feedbacka.';
+      feedbackErr.style.display = 'block';
+      return;
+    }
+    if (message.length < 8) {
+      feedbackErr.textContent = 'Unesite makar kratko objašnjenje feedbacka.';
+      feedbackErr.style.display = 'block';
+      return;
+    }
+
+    _clearGateErr();
+    feedbackBtn.disabled = true;
+    feedbackBtn.textContent = 'Slanje...';
+
     try {
-      await _startSession(val);
-    } catch { /* _startSession handles its own errors */ }
-    gateBtn.disabled    = false;
-    gateBtn.textContent = 'Počni razgovor →';
+      const res = await fetch(`${API()}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          category,
+          message,
+          page_url: window.location.href,
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Greška pri slanju feedbacka.');
+
+      if (feedbackCategory) feedbackCategory.disabled = true;
+      if (feedbackText) feedbackText.disabled = true;
+      feedbackErr.textContent = 'Feedback je poslat. Hvala na povratnoj informaciji.';
+      feedbackErr.style.display = 'block';
+      feedbackErr.style.color = '#10b981';
+      feedbackBtn.textContent = 'Poslato';
+    } catch (error) {
+      feedbackErr.textContent = error.message || 'Greška pri slanju feedbacka.';
+      feedbackErr.style.display = 'block';
+      feedbackErr.style.color = '#ef4444';
+      feedbackBtn.disabled = false;
+      feedbackBtn.textContent = 'Pošalji feedback';
+    }
   };
 
   window._kfyGateSkip = async function () {
@@ -808,6 +939,12 @@
 
   gateInp && gateInp.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); window._kfyGateSubmit(); }
+  });
+  feedbackCategory && feedbackCategory.addEventListener('change', () => {
+    _syncFeedbackFlow();
+    if (String(feedbackCategory.value || '').trim()) {
+      setTimeout(() => feedbackText && feedbackText.focus(), 40);
+    }
   });
 
   /* ─────────────────────────────────────────────────────────────
@@ -1181,7 +1318,7 @@
     // Clear messages from UI only (server keeps them)
     const body = document.getElementById('kfy-body');
     body.querySelectorAll('.kfy-bubble:not(:first-child), .kfy-system-card').forEach(el => el.remove());
-    emailCard.style.display = '';
+    emailCard.style.display = 'none';
     _showGate();
   };
 

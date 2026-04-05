@@ -963,6 +963,13 @@
             <p class="text-xs text-dark-300 mt-0.5">Sve povratne informacije korisnika, odvojeno od live podrške.</p>
           </div>
           <div class="flex items-center gap-3">
+            <select id="feedback-category-filter" class="admin-input" style="width:auto" onchange="loadFeedbacks()">
+              <option value="">Sve kategorije</option>
+              <option value="nalog">Nalog</option>
+              <option value="rad_sajta">Rad sajta</option>
+              <option value="predlog">Predlog</option>
+              <option value="zalba">Zalba</option>
+            </select>
             <select id="feedback-status-filter" class="admin-input" style="width:auto" onchange="loadFeedbacks()">
               <option value="">Svi statusi</option>
               <option value="new">Novi</option>
@@ -3119,7 +3126,9 @@
     tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10 text-dark-300">Učitavanje feedback liste...</td></tr>';
     try {
       const params = new URLSearchParams();
+      const category = document.getElementById('feedback-category-filter')?.value || '';
       const status = document.getElementById('feedback-status-filter')?.value || '';
+      if (category) params.set('category', category);
       if (status) params.set('status', status);
       const res = await fetch(`${API_BASE}/admin/feedbacks${params.toString() ? `?${params.toString()}` : ''}`, { headers: authHeaders() });
       const data = await res.json();

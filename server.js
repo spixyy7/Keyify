@@ -729,7 +729,7 @@ async function relinkGuestPurchasesToUser(email, userId) {
     const { error } = await supabase
       .from('orders')
       .update(attempt)
-      .eq('buyer_email', normalizedEmail)
+      .ilike('buyer_email', normalizedEmail)
       .is('user_id', null);
     if (!error) break;
     if (!isMissingSchemaError(error)) {
@@ -741,10 +741,19 @@ async function relinkGuestPurchasesToUser(email, userId) {
   const { error: txRelinkError } = await supabase
     .from('transactions')
     .update({ user_id: userId })
-    .eq('buyer_email', normalizedEmail)
+    .ilike('buyer_email', normalizedEmail)
     .is('user_id', null);
   if (txRelinkError && !isMissingSchemaError(txRelinkError)) {
     console.warn('[guest/relink] transactions warning:', txRelinkError.message);
+  }
+
+  const { error: pvRelinkError } = await supabase
+    .from('payment_verifications')
+    .update({ user_id: userId })
+    .ilike('buyer_email', normalizedEmail)
+    .is('user_id', null);
+  if (pvRelinkError && !isMissingSchemaError(pvRelinkError)) {
+    console.warn('[guest/relink] payment verifications warning:', pvRelinkError.message);
   }
 }
 
@@ -1102,6 +1111,8 @@ app.post('/api/login', authLimiter, async (req, res) => {
   });
 
   if (trusted) {
+    await relinkGuestPurchasesToUser(user.email, user.id);
+
     // Roll the 30-day window forward on each trusted login
     await supabase
       .from('trusted_devices')
@@ -1211,6 +1222,8 @@ app.post('/api/verify', authLimiter, async (req, res) => {
     .from('users')
     .update({ otp_code: null, otp_expires: null, is_verified: true })
     .eq('id', user.id);
+
+  await relinkGuestPurchasesToUser(user.email, user.id);
 
   const ip = getClientIP(req);
   const ua = hashUA(req.headers['user-agent']);
@@ -2023,6 +2036,155 @@ app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, 
  * Guest:      ?email=x@y.z  → filters by buyer_email (no token needed)
  */
 app.get('/api/user/purchases', async (req, res) => {
+  const fetchPurchasesByFilter = async (selects, filterColumn, filterValue, useIlike = false) => {
+    let data = null;
+    let error = null;
+
+    for (const select of selects) {
+      let query = supabase
+        .from('transactions')
+        .select(select)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      query = useIlike
+        ? query.ilike(filterColumn, filterValue)
+        : query.eq(filterColumn, filterValue);
+
+      const result = await query;
+      data = result.data;
+      error = result.error;
+      if (!error) break;
+      if (!isMissingSchemaError(error)) break;
+      console.warn('[user/purchases] retrying with reduced schema:', error.message);
+    }
+
+    return { data: data || [], error };
+  };
+
+  const enrichPurchaseRows = async (rows) => {
+    const txIds = rows.map((row) => row.id).filter(Boolean);
+    const productIds = [...new Set(
+      rows
+        .filter((row) => !row.product_image && row.product_id)
+        .map((row) => row.product_id)
+    )];
+    const proofMap = {};
+    const productImageMap = {};
+
+    if (txIds.length) {
+      const { data: verifications } = await supabase
+        .from('payment_verifications')
+        .select('transaction_id')
+        .in('transaction_id', txIds);
+      if (verifications) {
+        verifications.forEach((row) => { proofMap[row.transaction_id] = true; });
+      }
+    }
+
+    if (productIds.length) {
+      const { data: products, error: productError } = await supabase
+        .from('products')
+        .select('id, image_url')
+        .in('id', productIds);
+
+      if (!productError && products) {
+        products.forEach((product) => {
+          if (product?.id && product?.image_url) {
+            productImageMap[product.id] = product.image_url;
+          }
+        });
+      } else if (productError) {
+        console.warn('[user/purchases] product image fallback failed:', productError.message);
+      }
+    }
+
+    return rows.map((row) => ({
+      ...row,
+      product_image: row.product_image || productImageMap[row.product_id] || null,
+      delivery_payload: row.delivery_payload || row.license_key || null,
+      proof_uploaded: row.proof_uploaded === true || proofMap[row.id] === true,
+    }));
+  };
+
+  let resolvedUserId = null;
+  let resolvedUserEmail = null;
+  let resolvedGuestEmail = null;
+  const purchasesAuthHeader = req.headers['authorization'];
+  const purchasesJwtToken = purchasesAuthHeader && purchasesAuthHeader.split(' ')[1];
+
+  if (purchasesJwtToken) {
+    try {
+      const decoded = jwt.verify(purchasesJwtToken, process.env.JWT_SECRET);
+      resolvedUserId = decoded.id;
+      resolvedUserEmail = String(decoded.email || '').trim().toLowerCase() || null;
+    } catch {}
+  }
+
+  if (resolvedUserId && !resolvedUserEmail) {
+    const { data: userRow } = await supabase
+      .from('users')
+      .select('email')
+      .eq('id', resolvedUserId)
+      .maybeSingle();
+    resolvedUserEmail = String(userRow?.email || '').trim().toLowerCase() || null;
+  }
+
+  if (!resolvedUserId) {
+    resolvedGuestEmail = (req.query.email || '').trim().toLowerCase();
+    if (!resolvedGuestEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resolvedGuestEmail)) {
+      return res.status(401).json({ error: 'Prijavite se ili proslijedite ?email= parametar' });
+    }
+  } else if (resolvedUserEmail) {
+    await relinkGuestPurchasesToUser(resolvedUserEmail, resolvedUserId);
+  }
+
+  const loggedInSelects = [
+    'id, user_id, product_id, product_name, product_image, amount, payment_method, status, verification_status, license_key, buyer_email, delivery_payload, proof_uploaded, created_at',
+    'id, user_id, product_id, product_name, product_image, amount, payment_method, status, verification_status, license_key, buyer_email, delivery_payload, created_at',
+    'id, user_id, product_id, product_name, amount, payment_method, status, verification_status, license_key, buyer_email, created_at',
+    'id, user_id, product_id, product_name, amount, payment_method, status, license_key, buyer_email, created_at',
+    'id, user_id, product_id, product_name, amount, payment_method, status, license_key, created_at',
+    'id, user_id, product_id, product_name, amount, payment_method, status, created_at',
+  ];
+  const guestSelects = [
+    'id, user_id, product_id, product_name, product_image, amount, payment_method, status, verification_status, license_key, buyer_email, delivery_payload, proof_uploaded, created_at',
+    'id, user_id, product_id, product_name, product_image, amount, payment_method, status, verification_status, license_key, buyer_email, delivery_payload, created_at',
+    'id, user_id, product_id, product_name, amount, payment_method, status, verification_status, license_key, buyer_email, created_at',
+    'id, user_id, product_id, product_name, amount, payment_method, status, buyer_email, created_at',
+  ];
+
+  const primaryFetch = resolvedUserId
+    ? await fetchPurchasesByFilter(loggedInSelects, 'user_id', resolvedUserId)
+    : await fetchPurchasesByFilter(guestSelects, 'buyer_email', resolvedGuestEmail, true);
+
+  if (primaryFetch.error) {
+    console.error('[user/purchases] query error:', primaryFetch.error.message || 'Unknown error');
+    if (!resolvedUserId && isMissingSchemaError(primaryFetch.error)) {
+      return res.status(500).json({ error: 'Historija gost kupovina nije dostupna dok buyer_email kolona ne bude migrirana.' });
+    }
+    return res.status(500).json({ error: 'Greska pri ucitavanju narudzbi' });
+  }
+
+  let finalRows = primaryFetch.data || [];
+
+  if (resolvedUserId && resolvedUserEmail) {
+    const emailFallback = await fetchPurchasesByFilter(guestSelects, 'buyer_email', resolvedUserEmail, true);
+    if (!emailFallback.error && emailFallback.data?.length) {
+      const merged = new Map();
+      [...finalRows, ...emailFallback.data].forEach((row) => {
+        if (row?.id) merged.set(String(row.id), row);
+      });
+      finalRows = Array.from(merged.values()).sort((a, b) => {
+        const aTs = new Date(a.created_at || 0).getTime();
+        const bTs = new Date(b.created_at || 0).getTime();
+        return bTs - aTs;
+      });
+    }
+  }
+
+  return res.json(await enrichPurchaseRows(finalRows));
+
   // Try to resolve logged-in user from JWT
   let userId    = null;
   let guestEmail = null;
@@ -2494,6 +2656,7 @@ app.post('/api/feedback', async (req, res) => {
 
 app.get('/api/admin/feedbacks', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
   const status = String(req.query?.status || '').trim().toLowerCase();
+  const category = String(req.query?.category || '').trim().toLowerCase();
   let query = supabase
     .from('feedbacks')
     .select('id, email, category, message, page_url, status, created_at, updated_at')
@@ -2501,6 +2664,7 @@ app.get('/api/admin/feedbacks', authenticateToken, checkPermission('can_manage_s
     .order('created_at', { ascending: false });
 
   if (status) query = query.eq('status', status);
+  if (category && FEEDBACK_CATEGORIES.includes(category)) query = query.eq('category', category);
 
   const { data, error } = await query;
   if (error) {
@@ -2534,6 +2698,7 @@ app.post('/api/chat/start', async (req, res) => {
   const { guest_email } = req.body;
 
   let userId = null;
+  let authenticatedUserId = null;
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
   if (token) {
@@ -3573,6 +3738,8 @@ app.get('/api/auth/google/callback', async (req, res) => {
       }
     }
 
+    await relinkGuestPurchasesToUser(user.email, user.id);
+
     const token = issueJWT(user, req);
     const params = new URLSearchParams({
       token,
@@ -3742,6 +3909,7 @@ const confirmCheckoutHandler = async (req, res) => {
     try {
       const d = jwt.verify(jwtToken, process.env.JWT_SECRET);
       userId  = d.id;
+      authenticatedUserId = d.id;
       if (!email) email = d.email;
     } catch {}
   }
@@ -3753,9 +3921,20 @@ const confirmCheckoutHandler = async (req, res) => {
   if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0)
     return res.status(400).json({ error: 'Nevažeći iznos' });
 
+  if (!userId && email) {
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle();
+    if (existingUser?.id) {
+      userId = existingUser.id;
+    }
+  }
+
   const parsedAmount = parseFloat(amount);
   const resolvedBuyerName = String(buyer_name || '').trim() || email.split('@')[0];
-  const isGuestOrder = !userId;
+  const isGuestOrder = !authenticatedUserId;
   const guestToken = isGuestOrder ? crypto.randomUUID() : null;
   const purchasesUrl = buildFrontendPageUrl(req, 'purchases.html');
   const guestOrderUrl = guestToken ? buildFrontendPageUrl(req, 'guest-order.html', { token: guestToken }) : null;
