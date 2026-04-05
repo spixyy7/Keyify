@@ -538,11 +538,17 @@
     window.location.href = 'contact.html?open_chat=1';
   }
 
+  function getCheckoutPackagePurchased(item) {
+    const label = String(item?.variant_label || item?.variantLabel || '').trim();
+    return label || null;
+  }
+
   function persistLastOrder(result, cart, firstItem, email, paymentMethod, total) {
     sessionStorage.setItem('kfy_last_order', JSON.stringify({
       transaction_id: result.transaction_id,
       license_key: result.license_key,
       product_name: result.product_name || cart.map(i => i.name || i.title).join(', '),
+      package_purchased: result.package_purchased || getCheckoutPackagePurchased(firstItem),
       product_image: result.product_image || firstItem.image || firstItem.image_url || null,
       amount: result.amount ?? total,
       order_date: result.order_date || new Date().toISOString(),
@@ -902,6 +908,7 @@
               buyer_email: email, buyer_name: name,
               product_id: firstItem.id || null,
               product_name: cart.map(i => i.name || i.title).filter(Boolean).join(', ') || 'Digitalni proizvod',
+              package_purchased: getCheckoutPackagePurchased(firstItem),
               amount: total, payment_method: 'paypal',
               buyer_inputs: buyerInputs,
               tx_reference: details.id || null,
@@ -971,6 +978,7 @@
           buyer_name:     name,
           product_id:     firstItem.id     || null,
           product_name:   cart.map(i => i.name || i.title).filter(Boolean).join(', ') || 'Digitalni proizvod',
+          package_purchased: getCheckoutPackagePurchased(firstItem),
           amount:         total,
           payment_method: selectedMethod,
           buyer_inputs:   buyerInputs,
@@ -1180,6 +1188,7 @@
           buyer_name:     identity.name,
           product_id:     firstItem.id || null,
           product_name:   productName,
+          package_purchased: getCheckoutPackagePurchased(firstItem),
           amount:         total,
           payment_method: 'stripe_card',
           buyer_inputs:   buyerInputs,

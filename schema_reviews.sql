@@ -13,11 +13,15 @@ CREATE TABLE IF NOT EXISTS reviews (
   rating              INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
   text                TEXT,
   image_url           TEXT,
+  package_purchased   TEXT,
   is_admin_created    BOOLEAN DEFAULT FALSE,
   is_verified_purchase BOOLEAN DEFAULT FALSE,
   is_visible          BOOLEAN DEFAULT TRUE,
   created_at          TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE IF EXISTS reviews
+  ADD COLUMN IF NOT EXISTS package_purchased TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_reviews_product ON reviews(product_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_visible ON reviews(product_id, is_visible) WHERE is_visible = TRUE;

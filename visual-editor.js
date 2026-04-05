@@ -97,21 +97,112 @@
     return Array.isArray(payload) ? payload : [];
   }
 
+  const editorProductDetailCache = new Map();
+
+  async function fetchEditorProductDetails(productId) {
+    const id = String(productId || '').trim();
+    if (!id) throw new Error('Proizvod nije odabran.');
+    if (editorProductDetailCache.has(id)) return editorProductDetailCache.get(id);
+
+    const res = await fetch(`${API}/products/${encodeURIComponent(id)}`);
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(payload.error || 'Greška pri učitavanju detalja proizvoda.');
+    editorProductDetailCache.set(id, payload || {});
+    return payload || {};
+  }
+
   function findSectionInsertTarget(sec) {
     return sec.querySelector('.max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl, .max-w-3xl, .container, .mx-auto') || sec;
   }
 
-  function buildAtcDataPayload(product) {
+  function getEditorVariantToken(variant) {
+    if (!variant) return '';
+    return String(variant.id || variant.variant_id || variant.label || '')
+      .trim()
+      .toLowerCase();
+  }
+
+  function normalizeEditorVariants(product) {
+    return (Array.isArray(product?.variants) ? product.variants : [])
+      .map((variant, index) => ({
+        ...variant,
+        _token: getEditorVariantToken(variant) || `variant-${index}`,
+      }))
+      .filter((variant) => Number.isFinite(parseFloat(variant.price)) && parseFloat(variant.price) > 0);
+  }
+
+  function resolveEditorVariant(product, selectedToken) {
+    const token = String(selectedToken || '').trim().toLowerCase();
+    if (!token) return null;
+    return normalizeEditorVariants(product).find((variant) => {
+      const labelToken = String(variant.label || '').trim().toLowerCase();
+      return variant._token === token || labelToken === token;
+    }) || null;
+  }
+
+  function buildEditorCartKey(product, variant) {
+    const baseId = String(product?.id || product?.product_id || 'product').trim();
+    const variantToken = getEditorVariantToken(variant) || 'base';
+    return `${baseId}::${variantToken}`;
+  }
+
+  function setEditorButtonContent(el, label) {
+    const directIconWrap = el.querySelector(':scope > span:first-child svg, :scope > span:first-child img')
+      ? el.querySelector(':scope > span:first-child')?.cloneNode(true)
+      : null;
+    const directIcon = !directIconWrap
+      ? el.querySelector(':scope > svg, :scope > img')?.cloneNode(true)
+      : null;
+
+    if (!directIconWrap && !directIcon) {
+      el.textContent = label;
+      return;
+    }
+
+    el.innerHTML = '';
+    if (!/flex/.test(String(window.getComputedStyle(el).display || ''))) {
+      el.style.display = 'inline-flex';
+    }
+    el.style.alignItems = el.style.alignItems || 'center';
+    el.style.gap = el.style.gap || '12px';
+
+    if (directIconWrap) {
+      el.appendChild(directIconWrap);
+    } else if (directIcon) {
+      const iconWrap = document.createElement('span');
+      iconWrap.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:currentColor;flex-shrink:0;';
+      iconWrap.appendChild(directIcon);
+      el.appendChild(iconWrap);
+    }
+
+    const textSpan = document.createElement('span');
+    textSpan.textContent = label;
+    el.appendChild(textSpan);
+  }
+
+  function buildAtcDataPayload(product, variant) {
+    const variantPrice = parseFloat(variant?.price);
+    const basePrice = Number.isFinite(variantPrice) && variantPrice > 0
+      ? variantPrice
+      : parseFloat(product.price || 0);
+    const originalPrice = Number.isFinite(parseFloat(variant?.original_price))
+      ? parseFloat(variant.original_price)
+      : (Number.isFinite(parseFloat(product.original_price)) ? parseFloat(product.original_price) : null);
     return {
       id: product.id,
+      product_id: product.id,
+      cart_key: buildEditorCartKey(product, variant),
       name: product.name_sr || product.name || 'Proizvod',
       name_en: product.name_en || product.name_sr || product.name || 'Product',
-      price: parseFloat(product.price || 0),
+      price: basePrice,
       desc: product.description_sr || '',
       desc_en: product.description_en || '',
       color: '#2563eb',
       category: product.category || product.category_slug || '',
       imageUrl: product.image_url || null,
+      variant_id: variant?.id || variant?.variant_id || null,
+      variant_label: variant?.label || null,
+      original_price: originalPrice,
     };
   }
 
@@ -122,7 +213,12 @@
       : getKvePresetIcon(options.iconPreset);
     button.type = 'button';
     button.dataset.kfAtc = '1';
-    button.setAttribute('data-product', JSON.stringify(buildAtcDataPayload(product)));
+    button.dataset.kveProductId = String(product.id);
+    if (options.variant) {
+      button.dataset.kveVariantId = String(options.variant.id || options.variant.variant_id || options.variant.label || '');
+      button.dataset.kveVariantLabel = String(options.variant.label || '');
+    }
+    button.setAttribute('data-product', JSON.stringify(buildAtcDataPayload(product, options.variant)));
     button.className = 'kve-inline-atc';
     button.style.cssText = 'display:inline-flex;align-items:center;gap:12px;padding:14px 24px;border:none;border-radius:18px;background:linear-gradient(135deg,#ffffff,#f8fafc);color:#2563eb;font-size:16px;font-weight:700;box-shadow:0 18px 40px rgba(37,99,235,0.18);cursor:pointer;transition:transform .25s ease, box-shadow .25s ease;';
     button.innerHTML = `<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:currentColor">${iconMarkup}</span><span>${esc(options.label || 'Dodaj u korpu')}</span>`;
@@ -171,6 +267,12 @@
         box-shadow: 0 28px 60px rgba(4,10,24,0.34);
         backdrop-filter: blur(18px);
         -webkit-backdrop-filter: blur(18px);
+        cursor: grab;
+        user-select: none;
+      }
+      #kve-button-studio.kve-bs-dragging {
+        cursor: grabbing;
+        box-shadow: 0 34px 76px rgba(4,10,24,0.46);
       }
       #kve-button-studio .kve-bs-kicker {
         font-size: 10px;
@@ -216,6 +318,10 @@
         box-shadow: 0 18px 35px rgba(29,106,255,0.15);
       }
       #kve-button-studio .kve-bs-card:active { cursor: grabbing; }
+      #kve-button-studio .kve-bs-card,
+      #kve-button-studio .kve-bs-card * {
+        user-select: none;
+      }
       #kve-button-studio .kve-bs-icon {
         width: 42px;
         height: 42px;
@@ -272,6 +378,16 @@
     return match ? match[1] : '';
   }
 
+  function extractEditorButtonProduct(el) {
+    const raw = el?.getAttribute?.('data-product');
+    if (!raw) return null;
+    try {
+      return JSON.parse(String(raw).replace(/&#39;/g, "'"));
+    } catch {
+      return null;
+    }
+  }
+
   function getEditorButtonMode(el) {
     if (el.dataset.kveButtonFunction) return el.dataset.kveButtonFunction;
     if (el.dataset.kfAtc === '1' || el.getAttribute('data-product')) return 'cart';
@@ -289,14 +405,100 @@
     return /rounded-(full|xl|2xl)|shadow|bg-|inline-flex|justify-center|items-center|font-semibold|font-bold|cta|button|btn/.test(cls);
   }
 
+  function resolveButtonLikeEditableElement(node) {
+    let el = node?.nodeType === 1 ? node : node?.parentElement || null;
+    while (el && el !== document.body) {
+      if (el.hasAttribute?.('data-kve-editor') || el.closest?.('[data-kve-editor]')) return null;
+      if (isButtonLikeEditableElement(el)) return el;
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  function ensureButtonFlexMetrics(el) {
+    if (!el) return;
+    const cs = window.getComputedStyle(el);
+    const rect = el.getBoundingClientRect();
+    if (!el.dataset.kveBaseWidth && rect.width) el.dataset.kveBaseWidth = String(Math.round(rect.width));
+    if (!el.dataset.kveBaseFontSize) el.dataset.kveBaseFontSize = String(parseFloat(cs.fontSize) || 16);
+    if (!el.dataset.kveBasePadX) {
+      const avgPadX = ((parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0)) / 2;
+      el.dataset.kveBasePadX = String(avgPadX || 20);
+    }
+    if (!el.dataset.kveBasePadY) {
+      const avgPadY = ((parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0)) / 2;
+      el.dataset.kveBasePadY = String(avgPadY || 12);
+    }
+  }
+
+  function ensureButtonPositioning(el) {
+    if (!el) return;
+    const cs = window.getComputedStyle(el);
+    if (cs.position === 'static' || !cs.position) {
+      el.style.position = 'relative';
+    }
+    if (cs.display === 'inline') {
+      el.style.display = 'inline-flex';
+    }
+    el.style.touchAction = 'none';
+  }
+
+  function applyButtonFlexSize(el, nextWidth) {
+    if (!el || !Number.isFinite(nextWidth) || nextWidth <= 0) return;
+    ensureButtonFlexMetrics(el);
+    const baseWidth = parseFloat(el.dataset.kveBaseWidth) || el.getBoundingClientRect().width || nextWidth;
+    const safeWidth = Math.max(96, Math.round(nextWidth));
+    const scale = Math.max(0.72, Math.min(1.85, safeWidth / baseWidth));
+    const baseFont = parseFloat(el.dataset.kveBaseFontSize) || 16;
+    const basePadX = parseFloat(el.dataset.kveBasePadX) || 20;
+    const basePadY = parseFloat(el.dataset.kveBasePadY) || 12;
+
+    el.dataset.kveWidth = String(safeWidth);
+    el.style.width = `${safeWidth}px`;
+    el.style.maxWidth = '100%';
+    el.style.fontSize = `${Math.round(baseFont * scale * 100) / 100}px`;
+    el.style.paddingLeft = `${Math.round(basePadX * scale)}px`;
+    el.style.paddingRight = `${Math.round(basePadX * scale)}px`;
+    el.style.paddingTop = `${Math.round(basePadY * scale)}px`;
+    el.style.paddingBottom = `${Math.round(basePadY * scale)}px`;
+  }
+
+  function applyButtonFlexPlacement(el, left, top) {
+    if (!el) return;
+    ensureButtonPositioning(el);
+    const safeLeft = Math.round(Number(left) || 0);
+    const safeTop = Math.round(Number(top) || 0);
+    el.dataset.kveOffsetX = String(safeLeft);
+    el.dataset.kveOffsetY = String(safeTop);
+    el.style.left = `${safeLeft}px`;
+    el.style.top = `${safeTop}px`;
+  }
+
+  function enableFlexibleEditorButton(el) {
+    if (!el) return;
+    ensureButtonPositioning(el);
+    ensureButtonFlexMetrics(el);
+    el.dataset.kveFlexibleButton = '1';
+
+    const savedWidth = parseFloat(el.dataset.kveWidth || '');
+    if (Number.isFinite(savedWidth) && savedWidth > 0) {
+      applyButtonFlexSize(el, savedWidth);
+    }
+
+    if (el.dataset.kveOffsetX || el.dataset.kveOffsetY) {
+      applyButtonFlexPlacement(el, parseFloat(el.dataset.kveOffsetX || '0'), parseFloat(el.dataset.kveOffsetY || '0'));
+    }
+  }
+
   function applyButtonFunctionConfig(el, options) {
     const mode = String(options?.mode || 'none');
     const label = String(options?.label || getEditorButtonLabel(el) || 'Dugme');
     const href = String(options?.href || '').trim();
     const product = options?.product || null;
+    const variant = options?.variant || null;
 
     if (el.tagName !== 'IMG' && !options?.preserveContent) {
-      el.textContent = label;
+      setEditorButtonContent(el, label);
     }
 
     el.dataset.kveButtonFunction = mode;
@@ -306,17 +508,27 @@
       el.setAttribute('type', 'button');
       el.dataset.kfAtc = '1';
       el.dataset.kveProductId = String(product.id);
-      el.setAttribute('data-product', JSON.stringify(buildAtcDataPayload(product)));
+      if (variant) {
+        el.dataset.kveVariantId = String(variant.id || variant.variant_id || variant.label || '');
+        el.dataset.kveVariantLabel = String(variant.label || '');
+      } else {
+        delete el.dataset.kveVariantId;
+        delete el.dataset.kveVariantLabel;
+      }
+      el.setAttribute('data-product', JSON.stringify(buildAtcDataPayload(product, variant)));
       el.removeAttribute('href');
       el.removeAttribute('target');
       el.removeAttribute('rel');
       el.removeAttribute('onclick');
       delete el.dataset.kveLinkHref;
+      enableFlexibleEditorButton(el);
       return;
     }
 
     delete el.dataset.kfAtc;
     delete el.dataset.kveProductId;
+    delete el.dataset.kveVariantId;
+    delete el.dataset.kveVariantLabel;
     el.removeAttribute('data-product');
 
     if (mode === 'hyperlink') {
@@ -330,6 +542,7 @@
         el.setAttribute('type', 'button');
         el.setAttribute('onclick', `window.location.href=${JSON.stringify(href)};`);
       }
+      enableFlexibleEditorButton(el);
       return;
     }
 
@@ -338,6 +551,7 @@
     el.removeAttribute('target');
     el.removeAttribute('rel');
     el.removeAttribute('onclick');
+    enableFlexibleEditorButton(el);
   }
 
   function buildHyperlinkButtonNode(options) {
@@ -3195,6 +3409,11 @@
     const modal = createModal('🛒 Dodaj ATC dugme', `
       <label>Poveži sa proizvodom</label>
       <select id="kve-atc-product">${options}</select>
+      <label style="margin-top:14px">Paket / varijacija</label>
+      <select id="kve-atc-variant">
+        <option value="">Osnovna cijena proizvoda</option>
+      </select>
+      <div id="kve-atc-variant-note" style="margin-top:8px;font-size:11px;color:#9090b8">Ako proizvod ima pakete, izaberi konkretan paket koji dugme dodaje u korpu.</div>
       <label style="margin-top:14px">Tekst dugmeta</label>
       <input type="text" id="kve-atc-label" value="Dodaj u korpu" placeholder="npr. Dodaj u korpu"/>
       <label style="margin-top:14px">Preset ikonica</label>
@@ -3210,13 +3429,57 @@
       <input type="file" id="kve-atc-icon-file" accept="image/png,image/svg+xml,image/webp,image/jpeg"/>
     `);
 
+    const productInput = modal.overlay.querySelector('#kve-atc-product');
+    const variantInput = modal.overlay.querySelector('#kve-atc-variant');
+    const variantNote = modal.overlay.querySelector('#kve-atc-variant-note');
+    let selectedProductDetails = products.find((item) => String(item.id) === String(productInput.value)) || null;
+
+    const syncVariantOptions = async (selectedToken = '') => {
+      const productId = productInput.value;
+      if (!productId) {
+        variantInput.innerHTML = '<option value="">Osnovna cijena proizvoda</option>';
+        variantInput.disabled = true;
+        variantNote.textContent = 'Prvo odaberi proizvod.';
+        return;
+      }
+
+      variantInput.disabled = true;
+      variantInput.innerHTML = '<option value="">Učitavanje paketa...</option>';
+      try {
+        selectedProductDetails = await fetchEditorProductDetails(productId);
+        const variants = normalizeEditorVariants(selectedProductDetails);
+        const preferred = String(selectedToken || '').trim().toLowerCase();
+        const rows = variants.map((variant) => {
+          const selected = preferred && preferred === variant._token ? ' selected' : '';
+          const original = Number.isFinite(parseFloat(variant.original_price))
+            ? ` — €${Number(variant.original_price).toFixed(2)}`
+            : '';
+          return `<option value="${esc(variant._token)}"${selected}>${esc(variant.label || 'Paket')} — €${esc(Number(variant.price).toFixed(2))}${esc(original)}</option>`;
+        }).join('');
+        variantInput.innerHTML = `<option value="">Osnovna cijena proizvoda</option>${rows}`;
+        variantInput.disabled = false;
+        variantNote.textContent = variants.length
+          ? 'Izabrani paket određuje cijenu i naziv varijacije koja se dodaje u korpu.'
+          : 'Ovaj proizvod nema definisane pakete. Dugme će koristiti osnovnu cijenu proizvoda.';
+      } catch (error) {
+        selectedProductDetails = products.find((item) => String(item.id) === String(productId)) || null;
+        variantInput.innerHTML = '<option value="">Osnovna cijena proizvoda</option>';
+        variantInput.disabled = true;
+        variantNote.textContent = error.message || 'Paketi nisu dostupni za ovaj proizvod.';
+      }
+    };
+
+    productInput.addEventListener('change', () => { void syncVariantOptions(''); });
+    void syncVariantOptions('');
+
     modal.ok.addEventListener('click', async () => {
-      const productId = modal.overlay.querySelector('#kve-atc-product').value;
+      const productId = productInput.value;
+      const variantToken = variantInput.value || '';
       const label = modal.overlay.querySelector('#kve-atc-label').value.trim() || 'Dodaj u korpu';
       const iconPreset = modal.overlay.querySelector('#kve-atc-icon').value || 'cart';
       const customUrlInput = modal.overlay.querySelector('#kve-atc-icon-url').value.trim();
       const customFile = modal.overlay.querySelector('#kve-atc-icon-file').files?.[0] || null;
-      const product = products.find((item) => String(item.id) === String(productId));
+      const product = selectedProductDetails || products.find((item) => String(item.id) === String(productId));
       if (!product) {
         showKveToast('Proizvod nije pronađen.', 'error');
         return;
@@ -3227,11 +3490,13 @@
 
       try {
         const customIconUrl = customFile ? await uploadEditorAsset(customFile) : customUrlInput;
-        const button = buildAtcButtonNode(product, { label, iconPreset, customIconUrl });
+        const variant = resolveEditorVariant(product, variantToken);
+        const button = buildAtcButtonNode(product, { label, iconPreset, customIconUrl, variant });
         const wrap = document.createElement('div');
-        wrap.style.cssText = 'display:flex;justify-content:flex-start;align-items:center;gap:16px;margin-top:18px;flex-wrap:wrap;';
+        wrap.style.cssText = 'position:relative;display:block;width:100%;min-height:86px;margin-top:18px;';
         wrap.appendChild(button);
         findSectionInsertTarget(sec).appendChild(wrap);
+        enableFlexibleEditorButton(button);
         closeModal(modal.overlay);
         showKveToast('ATC dugme dodato. Klikni "Sačuvaj stranicu".');
       } catch (error) {
@@ -3280,9 +3545,10 @@
         const customIconUrl = customFile ? await uploadEditorAsset(customFile) : customUrlInput;
         const button = buildHyperlinkButtonNode({ label, href, iconPreset, customIconUrl });
         const wrap = document.createElement('div');
-        wrap.style.cssText = 'display:flex;justify-content:flex-start;align-items:center;gap:16px;margin-top:18px;flex-wrap:wrap;';
+        wrap.style.cssText = 'position:relative;display:block;width:100%;min-height:86px;margin-top:18px;';
         wrap.appendChild(button);
         findSectionInsertTarget(sec).appendChild(wrap);
+        enableFlexibleEditorButton(button);
         closeModal(modal.overlay);
         showKveToast('Link dugme dodato. Klikni "Sačuvaj stranicu".');
       } catch (error) {
@@ -3299,6 +3565,7 @@
     const panel = document.createElement('aside');
     panel.id = 'kve-button-studio';
     panel.setAttribute('data-kve-editor', '1');
+    panel.setAttribute('title', 'Prevuci cijeli toolbox ako želiš promijeniti poziciju.');
     panel.innerHTML = `
       <div class="kve-bs-kicker">Button Studio</div>
       <h3 class="kve-bs-title">Prevuci dugme na sekciju</h3>
@@ -3319,6 +3586,53 @@
       </div>
     `;
     document.body.appendChild(panel);
+
+    let panelDragState = null;
+    const isPanelDragHandleTarget = (node) => {
+      if (!node) return false;
+      return !node.closest('.kve-bs-card, button, input, select, textarea, a, label');
+    };
+    const clampPanelPosition = (left, top) => {
+      const rect = panel.getBoundingClientRect();
+      const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
+      const maxTop = Math.max(8, window.innerHeight - rect.height - 8);
+      return {
+        left: Math.min(maxLeft, Math.max(8, Math.round(left))),
+        top: Math.min(maxTop, Math.max(8, Math.round(top))),
+      };
+    };
+    panel.addEventListener('mousedown', (event) => {
+      if (event.button !== 0) return;
+      if (!isPanelDragHandleTarget(event.target)) return;
+      const rect = panel.getBoundingClientRect();
+      panelDragState = {
+        offsetX: event.clientX - rect.left,
+        offsetY: event.clientY - rect.top,
+      };
+      panel.classList.add('kve-bs-dragging');
+      panel.style.left = `${Math.round(rect.left)}px`;
+      panel.style.top = `${Math.round(rect.top)}px`;
+      panel.style.right = 'auto';
+      event.preventDefault();
+    });
+    document.addEventListener('mousemove', (event) => {
+      if (!panelDragState) return;
+      const pos = clampPanelPosition(event.clientX - panelDragState.offsetX, event.clientY - panelDragState.offsetY);
+      panel.style.left = `${pos.left}px`;
+      panel.style.top = `${pos.top}px`;
+      panel.style.right = 'auto';
+    }, true);
+    document.addEventListener('mouseup', () => {
+      if (!panelDragState) return;
+      panelDragState = null;
+      panel.classList.remove('kve-bs-dragging');
+    }, true);
+    window.addEventListener('resize', () => {
+      if (!panel.isConnected || !panel.style.left) return;
+      const pos = clampPanelPosition(parseFloat(panel.style.left || '0'), parseFloat(panel.style.top || '96'));
+      panel.style.left = `${pos.left}px`;
+      panel.style.top = `${pos.top}px`;
+    });
 
     let activeDropTarget = null;
     const setDropTarget = (target) => {
@@ -4003,16 +4317,35 @@
       s.textContent = `
         .kve-elem-wrap   { position:relative; outline:2px dashed transparent; transition:outline-color .12s; }
         .kve-elem-wrap:hover { outline-color:rgba(29,106,255,0.55); }
-        .kve-elem-btns   { display:none;position:absolute;top:-14px;right:0;z-index:99999;
-                           gap:3px;align-items:center;pointer-events:all; }
+        .kve-elem-btns   { display:none;position:absolute;top:-18px;right:-6px;z-index:99999;
+                           gap:8px;align-items:center;pointer-events:all;padding:8px 10px;
+                           border-radius:16px;background:rgba(8,10,24,0.84);
+                           border:1px solid rgba(255,255,255,0.08);
+                           box-shadow:0 18px 42px rgba(0,0,0,.32);
+                           backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px); }
         .kve-elem-wrap:hover .kve-elem-btns { display:flex; }
-        .kve-elem-btn    { padding:2px 7px;font-size:11px;font-weight:700;border:none;border-radius:5px;
+        .kve-elem-btns.kve-elem-btns-floating { display:flex; min-height:50px; }
+        .kve-elem-btns.kve-elem-btns-floating::before {
+                           content:'';position:absolute;inset:-10px; }
+        .kve-elem-btns.kve-elem-btns-loading {
+                           justify-content:center;min-width:66px; }
+        .kve-elem-btn    { min-width:34px;height:34px;padding:0 10px;font-size:13px;font-weight:700;border:none;border-radius:10px;
                            cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-                           box-shadow:0 2px 8px rgba(0,0,0,.35);line-height:1.6; }
+                           box-shadow:0 8px 20px rgba(0,0,0,.22);line-height:1;display:inline-flex;align-items:center;justify-content:center; }
         .kve-elem-del    { background:rgba(239,68,68,0.88);color:#fff; }
         .kve-elem-del:hover  { background:#ef4444; }
         .kve-elem-edit   { background:rgba(29,106,255,0.88);color:#fff; }
         .kve-elem-edit:hover { background:#1D6AFF; }
+        .kve-elem-resize { background:rgba(16,185,129,0.88);color:#fff; }
+        .kve-elem-resize:hover { background:#10b981; }
+        .kve-elem-toolbar-loader { display:flex;align-items:center;justify-content:center;
+                           width:24px;height:24px;border-radius:999px;pointer-events:none; }
+        .kve-elem-toolbar-loader::before { content:'';width:22px;height:22px;border-radius:999px;
+                           border:3px solid rgba(148,163,184,0.28);border-top-color:#60a5fa;
+                           animation:kve-elem-spin .7s linear infinite; }
+        @keyframes kve-elem-spin { to { transform:rotate(360deg); } }
+        body.kve-active [data-kve-flexible-button="1"] { cursor:grab; user-select:none; }
+        body.kve-active [data-kve-flexible-button="1"].kve-btn-dragging { cursor:grabbing; }
         /* Right-click context menu */
         #kve-ctx-menu    { position:fixed;z-index:999999;background:rgba(8,10,24,0.97);
                            border:1px solid rgba(255,255,255,0.1);border-radius:12px;
@@ -4060,24 +4393,193 @@
 
     // Floating btn overlay attached to hovered element
     let _activeWrap = null;
+    let _activeFloatingBtns = null;
+    let _activeToolbarCleanup = null;
+    let _toolbarShowTimer = null;
+    let _toolbarHideTimer = null;
+    let _buttonDragState = null;
+    let _buttonResizeState = null;
 
-    document.addEventListener('mouseover', e => {
-      const el = e.target;
-      if (shouldSkip(el)) return;
-      if (el.classList.contains('kve-elem-btns') || el.closest('.kve-elem-btns')) return;
-      if (_activeWrap && _activeWrap !== el) {
+    function getEditableHoverTarget(node) {
+      return resolveButtonLikeEditableElement(node) || node;
+    }
+
+    function cancelToolbarShow() {
+      if (_toolbarShowTimer) {
+        clearTimeout(_toolbarShowTimer);
+        _toolbarShowTimer = null;
+      }
+    }
+
+    function cancelToolbarHide() {
+      if (_toolbarHideTimer) {
+        clearTimeout(_toolbarHideTimer);
+        _toolbarHideTimer = null;
+      }
+    }
+
+    function cleanupActiveToolbarBindings() {
+      if (typeof _activeToolbarCleanup === 'function') _activeToolbarCleanup();
+      _activeToolbarCleanup = null;
+    }
+
+    function clearActiveElementOverlay() {
+      cancelToolbarShow();
+      cancelToolbarHide();
+      cleanupActiveToolbarBindings();
+      if (_activeWrap) {
         _activeWrap.classList.remove('kve-elem-wrap');
         const oldBtns = _activeWrap.querySelector(':scope > .kve-elem-btns');
         if (oldBtns) oldBtns.remove();
       }
-      if (!el.querySelector(':scope > .kve-elem-btns')) {
+      if (_activeFloatingBtns) {
+        _activeFloatingBtns.remove();
+        _activeFloatingBtns = null;
+      }
+      _activeWrap = null;
+    }
+
+    function scheduleToolbarHide(delay = 280) {
+      cancelToolbarHide();
+      _toolbarHideTimer = setTimeout(() => clearActiveElementOverlay(), delay);
+    }
+
+    function positionFloatingElementTools(target, panel) {
+      if (!target || !panel) return;
+      const rect = target.getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
+      const top = Math.max(8, rect.top - Math.max(12, Math.round(panelRect.height * 0.35)));
+      const left = Math.max(8, Math.min(window.innerWidth - panelRect.width - 8, rect.right - panelRect.width + 6));
+      panel.style.position = 'fixed';
+      panel.style.display = 'flex';
+      panel.style.top = `${top}px`;
+      panel.style.left = `${left}px`;
+      panel.style.right = 'auto';
+    }
+
+    function bindFloatingToolbarLifecycle(target, panel) {
+      cleanupActiveToolbarBindings();
+      const handleEnter = () => cancelToolbarHide();
+      const handleLeave = (event) => {
+        const next = event.relatedTarget;
+        if (next && (target.contains(next) || panel.contains(next))) return;
+        scheduleToolbarHide();
+      };
+      target.addEventListener('mouseenter', handleEnter);
+      target.addEventListener('mouseleave', handleLeave);
+      panel.addEventListener('mouseenter', handleEnter);
+      panel.addEventListener('mouseleave', handleLeave);
+      _activeToolbarCleanup = () => {
+        target.removeEventListener('mouseenter', handleEnter);
+        target.removeEventListener('mouseleave', handleLeave);
+        panel.removeEventListener('mouseenter', handleEnter);
+        panel.removeEventListener('mouseleave', handleLeave);
+      };
+    }
+
+    function renderElementToolbar(el, panel) {
+      const useFloatingTools = isButtonLikeEditableElement(el);
+      const btnWrap = panel || document.createElement('div');
+      btnWrap.className = `kve-elem-btns${useFloatingTools ? ' kve-elem-btns-floating' : ''}`;
+      btnWrap.setAttribute('data-kve-editor', '1');
+      btnWrap.innerHTML = `<button class="kve-elem-btn kve-elem-del" title="Obriši element">🗑️</button><button class="kve-elem-btn kve-elem-edit" title="Uredi element">⚙️</button>`;
+      if (useFloatingTools) {
+        if (!btnWrap.isConnected) document.body.appendChild(btnWrap);
+        positionFloatingElementTools(el, btnWrap);
+        _activeFloatingBtns = btnWrap;
+        bindFloatingToolbarLifecycle(el, btnWrap);
+      } else {
+        el.style.position = el.style.position || (window.getComputedStyle(el).position === 'static' ? 'relative' : '');
+        el.appendChild(btnWrap);
+      }
+      btnWrap.querySelector('.kve-elem-del').addEventListener('click', ev => {
+        ev.stopPropagation();
+        if (!confirm('Obrisati ovaj element?')) return;
+        el.style.transition = 'opacity .25s,transform .25s';
+        el.style.opacity = '0';
+        el.style.transform = 'scale(.95)';
+        setTimeout(() => el.remove(), 260);
+        toastMsg('🗑️ Element obrisan');
+      });
+      btnWrap.querySelector('.kve-elem-edit').addEventListener('click', ev => {
+        ev.stopPropagation();
+        cancelToolbarHide();
+        if (isButtonLikeEditableElement(el)) {
+          openButtonEditModal(el);
+          return;
+        }
+        openElementEditModal(el);
+      });
+      if (isButtonLikeEditableElement(el)) {
+        enableFlexibleEditorButton(el);
+        const resizeBtn = document.createElement('button');
+        resizeBtn.className = 'kve-elem-btn kve-elem-resize';
+        resizeBtn.title = 'Promijeni veličinu';
+        resizeBtn.textContent = '↔';
+        btnWrap.appendChild(resizeBtn);
+        resizeBtn.addEventListener('mousedown', ev => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          cancelToolbarHide();
+          enableFlexibleEditorButton(el);
+          _buttonResizeState = {
+            el,
+            startX: ev.clientX,
+            startWidth: el.getBoundingClientRect().width,
+          };
+        });
+      }
+      return btnWrap;
+    }
+
+    function renderToolbarLoader(el) {
+      const loader = document.createElement('div');
+      loader.className = 'kve-elem-btns kve-elem-btns-floating kve-elem-btns-loading';
+      loader.setAttribute('data-kve-editor', '1');
+      loader.innerHTML = '<div class="kve-elem-toolbar-loader"></div>';
+      document.body.appendChild(loader);
+      positionFloatingElementTools(el, loader);
+      _activeFloatingBtns = loader;
+      bindFloatingToolbarLifecycle(el, loader);
+      return loader;
+    }
+
+    document.addEventListener('mouseover', e => {
+      const el = getEditableHoverTarget(e.target);
+      if (shouldSkip(el)) return;
+      if (el.classList.contains('kve-elem-btns') || el.closest('.kve-elem-btns')) return;
+      if (_activeWrap === el) {
+        cancelToolbarHide();
+        if (_activeFloatingBtns) positionFloatingElementTools(_activeWrap, _activeFloatingBtns);
+        return;
+      }
+      cancelToolbarHide();
+      clearActiveElementOverlay();
+      if (!el.querySelector(':scope > .kve-elem-btns') || isButtonLikeEditableElement(el)) {
         el.classList.add('kve-elem-wrap');
+        if (isButtonLikeEditableElement(el)) {
+          _activeWrap = el;
+          renderToolbarLoader(el);
+          _toolbarShowTimer = setTimeout(() => {
+            if (_activeWrap !== el) return;
+            renderElementToolbar(el, _activeFloatingBtns);
+            _toolbarShowTimer = null;
+          }, 140);
+          return;
+        }
         const btnWrap = document.createElement('div');
         btnWrap.className = 'kve-elem-btns';
         btnWrap.setAttribute('data-kve-editor', '1');
         btnWrap.innerHTML = `<button class="kve-elem-btn kve-elem-del" title="Obriši element">🗑️</button><button class="kve-elem-btn kve-elem-edit" title="Uredi element">⚙️</button>`;
-        el.style.position = el.style.position || (window.getComputedStyle(el).position === 'static' ? 'relative' : '');
-        el.appendChild(btnWrap);
+        const useFloatingTools = isButtonLikeEditableElement(el);
+        if (useFloatingTools) {
+          document.body.appendChild(btnWrap);
+          positionFloatingElementTools(el, btnWrap);
+          _activeFloatingBtns = btnWrap;
+        } else {
+          el.style.position = el.style.position || (window.getComputedStyle(el).position === 'static' ? 'relative' : '');
+          el.appendChild(btnWrap);
+        }
         btnWrap.querySelector('.kve-elem-del').addEventListener('click', ev => {
           ev.stopPropagation();
           if (!confirm('Obrisati ovaj element?')) return;
@@ -4094,19 +4596,108 @@
           }
           openElementEditModal(el);
         });
+        if (isButtonLikeEditableElement(el)) {
+          enableFlexibleEditorButton(el);
+          const resizeBtn = document.createElement('button');
+          resizeBtn.className = 'kve-elem-btn kve-elem-resize';
+          resizeBtn.title = 'Promijeni veličinu';
+          resizeBtn.textContent = '↔';
+          btnWrap.appendChild(resizeBtn);
+          resizeBtn.addEventListener('mousedown', ev => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            enableFlexibleEditorButton(el);
+            _buttonResizeState = {
+              el,
+              startX: ev.clientX,
+              startWidth: el.getBoundingClientRect().width,
+            };
+          });
+        }
       }
       _activeWrap = el;
     }, true);
+
+    document.addEventListener('mouseout', e => {
+      if (!_activeWrap) return;
+      const leaving = e.target;
+      const next = e.relatedTarget;
+      const leavingActiveTarget = leaving === _activeWrap || _activeWrap.contains(leaving);
+      const leavingToolbar = !!(_activeFloatingBtns && (leaving === _activeFloatingBtns || _activeFloatingBtns.contains(leaving)));
+      if (!leavingActiveTarget && !leavingToolbar) return;
+      if (next && ((_activeWrap && _activeWrap.contains(next)) || (_activeFloatingBtns && _activeFloatingBtns.contains(next)))) return;
+      scheduleToolbarHide();
+    }, true);
+
+    document.addEventListener('click', e => {
+      if (!document.body.classList.contains('kve-active')) return;
+      if (e.target.closest('[data-kve-editor]')) return;
+      const target = resolveButtonLikeEditableElement(e.target);
+      if (!target) return;
+      e.preventDefault();
+      e.stopPropagation();
+    }, true);
+
+    document.addEventListener('mousedown', e => {
+      if (!document.body.classList.contains('kve-active')) return;
+      if (e.button !== 0) return;
+      if (e.target.closest('[data-kve-editor]')) return;
+      const target = resolveButtonLikeEditableElement(e.target);
+      if (!target) return;
+      enableFlexibleEditorButton(target);
+      _buttonDragState = {
+        el: target,
+        startX: e.clientX,
+        startY: e.clientY,
+        startLeft: parseFloat(target.dataset.kveOffsetX || '0') || 0,
+        startTop: parseFloat(target.dataset.kveOffsetY || '0') || 0,
+      };
+      target.classList.add('kve-btn-dragging');
+      e.preventDefault();
+      e.stopPropagation();
+    }, true);
+
+    document.addEventListener('mousemove', e => {
+      if (_buttonResizeState?.el) {
+        const dx = e.clientX - _buttonResizeState.startX;
+        applyButtonFlexSize(_buttonResizeState.el, _buttonResizeState.startWidth + dx);
+        return;
+      }
+      if (!_buttonDragState?.el) return;
+      const dx = e.clientX - _buttonDragState.startX;
+      const dy = e.clientY - _buttonDragState.startY;
+      applyButtonFlexPlacement(_buttonDragState.el, _buttonDragState.startLeft + dx, _buttonDragState.startTop + dy);
+    }, true);
+
+    document.addEventListener('mouseup', () => {
+      if (_buttonDragState?.el) {
+        _buttonDragState.el.classList.remove('kve-btn-dragging');
+      }
+      _buttonDragState = null;
+      _buttonResizeState = null;
+    }, true);
+
+    document.addEventListener('scroll', () => {
+      if (_activeWrap && _activeFloatingBtns) {
+        positionFloatingElementTools(_activeWrap, _activeFloatingBtns);
+      }
+    }, true);
+    window.addEventListener('resize', () => {
+      if (_activeWrap && _activeFloatingBtns) {
+        positionFloatingElementTools(_activeWrap, _activeFloatingBtns);
+      }
+    });
 
     // ── Right-click contextual menu ──────────────────────────────
     let _ctxTarget = null;
 
     document.addEventListener('contextmenu', e => {
-      if (shouldSkip(e.target)) return;
-      if (e.target.closest('[data-kve-editor]')) return;
+      const target = getEditableHoverTarget(e.target);
+      if (shouldSkip(target)) return;
+      if (target.closest('[data-kve-editor]')) return;
       e.preventDefault();
-      _ctxTarget = e.target;
-      _showCtxMenu(e.clientX, e.clientY, e.target);
+      _ctxTarget = target;
+      _showCtxMenu(e.clientX, e.clientY, target);
     }, true);
 
     document.addEventListener('click', () => _hideCtxMenu(), true);
@@ -4210,7 +4801,14 @@
       const currentMode = getEditorButtonMode(el);
       const currentLabel = getEditorButtonLabel(el);
       const currentHref = parseEditorButtonHref(el);
-      const currentProductId = el.dataset.kveProductId || _extractProduct(el)?.id || '';
+      const currentProduct = extractEditorButtonProduct(el) || null;
+      const currentProductId = el.dataset.kveProductId || currentProduct?.product_id || currentProduct?.id || '';
+      const currentVariantToken = String(
+        el.dataset.kveVariantId
+        || currentProduct?.variant_id
+        || currentProduct?.variant_label
+        || ''
+      ).trim().toLowerCase();
       const productOptions = products.length
         ? products.map((product) => {
             const name = product.name_sr || product.name || 'Proizvod';
@@ -4233,6 +4831,11 @@
         <div id="kve-el-btn-cart-fields" style="margin-top:10px">
           <label>Poveži proizvod</label>
           <select id="kve-el-btn-product"${products.length ? '' : ' disabled'}>${productOptions}</select>
+          <label style="margin-top:10px">Paket / varijacija</label>
+          <select id="kve-el-btn-variant">
+            <option value="">Osnovna cijena proizvoda</option>
+          </select>
+          <div id="kve-el-btn-variant-note" style="margin-top:8px;font-size:11px;color:#9090b8">Odaberi konkretan paket ako dugme treba da dodaje određenu varijaciju.</div>
           ${productLoadError ? `<div style="margin-top:8px;font-size:11px;color:#fca5a5">${esc(productLoadError)}</div>` : ''}
         </div>
         <div id="kve-el-btn-link-fields" style="margin-top:10px">
@@ -4241,8 +4844,12 @@
         </div>`);
 
       const modeInput = modal.overlay.querySelector('#kve-el-btn-mode');
+      const productInput = modal.overlay.querySelector('#kve-el-btn-product');
+      const variantInput = modal.overlay.querySelector('#kve-el-btn-variant');
+      const variantNote = modal.overlay.querySelector('#kve-el-btn-variant-note');
       const cartFields = modal.overlay.querySelector('#kve-el-btn-cart-fields');
       const linkFields = modal.overlay.querySelector('#kve-el-btn-link-fields');
+      let selectedProductDetails = products.find((item) => String(item.id) === String(currentProductId)) || currentProduct || null;
       const syncModeUi = () => {
         const mode = modeInput.value || 'none';
         cartFields.style.display = mode === 'cart' ? 'block' : 'none';
@@ -4251,13 +4858,54 @@
       modeInput.addEventListener('change', syncModeUi);
       syncModeUi();
 
-      modal.ok.addEventListener('click', () => {
+      const syncVariantOptions = async (selectedToken = '') => {
+        const productId = productInput?.value || '';
+        if (!variantInput) return;
+        if (!productId) {
+          variantInput.innerHTML = '<option value="">Osnovna cijena proizvoda</option>';
+          variantInput.disabled = true;
+          if (variantNote) variantNote.textContent = 'Prvo odaberi proizvod.';
+          return;
+        }
+
+        variantInput.disabled = true;
+        variantInput.innerHTML = '<option value="">Učitavanje paketa...</option>';
+        try {
+          selectedProductDetails = await fetchEditorProductDetails(productId);
+          const variants = normalizeEditorVariants(selectedProductDetails);
+          const preferred = String(selectedToken || '').trim().toLowerCase();
+          const optionMarkup = variants.map((variant) => {
+            const selected = preferred && preferred === variant._token ? ' selected' : '';
+            return `<option value="${esc(variant._token)}"${selected}>${esc(variant.label || 'Paket')} — €${esc(Number(variant.price).toFixed(2))}</option>`;
+          }).join('');
+          variantInput.innerHTML = `<option value="">Osnovna cijena proizvoda</option>${optionMarkup}`;
+          variantInput.disabled = false;
+          if (variantNote) {
+            variantNote.textContent = variants.length
+              ? 'Izabrani paket određuje cijenu i naziv varijacije koja ide u korpu.'
+              : 'Ovaj proizvod nema pakete. Dugme koristi osnovnu cijenu proizvoda.';
+          }
+        } catch (error) {
+          selectedProductDetails = products.find((item) => String(item.id) === String(productId)) || currentProduct || null;
+          variantInput.innerHTML = '<option value="">Osnovna cijena proizvoda</option>';
+          variantInput.disabled = true;
+          if (variantNote) variantNote.textContent = error.message || 'Paketi nisu dostupni.';
+        }
+      };
+
+      if (productInput) {
+        productInput.addEventListener('change', () => { void syncVariantOptions(''); });
+        void syncVariantOptions(currentVariantToken);
+      }
+
+      modal.ok.addEventListener('click', async () => {
         const txt = modal.overlay.querySelector('#kve-el-text')?.value.trim() || 'Dugme';
         const cls = modal.overlay.querySelector('#kve-el-cls')?.value || '';
         const mode = modeInput.value || 'none';
         const href = modal.overlay.querySelector('#kve-el-btn-href')?.value.trim() || '';
-        const productId = modal.overlay.querySelector('#kve-el-btn-product')?.value || '';
-        const product = products.find((item) => String(item.id) === String(productId));
+        const productId = productInput?.value || '';
+        const product = selectedProductDetails || products.find((item) => String(item.id) === String(productId));
+        const variant = resolveEditorVariant(product, variantInput?.value || '');
 
         if (mode === 'cart' && !product) {
           toastMsg('Odaberi proizvod za cart dugme.', true);
@@ -4271,7 +4919,7 @@
         closeModal(modal.overlay);
         el.className = cls;
         try {
-          applyButtonFunctionConfig(el, { mode, label: txt, href, product });
+          applyButtonFunctionConfig(el, { mode, label: txt, href, product, variant });
           toastMsg('✓ Dugme ažurirano');
           _offerSync(el, cls);
         } catch (error) {

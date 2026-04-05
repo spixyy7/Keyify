@@ -1,8 +1,11 @@
 /**
  * config.js — Keyify Frontend Configuration
  *
- * DEPLOYMENT: Change KEYIFY_API_URL to your Railway backend URL.
- * This is the ONLY file you need to edit when switching environments.
+ * DEPLOYMENT:
+ * - Frontend public values belong here (safe to expose on Vercel).
+ * - Secrets stay only on Railway / backend env vars.
+ * - For this static frontend, API_URL and KEYIFY_STRIPE_PK are the only
+ *   values that should ever be copied into client-side code.
  *
  * Include this FIRST on every page, before translations.js and keyify.js:
  *   <script src="config.js"></script>

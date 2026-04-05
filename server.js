@@ -54,6 +54,15 @@ const configuredCorsOrigins = parseOriginList(
   process.env.CORS_ALLOWED_ORIGINS
 );
 
+const localDevelopmentOrigins = parseOriginList(
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:63342',
+  'http://127.0.0.1:63342'
+);
+
 const isRailwayRuntime = Boolean(
   process.env.RAILWAY_ENVIRONMENT ||
   process.env.RAILWAY_PROJECT_ID ||
@@ -63,10 +72,10 @@ const isRailwayRuntime = Boolean(
 
 function isAllowedCorsOrigin(origin) {
   if (!origin || origin === 'null') return true;
-  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) return true;
 
   const normalizedOrigin = normalizeOrigin(origin);
   if (configuredCorsOrigins.includes(normalizedOrigin)) return true;
+  if (!isRailwayRuntime && localDevelopmentOrigins.includes(normalizedOrigin)) return true;
 
   try {
     const { hostname, protocol } = new URL(normalizedOrigin);
@@ -74,7 +83,7 @@ function isAllowedCorsOrigin(origin) {
 
     if (/\.vercel\.app$/i.test(hostname)) {
       const allowVercelPreviews = (process.env.ALLOW_VERCEL_PREVIEWS || 'true').toLowerCase();
-      if (allowVercelPreviews !== 'false') return true;
+      if (allowVercelPreviews !== 'false' && configuredCorsOrigins.length > 0) return true;
     }
   } catch {}
 
@@ -97,7 +106,10 @@ const app = express();
 app.use(cors({
   origin: function(origin, callback) {
     if (isAllowedCorsOrigin(origin)) return callback(null, true);
-    if (!configuredCorsOrigins.length) return callback(null, true);
+    if (!configuredCorsOrigins.length && !isRailwayRuntime) return callback(null, true);
+    if (!configuredCorsOrigins.length && isRailwayRuntime) {
+      console.warn('[CORS misconfig] FRONTEND_URL / FRONTEND_URLS / CORS_ALLOWED_ORIGINS is empty.');
+    }
     console.log('[CORS blocked] origin:', origin);
     callback(new Error('Not allowed by CORS'));
   },
@@ -368,11 +380,15 @@ async function sendMailViaGoogle({ from, to, subject, html }) {
 
 async function updateSupportTicketReplyState(ticketId, replyText) {
   const repliedAt = new Date().toISOString();
+  const buildPayloadsForStatus = (statusValue) => ([
+    { status: statusValue, reply_text: replyText, replied_at: repliedAt },
+    { status: statusValue, reply_text: replyText },
+    { status: statusValue, replied_at: repliedAt },
+    { status: statusValue },
+  ]);
   const payloadVariants = [
-    { status: 'replied', reply_text: replyText, replied_at: repliedAt },
-    { status: 'replied', reply_text: replyText },
-    { status: 'replied', replied_at: repliedAt },
-    { status: 'replied' },
+    ...buildPayloadsForStatus('closed'),
+    ...buildPayloadsForStatus('replied'),
   ];
 
   let lastError = null;
@@ -387,7 +403,7 @@ async function updateSupportTicketReplyState(ticketId, replyText) {
     lastError = error;
 
     const msg = String(error.message || '');
-    if (/column .* does not exist|schema cache|Could not find the .* column/i.test(msg)) {
+    if (/column .* does not exist|schema cache|Could not find the .* column|check constraint|violates check constraint|invalid input value for enum/i.test(msg)) {
       continue;
     }
     break;
@@ -816,6 +832,38 @@ function resolvePurchaseStatus(row) {
     return 'completed';
   }
   return status || 'pending';
+}
+
+function parseTransactionAmount(value) {
+  const amount = Number.parseFloat(value || 0);
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function buildAdminTransactionSummary(rows = []) {
+  return rows.reduce((acc, row) => {
+    const status = resolvePurchaseStatus(row);
+    acc.total += 1;
+
+    if (status === 'completed') {
+      acc.completed += 1;
+      acc.revenue += parseTransactionAmount(row.amount);
+    } else if (status === 'failed') {
+      acc.failed += 1;
+    } else if (status === 'refunded') {
+      acc.refunded += 1;
+    } else {
+      acc.pending += 1;
+    }
+
+    return acc;
+  }, {
+    total: 0,
+    completed: 0,
+    pending: 0,
+    failed: 0,
+    refunded: 0,
+    revenue: 0,
+  });
 }
 
 function buildGuestAuthPayload(user, req, extra = {}) {
@@ -1332,7 +1380,7 @@ app.post('/api/verify', authLimiter, async (req, res) => {
 
 /**
  * GET /api/admin/stats
- * Returns: { users[], total_users, revenue, total_transactions, logs[] }
+ * Returns: dashboard summary + transactions + logs
  */
 app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) => {
   const [usersRes, txRes, logsRes] = await Promise.all([
@@ -1343,7 +1391,7 @@ app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) =>
 
     supabase
       .from('transactions')
-      .select('id, amount, status, product_name, created_at'),
+      .select('id, amount, status, verification_status, product_name, buyer_email, payment_method, created_at'),
 
     supabase
       .from('audit_logs')
@@ -1352,16 +1400,27 @@ app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) =>
       .limit(100),
   ]);
 
-  const transactions = txRes.data || [];
-  const revenue = transactions
-    .filter(t => t.status === 'completed')
-    .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+  const transactions = (txRes.data || []).map(row => ({
+    ...row,
+    status: resolvePurchaseStatus(row),
+  }));
+  const summary = buildAdminTransactionSummary(transactions);
+  const successfulTransactions = transactions
+    .filter(row => row.status === 'completed')
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
   return res.json({
     users:              (usersRes.data || []).map(sanitizeUser),
     total_users:        (usersRes.data || []).length,
-    revenue:            revenue.toFixed(2),
-    total_transactions: transactions.length,
+    revenue:            summary.revenue.toFixed(2),
+    total_transactions: summary.completed,
+    all_transactions_total: summary.total,
+    completed_transactions: summary.completed,
+    failed_transactions: summary.failed,
+    pending_transactions: summary.pending,
+    refunded_transactions: summary.refunded,
+    summary:            { ...summary, revenue: Number(summary.revenue.toFixed(2)) },
+    successful_transactions: successfulTransactions,
     transactions,
     logs:               logsRes.data || [],
   });
@@ -2687,7 +2746,7 @@ app.put('/api/admin/tickets/:id/reply', authenticateToken, checkPermission('can_
     return res.json({
       ok: true,
       gmail_message_id: gmailResult?.id || null,
-      message: 'Odgovor poslan i tiket ažuriran',
+      message: 'Odgovor poslan i tiket zatvoren',
     });
   } catch (emailErr) {
     console.error('Ticket reply email failed:', emailErr.message);
@@ -4094,7 +4153,7 @@ app.get('/api/admin/transaction-logs', authenticateToken, requireAdmin, async (r
 
 /** POST /api/checkout/confirm – confirm payment, send receipt, log encrypted entry */
 const confirmCheckoutHandler = async (req, res) => {
-  const { buyer_email, buyer_name, guest_email, buyer_inputs, product_id, product_name, amount, payment_method, tx_reference } = req.body;
+  const { buyer_email, buyer_name, guest_email, buyer_inputs, product_id, product_name, package_purchased, amount, payment_method, tx_reference } = req.body;
 
   // Identify buyer
   let userId = null;
@@ -4130,6 +4189,7 @@ const confirmCheckoutHandler = async (req, res) => {
 
   const parsedAmount = parseFloat(amount);
   const resolvedBuyerName = String(buyer_name || '').trim() || email.split('@')[0];
+  const normalizedPackagePurchased = String(package_purchased || '').trim() || null;
   const isGuestOrder = !authenticatedUserId;
   const guestToken = isGuestOrder ? crypto.randomUUID() : null;
   const purchasesUrl = buildFrontendPageUrl(req, 'purchases.html');
@@ -4205,6 +4265,7 @@ const confirmCheckoutHandler = async (req, res) => {
     user_id: userId,
     product_id: product_id || null,
     product_name: product_name || null,
+    package_purchased: normalizedPackagePurchased,
     product_image: productImageUrl,
     amount: parsedAmount,
     payment_method: payment_method || 'manual',
@@ -4220,7 +4281,7 @@ const confirmCheckoutHandler = async (req, res) => {
   };
   const txInsertAttempts = buildOptionalColumnAttempts(
     txInsertWithVerification,
-    ['verification_status', 'product_image', 'delivery_payload', 'proof_uploaded', 'customer_inputs_enc', 'ip_address_enc', 'buyer_email']
+    ['package_purchased', 'verification_status', 'product_image', 'delivery_payload', 'proof_uploaded', 'customer_inputs_enc', 'ip_address_enc', 'buyer_email']
   );
 
   let tx = null;
@@ -4404,6 +4465,7 @@ const confirmCheckoutHandler = async (req, res) => {
     required_user_inputs: requiredUserInputs,
     delivery_payload:    deliveryPayload,
     product_name:        product_name || null,
+    package_purchased:   normalizedPackagePurchased,
     product_image:       productImageUrl,
     amount:              parsedAmount,
     order_date:          new Date().toISOString(),
@@ -4828,9 +4890,15 @@ app.get('/api/admin/transactions', authenticateToken, checkPermission('can_view_
   const method = req.query.method || null;
 
   const columnAttempts = [
+    'id, user_id, product_name, amount, payment_method, status, verification_status, tx_reference, license_key, buyer_email, ip_address_enc, created_at',
+    'id, user_id, product_name, amount, payment_method, status, verification_status, tx_reference, license_key, buyer_email, created_at',
     'id, user_id, product_name, amount, payment_method, status, tx_reference, license_key, buyer_email, ip_address_enc, created_at',
     'id, user_id, product_name, amount, payment_method, status, tx_reference, license_key, buyer_email, created_at',
     'id, user_id, product_name, amount, payment_method, status, tx_reference, license_key, created_at',
+  ];
+  const summaryAttempts = [
+    'amount, status, verification_status',
+    'amount, status',
   ];
 
   let data = null;
@@ -4860,6 +4928,28 @@ app.get('/api/admin/transactions', authenticateToken, checkPermission('can_view_
     console.error('[admin/transactions]', error.message);
     return res.status(500).json({ error: 'Greška pri dohvatanju transakcija' });
   }
+
+  let summaryRows = [];
+  for (const columns of summaryAttempts) {
+    let summaryQuery = supabase
+      .from('transactions')
+      .select(columns);
+
+    if (status) summaryQuery = summaryQuery.eq('status', status);
+    if (method) summaryQuery = summaryQuery.eq('payment_method', method);
+
+    const summaryResult = await summaryQuery;
+    if (!summaryResult.error) {
+      summaryRows = summaryResult.data || [];
+      break;
+    }
+    if (!isMissingSchemaError(summaryResult.error)) {
+      console.error('[admin/transactions] summary failed:', summaryResult.error.message);
+      break;
+    }
+  }
+
+  const summary = buildAdminTransactionSummary(summaryRows);
 
   // Fetch user info (avatar, name, email) separately
   const userIds = [...new Set((data || []).map(r => r.user_id).filter(Boolean))];
@@ -4898,7 +4988,7 @@ app.get('/api/admin/transactions', authenticateToken, checkPermission('can_view_
       product_name:   row.product_name,
       amount:         row.amount,
       payment_method: row.payment_method,
-      status:         row.status,
+      status:         resolvePurchaseStatus(row),
       tx_reference:   row.tx_reference,
       license_key:    row.license_key,
       ip_address:     row.ip_address_enc ? decryptField(row.ip_address_enc) : null,
@@ -4907,7 +4997,16 @@ app.get('/api/admin/transactions', authenticateToken, checkPermission('can_view_
     };
   });
 
-  return res.json({ transactions, total: count, page, limit });
+  return res.json({
+    transactions,
+    total: count,
+    page,
+    limit,
+    summary: {
+      ...summary,
+      revenue: Number(summary.revenue.toFixed(2)),
+    },
+  });
 });
 
 /** GET /api/admin/receipt/:id – printable HTML receipt, admin only */
@@ -5403,12 +5502,25 @@ const reviewAvatarUpload = multer({
 
 /** GET /api/products/:id/reviews – public, visible reviews */
 app.get('/api/products/:id/reviews', async (req, res) => {
-  const { data, error } = await supabase
-    .from('reviews')
-    .select('id, product_id, reviewer_name, reviewer_avatar, rating, text, image_url, is_verified_purchase, created_at')
-    .eq('product_id', req.params.id)
-    .eq('is_visible', true)
-    .order('created_at', { ascending: false });
+  const reviewSelectAttempts = [
+    'id, product_id, reviewer_name, reviewer_avatar, rating, text, image_url, package_purchased, is_verified_purchase, created_at',
+    'id, product_id, reviewer_name, reviewer_avatar, rating, text, image_url, is_verified_purchase, created_at',
+  ];
+
+  let data = null;
+  let error = null;
+  for (const select of reviewSelectAttempts) {
+    const result = await supabase
+      .from('reviews')
+      .select(select)
+      .eq('product_id', req.params.id)
+      .eq('is_visible', true)
+      .order('created_at', { ascending: false });
+    data = result.data;
+    error = result.error;
+    if (!error) break;
+    if (!isMissingSchemaError(error)) break;
+  }
   if (error) return res.status(500).json({ error: 'Greška' });
 
   // Calculate average + distribution
@@ -5467,30 +5579,58 @@ app.post('/api/products/:id/reviews', authenticateToken, async (req, res) => {
   if (existing) return res.status(400).json({ error: 'Već ste ostavili recenziju za ovaj proizvod' });
 
   // Require completed (admin-verified) purchase to leave a review
-  const { data: txMatch } = await supabase
-    .from('transactions')
-    .select('id')
-    .eq('product_id', productId)
-    .eq('user_id', req.user.id)
-    .eq('status', 'completed')
-    .limit(1)
-    .maybeSingle();
+  const txSelectAttempts = [
+    'id, package_purchased, product_name, created_at',
+    'id, product_name, created_at',
+    'id',
+  ];
+
+  let txMatch = null;
+  for (const select of txSelectAttempts) {
+    const result = await supabase
+      .from('transactions')
+      .select(select)
+      .eq('product_id', productId)
+      .eq('user_id', req.user.id)
+      .eq('status', 'completed')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    txMatch = result.data;
+    if (!result.error) break;
+    if (!isMissingSchemaError(result.error)) {
+      return res.status(500).json({ error: 'Greška pri proveri kupovine' });
+    }
+  }
 
   if (!txMatch)
     return res.status(403).json({ error: 'Možete ostaviti recenziju samo nakon što admin potvrdi vašu kupovinu ovog proizvoda.' });
 
   const { data: user } = await supabase.from('users').select('name, avatar_url').eq('id', req.user.id).maybeSingle();
+  const purchasedPackage = String(txMatch.package_purchased || '').trim() || null;
 
-  const { data: review, error } = await supabase.from('reviews').insert({
-    product_id:          productId,
-    user_id:             req.user.id,
-    transaction_id:      txMatch?.id || null,
-    reviewer_name:       user?.name || req.user.email?.split('@')[0] || 'Korisnik',
-    reviewer_avatar:     user?.avatar_url || null,
-    rating:              parseInt(rating),
-    text:                text || null,
+  const reviewInsertPayload = {
+    product_id:           productId,
+    user_id:              req.user.id,
+    transaction_id:       txMatch?.id || null,
+    reviewer_name:        user?.name || req.user.email?.split('@')[0] || 'Korisnik',
+    reviewer_avatar:      user?.avatar_url || null,
+    rating:               parseInt(rating),
+    text:                 text || null,
+    package_purchased:    purchasedPackage,
     is_verified_purchase: !!txMatch,
-  }).select('id').single();
+  };
+  const reviewInsertAttempts = buildOptionalColumnAttempts(reviewInsertPayload, ['package_purchased']);
+
+  let review = null;
+  let error = null;
+  for (const attempt of reviewInsertAttempts) {
+    const result = await supabase.from('reviews').insert(attempt).select('id').single();
+    review = result.data;
+    error = result.error;
+    if (!error) break;
+    if (!isMissingSchemaError(error)) break;
+  }
 
   if (error) return res.status(500).json({ error: 'Greška pri slanju recenzije' });
 
@@ -5556,7 +5696,7 @@ app.post('/api/admin/reviews', authenticateToken, checkPermission('can_manage_re
   reviewAvatarUpload(req, res, async (err) => {
     if (err) return res.status(400).json({ error: err.message });
 
-    const { product_id, reviewer_name, rating, text, is_verified_purchase } = req.body;
+    const { product_id, reviewer_name, rating, text, is_verified_purchase, package_purchased } = req.body;
     if (!product_id || !reviewer_name || !rating)
       return res.status(400).json({ error: 'Proizvod, ime i ocjena su obavezni' });
 
@@ -5573,15 +5713,27 @@ app.post('/api/admin/reviews', authenticateToken, checkPermission('can_manage_re
       }
     }
 
-    const { data, error: dbErr } = await supabase.from('reviews').insert({
+    const insertPayload = {
       product_id,
       reviewer_name,
-      reviewer_avatar:     avatarUrl,
-      rating:              parseInt(rating),
-      text:                text || null,
-      is_admin_created:    true,
+      reviewer_avatar:      avatarUrl,
+      rating:               parseInt(rating),
+      text:                 text || null,
+      package_purchased:    String(package_purchased || '').trim() || null,
+      is_admin_created:     true,
       is_verified_purchase: is_verified_purchase === 'true' || is_verified_purchase === true,
-    }).select('id').single();
+    };
+    const insertAttempts = buildOptionalColumnAttempts(insertPayload, ['package_purchased']);
+
+    let data = null;
+    let dbErr = null;
+    for (const attempt of insertAttempts) {
+      const result = await supabase.from('reviews').insert(attempt).select('id').single();
+      data = result.data;
+      dbErr = result.error;
+      if (!dbErr) break;
+      if (!isMissingSchemaError(dbErr)) break;
+    }
 
     if (dbErr) return res.status(500).json({ error: 'Greška pri kreiranju recenzije' });
     return res.status(201).json({ ok: true, review_id: data.id });
@@ -5590,14 +5742,23 @@ app.post('/api/admin/reviews', authenticateToken, checkPermission('can_manage_re
 
 /** PUT /api/admin/reviews/:id – edit review */
 app.put('/api/admin/reviews/:id', authenticateToken, checkPermission('can_manage_reviews'), async (req, res) => {
-  const { reviewer_name, rating, text, is_visible } = req.body;
+  const { reviewer_name, rating, text, is_visible, package_purchased } = req.body;
   const updates = {};
   if (reviewer_name !== undefined) updates.reviewer_name = reviewer_name;
   if (rating !== undefined)        updates.rating = parseInt(rating);
   if (text !== undefined)          updates.text = text;
+  if (package_purchased !== undefined) updates.package_purchased = String(package_purchased || '').trim() || null;
   if (is_visible !== undefined)    updates.is_visible = Boolean(is_visible);
 
-  const { error } = await supabase.from('reviews').update(updates).eq('id', req.params.id);
+  const updateAttempts = buildOptionalColumnAttempts(updates, ['package_purchased']);
+
+  let error = null;
+  for (const attempt of updateAttempts) {
+    const result = await supabase.from('reviews').update(attempt).eq('id', req.params.id);
+    error = result.error;
+    if (!error) break;
+    if (!isMissingSchemaError(error)) break;
+  }
   if (error) return res.status(500).json({ error: 'Greška' });
   return res.json({ ok: true });
 });

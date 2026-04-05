@@ -123,6 +123,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   user_id         UUID          REFERENCES users(id)    ON DELETE SET NULL,
   product_id      UUID          REFERENCES products(id) ON DELETE SET NULL,
   product_name    TEXT,
+  package_purchased TEXT,
   amount          NUMERIC(10,2) NOT NULL,
   currency        TEXT          DEFAULT 'EUR',
   payment_method  TEXT,

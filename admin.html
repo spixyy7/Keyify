@@ -465,8 +465,8 @@
     <div id="section-dashboard" class="section active space-y-6">
 
       <!-- Stat cards -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-        <div class="stat-card glass stat-revenue">
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-5">
+        <div class="stat-card glass stat-revenue" onclick="openRevenueDetailsModal()" style="cursor:pointer">
           <div class="flex items-start justify-between mb-4">
             <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background:rgba(29,106,255,0.15)">
               <svg class="w-5 h-5" style="color:#1D6AFF" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -496,7 +496,18 @@
             <span class="badge" style="background:rgba(0,200,180,0.12);color:#00c8b4" data-i18n="admin.stats.orders">Narudžbe</span>
           </div>
           <div class="font-display font-bold text-3xl text-white" id="stat-transactions">0</div>
-          <div class="text-sm text-dark-300 mt-1 font-medium" data-i18n="admin.stats.transactions">Ukupno transakcija</div>
+          <div class="text-sm text-dark-300 mt-1 font-medium">Uspjesne transakcije</div>
+        </div>
+
+        <div class="stat-card glass" style="border:1px solid rgba(248,113,113,0.22)">
+          <div class="flex items-start justify-between mb-4">
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background:rgba(248,113,113,0.12)">
+              <svg class="w-5 h-5" style="color:#f87171" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86l-7.5 13A1 1 0 003.67 18h16.66a1 1 0 00.87-1.5l-7.5-13a1 1 0 00-1.74 0z"/></svg>
+            </div>
+            <span class="badge" style="background:rgba(248,113,113,0.14);color:#fca5a5">Neuspjesno</span>
+          </div>
+          <div class="font-display font-bold text-3xl" id="stat-failed" style="color:#f87171">0</div>
+          <div class="text-sm text-dark-300 mt-1 font-medium">Neuspjesne transakcije</div>
         </div>
 
         <div class="stat-card glass stat-logs">
@@ -508,6 +519,39 @@
           </div>
           <div class="font-display font-bold text-3xl text-white" id="stat-logs">0</div>
           <div class="text-sm text-dark-300 mt-1 font-medium" data-i18n="admin.stats.activities">Aktivnosti (24h)</div>
+        </div>
+      </div>
+
+      <div class="glass rounded-2xl overflow-hidden" style="border:1px solid rgba(29,106,255,0.16)">
+        <div class="p-5 border-b flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4" style="border-color:rgba(255,255,255,0.06)">
+          <div>
+            <h3 class="font-display font-semibold text-white">Pregled prihoda</h3>
+            <p class="text-xs text-dark-300 mt-0.5">Samo uspjesne transakcije. Prebaci opseg na dnevni, nedeljni ili mjesecni prikaz.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="dashboard-range-daily" type="button" onclick="setDashboardChartRange('daily')" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all" style="background:rgba(29,106,255,0.18);color:#fff;border:1px solid rgba(29,106,255,0.28)">Dnevno</button>
+            <button id="dashboard-range-weekly" type="button" onclick="setDashboardChartRange('weekly')" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all" style="background:rgba(255,255,255,0.05);color:#a1a1c5;border:1px solid rgba(255,255,255,0.08)">Nedeljno</button>
+            <button id="dashboard-range-monthly" type="button" onclick="setDashboardChartRange('monthly')" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all" style="background:rgba(255,255,255,0.05);color:#a1a1c5;border:1px solid rgba(255,255,255,0.08)">Mjesecno</button>
+          </div>
+        </div>
+        <div class="p-5 space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="rounded-2xl p-4" style="background:rgba(29,106,255,0.08);border:1px solid rgba(29,106,255,0.14)">
+              <div class="text-xs uppercase tracking-[0.16em] text-dark-400 mb-1">Opseg prihoda</div>
+              <div class="font-display font-bold text-2xl text-white" id="dashboard-chart-total-revenue">EUR0.00</div>
+            </div>
+            <div class="rounded-2xl p-4" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.14)">
+              <div class="text-xs uppercase tracking-[0.16em] text-dark-400 mb-1">Uspjesne kupovine</div>
+              <div class="font-display font-bold text-2xl text-white" id="dashboard-chart-total-count">0</div>
+            </div>
+            <div class="rounded-2xl p-4" style="background:rgba(162,89,255,0.08);border:1px solid rgba(162,89,255,0.14)">
+              <div class="text-xs uppercase tracking-[0.16em] text-dark-400 mb-1">Prosjecan prihod</div>
+              <div class="font-display font-bold text-2xl text-white" id="dashboard-chart-average-revenue">EUR0.00</div>
+            </div>
+          </div>
+          <div class="rounded-[24px] p-4" style="background:radial-gradient(circle at top, rgba(29,106,255,0.12), rgba(10,10,18,0.2) 52%), rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06)">
+            <div id="dashboard-chart" style="min-height:280px"></div>
+          </div>
         </div>
       </div>
 
@@ -714,7 +758,7 @@
     </div>
 
     <!-- ═══════════════════════ SOCIAL LINKS ═══════════════════════ -->
-    <div id="section-social" class="section space-y-5" style="display:none">
+    <div id="section-social" class="section space-y-5">
       <div class="glass rounded-2xl p-6 space-y-5">
         <div>
           <h3 class="font-display font-semibold text-white text-lg">Društvene mreže</h3>
@@ -856,13 +900,19 @@
     <div id="section-support" class="section space-y-5">
 
       <!-- Support tickets -->
-      <div class="glass rounded-2xl overflow-hidden">
+      <div class="glass rounded-2xl overflow-hidden" style="position:relative">
         <div class="p-5 border-b flex items-center justify-between" style="border-color:rgba(255,255,255,0.06)">
           <div>
             <h3 class="font-display font-semibold text-white">Tiketi za podršku</h3>
-            <p class="text-xs text-dark-300 mt-0.5">Poruke primljene putem kontakt forme</p>
+            <p class="text-xs text-dark-300 mt-0.5">Kontakt forma i widget feedback na jednom mjestu.</p>
           </div>
-          <button onclick="loadTickets()" class="text-dark-300 hover:text-white text-xs font-medium transition-colors">↻ Osvježi</button>
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 rounded-2xl border border-dark-600 p-1" style="background:rgba(255,255,255,0.04)">
+              <button id="support-view-open" onclick="setSupportView('open')" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-white transition-all" style="background:rgba(29,106,255,0.24)">Otvoreni</button>
+              <button id="support-view-closed" onclick="setSupportView('closed')" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-dark-200 transition-all">Zatvoreni</button>
+            </div>
+            <button onclick="loadTickets()" class="text-dark-300 hover:text-white text-xs font-medium transition-colors">↻ Osvježi</button>
+          </div>
         </div>
         <div class="overflow-x-auto">
           <table class="data-table">
@@ -879,6 +929,12 @@
               <tr><td colspan="5" class="text-center py-10 text-dark-300">Učitavanje tiketa...</td></tr>
             </tbody>
           </table>
+        </div>
+        <div id="support-list-loader" class="admin-pane-loader" aria-hidden="true">
+          <div class="admin-loading-shell">
+            <div class="admin-loading-spinner"></div>
+            <div id="support-list-loader-text" class="admin-loading-text">Učitavanje podrške...</div>
+          </div>
         </div>
       </div>
 
@@ -1182,7 +1238,7 @@
       </div>
 
       <!-- Stats row -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
         <div class="glass rounded-xl p-4 text-center" style="border:1px solid rgba(255,255,255,0.06)">
           <div id="inv-stat-total" class="font-display font-bold text-white text-xl">—</div>
           <div class="text-xs text-dark-300 mt-1">Ukupno transakcija</div>
@@ -1194,6 +1250,10 @@
         <div class="glass rounded-xl p-4 text-center" style="border:1px solid rgba(251,191,36,0.2)">
           <div id="inv-stat-open" class="font-display font-bold text-xl" style="color:#fbbf24">—</div>
           <div class="text-xs text-dark-300 mt-1">Na čekanju</div>
+        </div>
+        <div class="glass rounded-xl p-4 text-center" style="border:1px solid rgba(248,113,113,0.2)">
+          <div id="inv-stat-failed" class="font-display font-bold text-xl" style="color:#f87171">—</div>
+          <div class="text-xs text-dark-300 mt-1">Neuspjesno</div>
         </div>
         <div class="glass rounded-xl p-4 text-center" style="border:1px solid rgba(162,89,255,0.2)">
           <div id="inv-stat-revenue" class="font-display font-bold text-xl" style="color:#c084fc">—</div>
@@ -2121,6 +2181,10 @@
     setLoadingOverlay('chat-inbox-loader', 'chat-inbox-loader-text', visible, text);
   }
 
+  function setSupportPaneLoader(visible, text = 'Učitavanje podrške...') {
+    setLoadingOverlay('support-list-loader', 'support-list-loader-text', visible, text);
+  }
+
   function resetReceiptReturnState() {
     setAdminPageLoader(false);
     setProductEditorLoader(false);
@@ -2146,7 +2210,11 @@
   function showSection(name) {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
-    document.getElementById(`section-${name}`).classList.add('active');
+    const sectionEl = document.getElementById(`section-${name}`);
+    if (sectionEl) {
+      sectionEl.style.display = '';
+      sectionEl.classList.add('active');
+    }
     document.querySelector(`.sidebar-link[onclick="showSection('${name}')"]`)?.classList.add('active');
 
     const titles = {
@@ -2197,6 +2265,7 @@
     const [titleKey, subKey] = titles[name] || ['admin.section.dashboardTitle', 'admin.section.dashboardSub'];
     document.getElementById('section-title').textContent    = titleKey.startsWith('admin.') ? t(titleKey) : titleKey;
     document.getElementById('section-subtitle').textContent = subKey.startsWith('admin.') ? t(subKey) : subKey;
+    if (name === 'social') loadSocialLinks();
   }
 
   /* ── SIDEBAR MOBILE ── */
@@ -2244,6 +2313,187 @@
   }
 
   /* ── LOAD STATS ── */
+  let dashboardStatsCache = {
+    summary: { total: 0, completed: 0, pending: 0, failed: 0, refunded: 0, revenue: 0 },
+    transactions: [],
+    successfulTransactions: [],
+  };
+  let dashboardChartRange = 'daily';
+
+  function toAdminAmount(value) {
+    const amount = Number.parseFloat(value || 0);
+    return Number.isFinite(amount) ? amount : 0;
+  }
+
+  function formatAdminEuro(value) {
+    return `€${toAdminAmount(value).toLocaleString('sr-RS', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  function normalizeAdminTransactionStatus(row) {
+    const status = String(row?.status || '').trim().toLowerCase();
+    const verificationStatus = String(row?.verification_status || '').trim().toLowerCase();
+    if (['failed', 'rejected', 'refunded'].includes(status) || verificationStatus === 'rejected') return 'failed';
+    if (status === 'completed' || verificationStatus === 'approved') return 'completed';
+    if (status === 'refunded') return 'refunded';
+    return status || 'pending';
+  }
+
+  function buildAdminTransactionSummaryClient(rows = []) {
+    return rows.reduce((acc, row) => {
+      const status = normalizeAdminTransactionStatus(row);
+      acc.total += 1;
+      if (status === 'completed') {
+        acc.completed += 1;
+        acc.revenue += toAdminAmount(row.amount);
+      } else if (status === 'failed') {
+        acc.failed += 1;
+      } else if (status === 'refunded') {
+        acc.refunded += 1;
+      } else {
+        acc.pending += 1;
+      }
+      return acc;
+    }, { total: 0, completed: 0, pending: 0, failed: 0, refunded: 0, revenue: 0 });
+  }
+
+  function startOfWeek(date) {
+    const current = new Date(date);
+    const day = current.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    current.setHours(0, 0, 0, 0);
+    current.setDate(current.getDate() + diff);
+    return current;
+  }
+
+  function buildDashboardChartBuckets(rows, range = 'daily') {
+    const now = new Date();
+    const buckets = [];
+
+    if (range === 'weekly') {
+      const base = startOfWeek(now);
+      for (let i = 7; i >= 0; i--) {
+        const start = new Date(base);
+        start.setDate(base.getDate() - (i * 7));
+        const end = new Date(start);
+        end.setDate(start.getDate() + 7);
+        buckets.push({ label: `${String(start.getDate()).padStart(2, '0')}.${String(start.getMonth() + 1).padStart(2, '0')}`, start, end, revenue: 0, count: 0 });
+      }
+    } else if (range === 'monthly') {
+      for (let i = 5; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+        buckets.push({ label: start.toLocaleDateString('sr-RS', { month: 'short' }).replace('.', ''), start, end, revenue: 0, count: 0 });
+      }
+    } else {
+      for (let i = 6; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 1);
+        buckets.push({ label: `${String(start.getDate()).padStart(2, '0')}.${String(start.getMonth() + 1).padStart(2, '0')}`, start, end, revenue: 0, count: 0 });
+      }
+    }
+
+    rows.forEach(row => {
+      if (normalizeAdminTransactionStatus(row) !== 'completed') return;
+      const createdAt = new Date(row.created_at || 0);
+      if (Number.isNaN(createdAt.getTime())) return;
+      const bucket = buckets.find(item => createdAt >= item.start && createdAt < item.end);
+      if (!bucket) return;
+      bucket.count += 1;
+      bucket.revenue += toAdminAmount(row.amount);
+    });
+
+    return buckets.map(bucket => ({ ...bucket, revenue: Number(bucket.revenue.toFixed(2)) }));
+  }
+
+  function renderDashboardChart(range = dashboardChartRange) {
+    dashboardChartRange = range;
+    const rows = dashboardStatsCache.successfulTransactions || [];
+    const buckets = buildDashboardChartBuckets(rows, range);
+    const totalRevenue = buckets.reduce((sum, bucket) => sum + bucket.revenue, 0);
+    const totalCount = buckets.reduce((sum, bucket) => sum + bucket.count, 0);
+    const averageRevenue = totalCount ? totalRevenue / totalCount : 0;
+
+    const totalEl = document.getElementById('dashboard-chart-total-revenue');
+    const countEl = document.getElementById('dashboard-chart-total-count');
+    const avgEl = document.getElementById('dashboard-chart-average-revenue');
+    if (totalEl) totalEl.textContent = formatAdminEuro(totalRevenue);
+    if (countEl) countEl.textContent = totalCount.toLocaleString('sr-RS');
+    if (avgEl) avgEl.textContent = formatAdminEuro(averageRevenue);
+
+    ['daily', 'weekly', 'monthly'].forEach(key => {
+      const button = document.getElementById(`dashboard-range-${key}`);
+      if (!button) return;
+      const active = key === range;
+      button.style.background = active ? 'rgba(29,106,255,0.18)' : 'rgba(255,255,255,0.05)';
+      button.style.color = active ? '#fff' : '#a1a1c5';
+      button.style.borderColor = active ? 'rgba(29,106,255,0.28)' : 'rgba(255,255,255,0.08)';
+    });
+
+    const host = document.getElementById('dashboard-chart');
+    if (!host) return;
+    if (!buckets.length) {
+      host.innerHTML = `<div class="text-center py-16 text-dark-300">Nema podataka za chart.</div>`;
+      return;
+    }
+
+    const width = 860;
+    const height = 260;
+    const paddingX = 44;
+    const paddingTop = 24;
+    const paddingBottom = 42;
+    const chartHeight = height - paddingTop - paddingBottom;
+    const chartWidth = width - paddingX * 2;
+    const maxRevenue = Math.max(...buckets.map(bucket => bucket.revenue), 1);
+    const stepX = buckets.length > 1 ? chartWidth / (buckets.length - 1) : chartWidth;
+    const points = buckets.map((bucket, index) => {
+      const x = paddingX + (index * stepX);
+      const y = paddingTop + chartHeight - ((bucket.revenue / maxRevenue) * chartHeight);
+      return { x, y, ...bucket };
+    });
+    const linePath = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' ');
+    const areaPath = `${linePath} L ${points[points.length - 1].x.toFixed(2)} ${(paddingTop + chartHeight).toFixed(2)} L ${points[0].x.toFixed(2)} ${(paddingTop + chartHeight).toFixed(2)} Z`;
+    const gridSvg = Array.from({ length: 5 }, (_, index) => {
+      const y = paddingTop + ((chartHeight / 4) * index);
+      return `<line x1="${paddingX}" y1="${y}" x2="${width - paddingX}" y2="${y}" stroke="rgba(148,163,184,0.12)" stroke-dasharray="4 6" />`;
+    }).join('');
+    const labels = points.map(point => `<text x="${point.x}" y="${height - 12}" fill="#7c83b0" font-size="11" text-anchor="middle">${escHtml(point.label)}</text>`).join('');
+    const dots = points.map(point => `<g><circle cx="${point.x}" cy="${point.y}" r="5.5" fill="#0a0a12" stroke="#60a5fa" stroke-width="3" /><text x="${point.x}" y="${Math.max(point.y - 14, 14)}" fill="#e2e8f0" font-size="11" text-anchor="middle">${escHtml(formatAdminEuro(point.revenue))}</text></g>`).join('');
+
+    host.innerHTML = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="280" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Revenue chart"><defs><linearGradient id="dashboard-chart-line" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#60a5fa" /><stop offset="100%" stop-color="#a855f7" /></linearGradient><linearGradient id="dashboard-chart-area" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="rgba(96,165,250,0.38)" /><stop offset="100%" stop-color="rgba(96,165,250,0.02)" /></linearGradient></defs>${gridSvg}<path d="${areaPath}" fill="url(#dashboard-chart-area)" /><path d="${linePath}" fill="none" stroke="url(#dashboard-chart-line)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />${dots}${labels}</svg>`;
+  }
+
+  function setDashboardChartRange(range) {
+    renderDashboardChart(range);
+  }
+
+  function renderRevenueDetailsRows(rows) {
+    const tbody = document.getElementById('revenue-details-body');
+    if (!tbody) return;
+    const successfulRows = (rows || []).filter(row => normalizeAdminTransactionStatus(row) === 'completed').sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    const totalRevenue = successfulRows.reduce((sum, row) => sum + toAdminAmount(row.amount), 0);
+    const averageRevenue = successfulRows.length ? totalRevenue / successfulRows.length : 0;
+    const totalEl = document.getElementById('revenue-detail-total');
+    const countEl = document.getElementById('revenue-detail-count');
+    const avgEl = document.getElementById('revenue-detail-average');
+    if (totalEl) totalEl.textContent = formatAdminEuro(totalRevenue);
+    if (countEl) countEl.textContent = successfulRows.length.toLocaleString('sr-RS');
+    if (avgEl) avgEl.textContent = formatAdminEuro(averageRevenue);
+
+    if (!successfulRows.length) {
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center py-10 text-dark-300">Nema uspjesnih transakcija.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = successfulRows.map(row => `<tr><td>${fmtDate(row.created_at)}</td><td class="text-white font-medium">${escHtml(row.product_name || '—')}</td><td>${escHtml(row.buyer_email || row.customer_email || '—')}</td><td>${escHtml(row.payment_method || '—')}</td><td style="color:#60a5fa;font-weight:700">${escHtml(formatAdminEuro(row.amount))}</td></tr>`).join('');
+  }
+
+  function openRevenueDetailsModal() {
+    renderRevenueDetailsRows(dashboardStatsCache.successfulTransactions || []);
+    const overlay = document.getElementById('revenue-details-overlay');
+    if (overlay) overlay.style.display = 'flex';
+  }
+
   async function loadStats() {
     const icon = document.getElementById('refresh-icon');
     icon.style.animation = 'spin 1s linear infinite';
@@ -2252,15 +2502,30 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      document.getElementById('stat-revenue').textContent      = `€${parseFloat(data.revenue).toLocaleString('sr-RS',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+      const rawTransactions = Array.isArray(data.transactions) ? data.transactions : [];
+      const summary = data.summary || buildAdminTransactionSummaryClient(rawTransactions);
+      const successfulTransactions = Array.isArray(data.successful_transactions) && data.successful_transactions.length
+        ? data.successful_transactions
+        : rawTransactions.filter(row => normalizeAdminTransactionStatus(row) === 'completed');
+
+      dashboardStatsCache = {
+        summary,
+        transactions: rawTransactions,
+        successfulTransactions,
+      };
+
+      document.getElementById('stat-revenue').textContent      = formatAdminEuro(summary.revenue);
       document.getElementById('stat-users').textContent        = data.total_users;
-      document.getElementById('stat-transactions').textContent = data.total_transactions;
+      document.getElementById('stat-transactions').textContent = summary.completed.toLocaleString('sr-RS');
+      document.getElementById('stat-failed').textContent       = summary.failed.toLocaleString('sr-RS');
       document.getElementById('stat-logs').textContent         = (data.logs || []).length;
 
       allUsers = data.users || [];
       renderRecentUsers(allUsers.slice(0, 10));
       renderUsersTable(allUsers);
       renderLogsTable(data.logs || []);
+      renderDashboardChart(dashboardChartRange);
+      renderRevenueDetailsRows(successfulTransactions);
     } catch (e) {
       showToast(e.message || 'Greška pri učitavanju statistike', 'error');
     } finally {
@@ -3082,9 +3347,9 @@
       const res  = await fetch(`${API_BASE}/admin/settings`, { headers: authHeaders() });
       const data = await res.json();
       if (!res.ok) return;
-      if (data.facebook_url)  document.getElementById('social-facebook').value  = data.facebook_url;
-      if (data.twitter_url)   document.getElementById('social-twitter').value   = data.twitter_url;
-      if (data.instagram_url) document.getElementById('social-instagram').value = data.instagram_url;
+      document.getElementById('social-facebook').value = data.facebook_url || '';
+      document.getElementById('social-twitter').value = data.twitter_url || '';
+      document.getElementById('social-instagram').value = data.instagram_url || '';
       document.getElementById('social-facebook-animation').value = data.facebook_animation || data.social_animation_type || 'float';
       document.getElementById('social-twitter-animation').value = data.twitter_animation || data.social_animation_type || 'float';
       document.getElementById('social-instagram-animation').value = data.instagram_animation || data.social_animation_type || 'float';
@@ -3282,33 +3547,101 @@
   let _replyContext = { type: 'ticket', id: null, originalMessage: '', subject: '', email: '' };
   let _ticketDetailMap = new Map();
   let _feedbackDetailMap = new Map();
+  let supportViewMode = 'open';
+
+  function updateSupportViewButtons() {
+    const openBtn = document.getElementById('support-view-open');
+    const closedBtn = document.getElementById('support-view-closed');
+    if (openBtn) {
+      openBtn.style.background = supportViewMode === 'open' ? 'rgba(29,106,255,0.24)' : 'transparent';
+      openBtn.style.color = supportViewMode === 'open' ? '#fff' : '#cbd5e1';
+    }
+    if (closedBtn) {
+      closedBtn.style.background = supportViewMode === 'closed' ? 'rgba(29,106,255,0.24)' : 'transparent';
+      closedBtn.style.color = supportViewMode === 'closed' ? '#fff' : '#cbd5e1';
+    }
+  }
+
+  function setSupportView(mode) {
+    supportViewMode = mode === 'closed' ? 'closed' : 'open';
+    updateSupportViewButtons();
+    loadTickets();
+  }
+
+  function supportTopicLabel(item) {
+    if (!item) return '—';
+    if (item.type === 'feedback') return feedbackTopicLabel(item);
+    return item.subject || 'Kontakt poruka';
+  }
+
+  function supportSourceBadge(item) {
+    const isFeedback = item && item.type === 'feedback';
+    return `<span class="badge" style="background:${isFeedback ? 'rgba(16,185,129,0.16)' : 'rgba(99,102,241,0.18)'};color:${isFeedback ? '#34d399' : '#a5b4fc'}">${isFeedback ? 'Widget Feedback' : 'Kontakt forma'}</span>`;
+  }
+
+  function supportItemIsClosed(item) {
+    if (!item) return false;
+    const status = String(item.status || '').toLowerCase();
+    if (item.type === 'feedback') return status === 'closed';
+    return status === 'closed' || status === 'replied';
+  }
 
   async function loadTickets() {
     const tbody = document.getElementById('tickets-table-body');
+    setSupportPaneLoader(true, supportViewMode === 'closed' ? 'Učitavanje zatvorenih stavki...' : 'Učitavanje otvorenih stavki...');
     tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10 text-dark-300">Učitavanje...</td></tr>';
     try {
-      const res  = await fetch(`${API_BASE}/admin/tickets`, { headers: authHeaders() });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const [ticketRes, feedbackRes] = await Promise.all([
+        fetch(`${API_BASE}/admin/tickets`, { headers: authHeaders() }),
+        fetch(`${API_BASE}/admin/feedbacks`, { headers: authHeaders() }),
+      ]);
+      const ticketData = await ticketRes.json();
+      const feedbackData = await feedbackRes.json();
+      if (!ticketRes.ok) throw new Error(ticketData.error || 'Greška pri učitavanju tiketa.');
+      if (!feedbackRes.ok) throw new Error(feedbackData.error || 'Greška pri učitavanju feedback poruka.');
+
+      const normalizedTickets = (Array.isArray(ticketData) ? ticketData : []).map((ticket) => ({
+        ...ticket,
+        type: 'ticket',
+      }));
+      const normalizedFeedback = (Array.isArray(feedbackData) ? feedbackData : []).map((item) => ({
+        ...item,
+        type: 'feedback',
+        name: item.meta?.contact_name || item.email || 'Korisnik',
+        subject: feedbackTopicLabel(item),
+      }));
+      let data = normalizedTickets.concat(normalizedFeedback);
+      if (supportViewMode === 'closed') {
+        data = data.filter(supportItemIsClosed);
+      } else {
+        data = data.filter((item) => !supportItemIsClosed(item));
+      }
+      data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       _ticketDetailMap = new Map((Array.isArray(data) ? data : []).map((ticket) => [String(ticket.id), ticket]));
 
       // Update badge
-      const openCount = data.filter(t => t.status === 'open').length;
+      const openCount = normalizedTickets.filter(t => !supportItemIsClosed(t)).length + normalizedFeedback.filter(t => !supportItemIsClosed(t)).length;
       const badge = document.getElementById('support-badge');
       if (badge) { badge.textContent = openCount; badge.classList.toggle('hidden', openCount === 0); }
 
       if (!data.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10 text-dark-300">Nema tiketa.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10 text-dark-300">Nema stavki u ovom prikazu.</td></tr>';
+        setSupportPaneLoader(false);
         return;
       }
       tbody.innerHTML = data.map(t => `
         <tr>
           <td>
-            <div class="font-medium text-white text-sm">${escHtml(t.name)}</div>
+            <div class="font-medium text-white text-sm">${escHtml(t.name || t.email || 'Korisnik')}</div>
             <div class="text-xs text-dark-300">${escHtml(t.email)}</div>
           </td>
-          <td class="max-w-xs truncate">${escHtml(t.subject)}</td>
-          <td>${ticketStatusBadge(t.status)}</td>
+          <td class="max-w-xs">
+            <div class="space-y-1">
+              <div class="truncate">${escHtml(supportTopicLabel(t))}</div>
+              <div>${supportSourceBadge(t)}</div>
+            </div>
+          </td>
+          <td>${ticketStatusBadge(t.status, t.type)}</td>
           <td class="text-xs">${fmtDate(t.created_at)}</td>
           <td>
             <div class="flex gap-2">
@@ -3321,18 +3654,29 @@
             </div>
           </td>
         </tr>`).join('');
+      setSupportPaneLoader(false);
     } catch (err) {
+      setSupportPaneLoader(false);
       tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-red-400">${escHtml(err.message)}</td></tr>`;
     }
   }
 
-  function ticketStatusBadge(status) {
-    const map = {
-      open:    'background:rgba(245,158,11,0.18);color:#fbbf24',
-      replied: 'background:rgba(16,185,129,0.2);color:#10b981',
-      closed:  'background:rgba(255,255,255,0.06);color:#9090b8',
-    };
-    const labels = { open: 'Primljen', replied: 'Odgovoreno', closed: 'Zatvoren' };
+  function ticketStatusBadge(status, type) {
+    const normalizedType = String(type || 'ticket');
+    const map = normalizedType === 'feedback'
+      ? {
+          new: 'background:rgba(245,158,11,0.18);color:#fbbf24',
+          reviewed: 'background:rgba(59,130,246,0.16);color:#60a5fa',
+          closed: 'background:rgba(255,255,255,0.06);color:#9090b8',
+        }
+      : {
+          open: 'background:rgba(245,158,11,0.18);color:#fbbf24',
+          replied: 'background:rgba(255,255,255,0.06);color:#9090b8',
+          closed: 'background:rgba(255,255,255,0.06);color:#9090b8',
+        };
+    const labels = normalizedType === 'feedback'
+      ? { new: 'Otvoren', reviewed: 'Pregledano', closed: 'Zatvoren' }
+      : { open: 'Otvoren', replied: 'Zatvoren', closed: 'Zatvoren' };
     return `<span class="badge" style="${map[status] || ''}">${labels[status] || status}</span>`;
   }
 
@@ -3373,7 +3717,7 @@
       if (data && data.warning) {
         showToast(data.message || 'Google Gmail odgovor je poslan, ali status nije potpuno ažuriran.', 'info');
       } else {
-        showToast(isFeedbackReply ? 'Odgovor na feedback je poslat!' : 'Odgovor poslan!');
+        showToast(isFeedbackReply ? 'Odgovor na feedback je poslat!' : 'Odgovor poslan i tiket zatvoren!');
       }
       if (isFeedbackReply) {
         loadFeedbacks();
@@ -3390,13 +3734,15 @@
 
   async function closeTicket(id) {
     try {
-      const res = await fetch(`${API_BASE}/admin/tickets/${id}/status`, {
-        method: 'PUT', headers: authHeaders(),
+      const item = _ticketDetailMap instanceof Map ? _ticketDetailMap.get(String(id)) : null;
+      const isFeedback = item && item.type === 'feedback';
+      const res = await fetch(isFeedback ? `${API_BASE}/admin/feedbacks/${id}/status` : `${API_BASE}/admin/tickets/${id}/status`, {
+        method: isFeedback ? 'PATCH' : 'PUT', headers: authHeaders(),
         body: JSON.stringify({ status: 'closed' }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      showToast('Tiket zatvoren');
+      showToast(isFeedback ? 'Feedback je zatvoren' : 'Tiket zatvoren');
       loadTickets();
     } catch (err) { showToast(err.message, 'error'); }
   }
@@ -4675,20 +5021,15 @@
       if (!r.ok) throw new Error(data.error || 'Greška');
 
       const { transactions, total } = data;
+      const summary = data.summary || buildAdminTransactionSummaryClient(transactions);
 
       // Update stats
-      document.getElementById('inv-total-label').textContent = `Ukupno: ${total}`;
-      if (page === 1) {
-        document.getElementById('inv-stat-total').textContent   = total;
-        const completed = transactions.filter(t => t.status === 'completed').length;
-        const pending   = transactions.filter(t => t.status === 'pending').length;
-        const revenue   = transactions
-          .filter(t => t.status === 'completed')
-          .reduce((s, t) => s + parseFloat(t.amount || 0), 0);
-        document.getElementById('inv-stat-paid').textContent    = completed;
-        document.getElementById('inv-stat-open').textContent    = pending;
-        document.getElementById('inv-stat-revenue').textContent = `€${revenue.toFixed(2)}`;
-      }
+      document.getElementById('inv-total-label').textContent = `Ukupno: ${summary.total}`;
+      document.getElementById('inv-stat-total').textContent   = summary.total;
+      document.getElementById('inv-stat-paid').textContent    = summary.completed;
+      document.getElementById('inv-stat-open').textContent    = summary.pending;
+      document.getElementById('inv-stat-failed').textContent  = summary.failed;
+      document.getElementById('inv-stat-revenue').textContent = formatAdminEuro(summary.revenue);
 
       if (!transactions.length) {
         tbody.innerHTML = `<tr><td colspan="9" class="text-center py-10 text-dark-300">Nema pronađenih transakcija.</td></tr>`;
@@ -4887,6 +5228,39 @@
       return map;
     }
 
+    async function markFeedbackReviewedIfNeeded(id) {
+      const itemId = String(id || '');
+      if (!itemId) return;
+
+      const feedbackItem = typeof _feedbackDetailMap !== 'undefined' && _feedbackDetailMap instanceof Map
+        ? _feedbackDetailMap.get(itemId)
+        : null;
+      const supportItem = typeof _ticketDetailMap !== 'undefined' && _ticketDetailMap instanceof Map
+        ? _ticketDetailMap.get(itemId)
+        : null;
+      const currentStatus = String(feedbackItem?.status || supportItem?.status || '').toLowerCase();
+
+      if (currentStatus && currentStatus !== 'new') return;
+
+      try {
+        const res = await fetch(`${API_BASE}/admin/feedbacks/${encodeURIComponent(itemId)}/status`, {
+          method: 'PATCH',
+          headers: authHeaders(),
+          body: JSON.stringify({ status: 'reviewed' }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Greška pri ažuriranju feedback statusa.');
+
+        if (feedbackItem) feedbackItem.status = 'reviewed';
+        if (supportItem) supportItem.status = 'reviewed';
+
+        if (typeof loadFeedbacks === 'function') loadFeedbacks();
+        if (typeof loadTickets === 'function') loadTickets();
+      } catch (err) {
+        console.warn('[feedback/review] mark reviewed failed:', err.message);
+      }
+    }
+
     async function openReplyOverlay(context) {
       const emailEl = document.getElementById('ticket-reply-email');
       const subjectEl = document.getElementById('ticket-reply-subject');
@@ -4918,6 +5292,10 @@
         msgEl.style.display = 'none';
         msgEl.textContent = '';
         overlay.style.display = 'flex';
+
+        if (context.type === 'feedback') {
+          void markFeedbackReviewedIfNeeded(context.id);
+        }
       } catch (err) {
         if (typeof showToast === 'function') {
           showToast(err.message || 'Greska pri ucitavanju poruke', 'error');
@@ -4952,10 +5330,10 @@
         return;
       }
       await openReplyOverlay({
-        type: 'ticket',
+        type: ticket.type === 'feedback' ? 'feedback' : 'ticket',
         id,
         email: ticket.email || '',
-        subject: ticket.subject || 'Kontakt poruka',
+        subject: ticket.type === 'feedback' ? `Feedback: ${ticket.subject || ticket.topic || 'Poruka korisnika'}` : (ticket.subject || 'Kontakt poruka'),
         originalMessage: ticket.message || '',
       });
     };
@@ -4978,7 +5356,59 @@
       });
     };
   })();
+  function closeRevenueDetailsModal() {
+    const overlay = document.getElementById('revenue-details-overlay');
+    if (overlay) overlay.style.display = 'none';
+  }
 </script>
+<div id="revenue-details-overlay" style="display:none;position:fixed;inset:0;z-index:270;background:rgba(3,7,18,0.82);backdrop-filter:blur(16px);align-items:center;justify-content:center;padding:24px">
+  <div class="glass rounded-[28px] w-full max-w-5xl overflow-hidden" style="border:1px solid rgba(255,255,255,0.12);box-shadow:0 40px 120px rgba(0,0,0,0.45)">
+    <div class="flex items-center justify-between px-7 py-5" style="border-bottom:1px solid rgba(255,255,255,0.08);background:linear-gradient(135deg,rgba(29,106,255,0.18),rgba(162,89,255,0.10))">
+      <div>
+        <div class="text-[11px] uppercase tracking-[0.18em] text-blue-300 font-semibold">Revenue Detail</div>
+        <h3 class="font-display font-bold text-white text-xl mt-1">Uspjesne transakcije</h3>
+        <p class="text-sm text-dark-300 mt-1">Datum, proizvod i iznos za sve uspjesno naplacene kupovine.</p>
+      </div>
+      <button onclick="closeRevenueDetailsModal()" class="w-10 h-10 rounded-xl flex items-center justify-center text-dark-300 hover:text-white transition-colors" style="background:rgba(255,255,255,0.05)">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="p-6 space-y-5">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="rounded-2xl p-4" style="background:rgba(29,106,255,0.08);border:1px solid rgba(29,106,255,0.14)">
+          <div class="text-xs uppercase tracking-[0.16em] text-dark-400 mb-1">Ukupan prihod</div>
+          <div class="font-display font-bold text-2xl text-white" id="revenue-detail-total">EUR0.00</div>
+        </div>
+        <div class="rounded-2xl p-4" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.14)">
+          <div class="text-xs uppercase tracking-[0.16em] text-dark-400 mb-1">Uspjesne transakcije</div>
+          <div class="font-display font-bold text-2xl text-white" id="revenue-detail-count">0</div>
+        </div>
+        <div class="rounded-2xl p-4" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08)">
+          <div class="text-xs uppercase tracking-[0.16em] text-dark-400 mb-1">Prosjek po transakciji</div>
+          <div class="font-display font-bold text-2xl text-white" id="revenue-detail-average">EUR0.00</div>
+        </div>
+      </div>
+      <div class="glass rounded-2xl overflow-hidden" style="border:1px solid rgba(255,255,255,0.08)">
+        <div class="overflow-x-auto max-h-[55vh]">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Datum</th>
+                <th>Proizvod</th>
+                <th>Kupac</th>
+                <th>Metoda</th>
+                <th>Iznos</th>
+              </tr>
+            </thead>
+            <tbody id="revenue-details-body">
+              <tr><td colspan="5" class="text-center py-10 text-dark-300">Nema uspjesnih transakcija.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 <script src="admin.js"></script>
 <script src="translations.js"></script>
 <script src="keyify.js"></script>

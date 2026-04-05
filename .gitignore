@@ -5,6 +5,11 @@
 .env.production
 .env.staging
 .env.development
+.env.*
+!.env.example
+!.env.*.example
+*.env.backup
+*.env.bak
 
 # Secrets / Keys
 *.pem
@@ -19,6 +24,10 @@ secrets.yml
 
 # Dependencies
 node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+.turbo/
 __pycache__/
 *.pyc
 *.pyo
@@ -40,6 +49,9 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 logs/
 
 # Local runtime / temporary checks
@@ -99,6 +111,8 @@ dist/
 build/
 .next/
 out/
+coverage/
+.eslintcache
 
 # Python / FastAPI
 *.egg-info/

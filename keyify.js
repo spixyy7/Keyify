@@ -122,9 +122,14 @@ const KEYIFY = (() => {
       if (!p.name) p.name = p.name_sr || p.name_en || 'Proizvod';
       if (!p.imageUrl && p.image_url) p.imageUrl = p.image_url;
       if (typeof p.price === 'string') p.price = parseFloat(p.price) || 0;
+      if (!p.product_id) p.product_id = p.id;
+      if (!p.cart_key) {
+        const variantToken = p.variant_id || p.variant_label || 'base';
+        p.cart_key = `${p.product_id || p.id}::${variantToken}`;
+      }
 
       const items = this._load();
-      const idx   = items.findIndex(i => i.id === p.id);
+      const idx   = items.findIndex(i => (i.cart_key || i.id) === (p.cart_key || p.id));
       if (idx >= 0) {
         items[idx].qty = (items[idx].qty || 1) + 1;
       } else {
@@ -138,7 +143,7 @@ const KEYIFY = (() => {
     },
 
     remove(id) {
-      const items = this._load().filter(i => i.id !== id);
+      const items = this._load().filter(i => (i.cart_key || i.id) !== id);
       this._save(items);
       this.updateNavbarText();
       this._renderDrawerItems();
@@ -147,7 +152,7 @@ const KEYIFY = (() => {
 
     setQty(id, qty) {
       const items = this._load();
-      const idx   = items.findIndex(i => i.id === id);
+      const idx   = items.findIndex(i => (i.cart_key || i.id) === id);
       if (idx < 0) return;
       if (qty <= 0) { this.remove(id); return; }
       items[idx].qty = qty;
@@ -245,8 +250,9 @@ const KEYIFY = (() => {
       container.innerHTML = items.map(item => {
         const subtotal = (item.price * (item.qty || 1)).toFixed(2).replace('.', ',');
         const iconBg   = item.color || '#1D6AFF';
+        const itemKey  = item.cart_key || item.id;
         return `
-          <div class="flex items-start gap-3 py-4 border-b border-gray-100 last:border-0" data-item-id="${escAttr(item.id)}">
+          <div class="flex items-start gap-3 py-4 border-b border-gray-100 last:border-0" data-item-id="${escAttr(itemKey)}">
             <!-- Icon / Image -->
             <div class="flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center"
                  style="background:${item.imageUrl ? 'transparent' : `linear-gradient(135deg,${iconBg},${iconBg}aa)`}">
@@ -261,17 +267,17 @@ const KEYIFY = (() => {
               <div class="flex items-center gap-2 mt-2">
                 <!-- Qty controls -->
                 <div class="flex items-center border border-gray-200 rounded-lg overflow-hidden">
-                  <button onclick="KEYIFY.CART.setQty('${escAttr(item.id)}', ${(item.qty||1)-1})"
+                  <button onclick="KEYIFY.CART.setQty('${escAttr(itemKey)}', ${(item.qty||1)-1})"
                           class="w-7 h-7 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors text-sm font-bold">−</button>
                   <span class="w-8 text-center text-sm font-semibold text-gray-800">${item.qty||1}</span>
-                  <button onclick="KEYIFY.CART.setQty('${escAttr(item.id)}', ${(item.qty||1)+1})"
+                  <button onclick="KEYIFY.CART.setQty('${escAttr(itemKey)}', ${(item.qty||1)+1})"
                           class="w-7 h-7 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors text-sm font-bold">+</button>
                 </div>
                 <span class="text-sm font-bold text-gray-900 ml-auto">€ ${subtotal}</span>
               </div>
             </div>
             <!-- Remove -->
-            <button onclick="KEYIFY.CART.remove('${escAttr(item.id)}')"
+            <button onclick="KEYIFY.CART.remove('${escAttr(itemKey)}')"
                     class="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all"
                     title="${t('cart.remove', lang)}">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -757,9 +763,10 @@ const KEYIFY = (() => {
       const qty = item.qty || 1;
       const subtotal = (item.price * qty).toFixed(2).replace('.', ',');
       const iconBg = item.color || '#1D6AFF';
+      const itemKey = item.cart_key || item.id;
       const variantTag = item.variant_label ? `<span style="font-size:10px;color:${mcMuted};font-weight:500;margin-left:4px">(${escHtml(item.variant_label)})</span>` : '';
       return `
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid ${mcBorder}" data-mc-id="${escAttr(item.id)}">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid ${mcBorder}" data-mc-id="${escAttr(itemKey)}">
           <div style="flex-shrink:0;width:44px;height:44px;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:${item.imageUrl ? 'linear-gradient(145deg,#0f0f1a,#1a1a2e)' : `linear-gradient(135deg,${iconBg},${iconBg}aa)`}">
             ${item.imageUrl
               ? `<img src="${escAttr(item.imageUrl)}" alt="${escAttr(item.name)}" style="width:44px;height:44px;object-fit:cover;border-radius:10px"/>`
@@ -769,11 +776,11 @@ const KEYIFY = (() => {
             <p style="font-size:13px;font-weight:600;color:${mcText};margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.name)}${variantTag}</p>
             <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
               <div style="display:inline-flex;align-items:center;border:1px solid ${mcQtyBorder};border-radius:8px;overflow:hidden">
-                <button onclick="event.stopPropagation();KEYIFY.CART.setQty('${escAttr(item.id)}',${qty - 1})"
+                <button onclick="event.stopPropagation();KEYIFY.CART.setQty('${escAttr(itemKey)}',${qty - 1})"
                         style="width:24px;height:24px;border:none;background:transparent;color:${mcMuted};cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;transition:background 0.15s"
                         onmouseover="this.style.background='${mcBtnHover}'" onmouseout="this.style.background='transparent'">−</button>
                 <span style="width:26px;text-align:center;font-size:12px;font-weight:600;color:${mcText};user-select:none">${qty}</span>
-                <button onclick="event.stopPropagation();KEYIFY.CART.setQty('${escAttr(item.id)}',${qty + 1})"
+                <button onclick="event.stopPropagation();KEYIFY.CART.setQty('${escAttr(itemKey)}',${qty + 1})"
                         style="width:24px;height:24px;border:none;background:transparent;color:${mcMuted};cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;transition:background 0.15s"
                         onmouseover="this.style.background='${mcBtnHover}'" onmouseout="this.style.background='transparent'">+</button>
               </div>
@@ -781,7 +788,7 @@ const KEYIFY = (() => {
             </div>
           </div>
           <div style="display:flex;align-items:center;flex-shrink:0">
-            <button onclick="event.stopPropagation();KEYIFY.CART.remove('${escAttr(item.id)}')"
+            <button onclick="event.stopPropagation();KEYIFY.CART.remove('${escAttr(itemKey)}')"
                     style="width:24px;height:24px;border:none;background:transparent;color:#d1d5db;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:all 0.15s"
                     onmouseover="this.style.background='#fef2f2';this.style.color='#ef4444'" onmouseout="this.style.background='transparent';this.style.color='#d1d5db'">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -919,11 +926,20 @@ const KEYIFY = (() => {
       try {
         const obj = JSON.parse(dp.replace(/&#39;/g, "'"));
         if (obj && obj.name && obj.price) {
-          return { id: obj.id || obj.name.toLowerCase().replace(/[^a-z0-9]+/g,'-'),
-                   name: obj.name, price: parseFloat(obj.price),
-                   desc: obj.desc || '', color: obj.color || '#1D6AFF',
-                   imageUrl: obj.imageUrl || null,
-                   category: obj.category || null };
+          return {
+            id: obj.id || obj.name.toLowerCase().replace(/[^a-z0-9]+/g,'-'),
+            product_id: obj.product_id || obj.id || null,
+            cart_key: obj.cart_key || null,
+            name: obj.name,
+            price: parseFloat(obj.price),
+            desc: obj.desc || '',
+            color: obj.color || '#1D6AFF',
+            imageUrl: obj.imageUrl || null,
+            category: obj.category || null,
+            variant_id: obj.variant_id || null,
+            variant_label: obj.variant_label || null,
+            original_price: obj.original_price ?? null,
+          };
         }
       } catch {}
     }
