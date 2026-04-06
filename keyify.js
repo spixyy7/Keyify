@@ -2088,9 +2088,9 @@ const KEYIFY = (() => {
     _injectCartDrawer();
     _injectMiniCart();
     _injectNavbarExtras();
+    _updateAccountNavbar();
     await _hydratePageSnapshot();
     _wireProductButtons();
-    _updateAccountNavbar();
     _initQuickView();
     _initStorefrontFilters();
     _initHeroRating();
