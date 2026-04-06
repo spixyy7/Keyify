@@ -55,12 +55,9 @@ const configuredCorsOrigins = parseOriginList(
 );
 
 const localDevelopmentOrigins = parseOriginList(
-  'http://localhost:3000',
   'http://127.0.0.1:3000',
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  'http://localhost:63342',
-  'http://127.0.0.1:63342'
+  'http://127.0.0.1:63342',
+  'http://127.0.0.1:63343'
 );
 
 const isRailwayRuntime = Boolean(
@@ -1085,6 +1082,14 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+function requireEditorAccess(req, res, next) {
+  const role = req.user?.role;
+  if (role !== 'admin' && role !== 'moderator') {
+    return res.status(403).json({ error: 'Pristup odbijen – potreban admin ili moderator' });
+  }
+  next();
+}
+
 /**
  * RBAC middleware factory.
  * Passes if:
@@ -1795,6 +1800,11 @@ async function persistProductRecord(mode, id, payload) {
     delete legacyPayload.required_user_inputs;
     result = await apply(legacyPayload);
   }
+  if (result.error && payload.homepage_hero_image !== undefined && /homepage_hero_image/i.test(result.error.message || '')) {
+    const legacyPayload = { ...payload };
+    delete legacyPayload.homepage_hero_image;
+    result = await apply(legacyPayload);
+  }
 
   return result;
 }
@@ -1926,6 +1936,7 @@ app.post('/api/products', authenticateToken, requireAdmin, (req, res, next) => {
     price, original_price,
     category, category_slug, category_id,
     image_url, badge, stars, required_user_inputs,
+    homepage_hero_image,
   } = req.body;
 
   let variants = [];
@@ -1973,6 +1984,7 @@ app.post('/api/products', authenticateToken, requireAdmin, (req, res, next) => {
       delivery_message: req.body.delivery_message || null,
       required_user_inputs: requiredUserInputs,
       warranty_text:    req.body.warranty_text || null,
+      homepage_hero_image: homepage_hero_image || null,
       created_at:     new Date().toISOString(),
     });
 
@@ -2038,6 +2050,7 @@ app.put('/api/products/:id', authenticateToken, requireAdmin, (req, res, next) =
   if (req.body.delivery_message !== undefined) updates.delivery_message = req.body.delivery_message || null;
   if (req.body.required_user_inputs !== undefined) updates.required_user_inputs = normalizeRequiredUserInputs(req.body.required_user_inputs);
   if (req.body.warranty_text !== undefined) updates.warranty_text = req.body.warranty_text || null;
+  if (req.body.homepage_hero_image !== undefined) updates.homepage_hero_image = req.body.homepage_hero_image || null;
 
   if (category !== undefined || category_slug !== undefined || category_id !== undefined) {
     const resolvedCategory = await resolveCategoryInput({ category, category_slug, category_id });
@@ -4833,7 +4846,7 @@ const assetUpload = multer({
   },
 }).single('file');
 
-app.post('/api/admin/upload-asset', authenticateToken, requireAdmin, (req, res) => {
+app.post('/api/admin/upload-asset', authenticateToken, requireEditorAccess, (req, res) => {
   assetUpload(req, res, async (err) => {
     if (err) return res.status(400).json({ error: err.message });
     if (!req.file) return res.status(400).json({ error: 'Nije priložen fajl' });
@@ -4867,7 +4880,7 @@ app.post('/api/admin/upload-asset', authenticateToken, requireAdmin, (req, res) 
 ───────────────────────────────────────── */
 
 /** POST /api/pages/:slug  – admin only, upsert page HTML */
-app.post('/api/pages/:slug', authenticateToken, requireAdmin, async (req, res) => {
+app.post('/api/pages/:slug', authenticateToken, requireEditorAccess, async (req, res) => {
   const { slug } = req.params;
   const { html  } = req.body;
 

@@ -404,6 +404,9 @@
     document.getElementById('prod-image-file').value = '';
     document.getElementById('img-file-name').textContent = 'Klikni ili prevuci sliku (max 10 MB)';
     document.getElementById('prod-image-url').value = fullProduct?.image_url || '';
+    document.getElementById('prod-hero-image').value = fullProduct?.homepage_hero_image || '';
+    if (typeof window.switchHeroImgTab === 'function') window.switchHeroImgTab('url');
+    if (typeof window.updateHeroImgPreview === 'function') window.updateHeroImgPreview();
     document.getElementById('prod-delivery-msg').value = fullProduct?.delivery_message || '';
     document.getElementById('prod-required-inputs').value = fullProduct?.required_user_inputs || 'none';
     document.getElementById('prod-warranty').value = fullProduct?.warranty_text || '';
@@ -455,6 +458,8 @@
     const id = document.getElementById('product-id').value;
     const imageFileInput = document.getElementById('prod-image-file');
     const hasFile = imageFileInput.files.length > 0;
+    const heroImageFileInput = document.getElementById('prod-hero-image-file');
+    const hasHeroFile = heroImageFileInput && heroImageFileInput.files.length > 0;
     const variants = typeof window.collectVariants === 'function' ? window.collectVariants() : [];
     const features = typeof window.collectFeatures === 'function' ? window.collectFeatures() : [];
     const categorySelect = document.getElementById('prod-category');
@@ -489,6 +494,7 @@
       category: categorySlug,
       category_id: categoryId,
       image_url: document.getElementById('prod-image-url').value.trim() || '',
+      homepage_hero_image: document.getElementById('prod-hero-image').value.trim() || '',
       badge: document.getElementById('prod-badge').value || '',
       bonus_coupon_id: document.getElementById('prod-bonus-coupon').value || null,
       delivery_message: document.getElementById('prod-delivery-msg').value || null,
@@ -512,6 +518,24 @@
     await waitForAdminLoaderPaint(220);
 
     try {
+      /* Upload hero image file first if provided */
+      if (hasHeroFile) {
+        const heroFormData = new FormData();
+        heroFormData.append('file', heroImageFileInput.files[0]);
+        const heroUploadRes = await fetch(`${API_BASE}/admin/upload-asset`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${localStorage.getItem('keyify_token')}` },
+          body: heroFormData,
+        });
+        if (heroUploadRes.ok) {
+          const heroData = await heroUploadRes.json();
+          if (heroData.url) {
+            payload.homepage_hero_image = heroData.url;
+            document.getElementById('prod-hero-image').value = heroData.url;
+          }
+        }
+      }
+
       let response;
       if (hasFile) {
         const formData = new FormData();

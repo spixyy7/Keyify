@@ -1960,15 +1960,199 @@ const KEYIFY = (() => {
     apply();
   }
 
-  function init() {
+  /* ─────────────────────────────────────────────────────────
+     STAR RATING RENDERER (reusable)
+  ───────────────────────────────────────────────────────── */
+  function renderStarRating(rating, maxStars) {
+    maxStars = maxStars || 5;
+    rating = Math.max(0, Math.min(maxStars, Number(rating) || 0));
+    const fullStar = '<svg width="14" height="14" fill="#f59e0b" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
+    const halfStar = '<svg width="14" height="14" viewBox="0 0 20 20"><defs><linearGradient id="kf-half"><stop offset="50%" stop-color="#f59e0b"/><stop offset="50%" stop-color="#d1d5db"/></linearGradient></defs><path fill="url(#kf-half)" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
+    const emptyStar = '<svg width="14" height="14" fill="#d1d5db" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
+
+    let html = '';
+    for (let i = 1; i <= maxStars; i++) {
+      if (rating >= i) html += fullStar;
+      else if (rating >= i - 0.5) html += halfStar;
+      else html += emptyStar;
+    }
+    return html;
+  }
+
+  function _initHeroRating() {
+    const el = document.querySelector('[data-kve-rating="hero"]');
+    if (!el) return;
+    const rating = parseFloat(el.dataset.rating) || 0;
+    const maxRating = parseInt(el.dataset.ratingMax, 10) || 5;
+    const count = parseInt(el.dataset.reviewCount, 10) || 0;
+    const title = el.dataset.ratingTitle || '';
+    const showStars = el.dataset.showStars !== '0';
+    const showCount = el.dataset.showCount !== '0';
+
+    /* Sanitize title: fix mojibake, normalize to ekavica */
+    const safeTitle = repairMojibake(title || (_lang === 'en' ? 'Average rating' : 'Prose\u010dna ocena'))
+      .replace(/ocjena/gi, 'ocena');
+
+    /* Always rebuild inner content from data attributes to avoid snapshot corruption */
+    const iconDiv = el.querySelector('.flex-shrink-0');
+    const contentDiv = iconDiv ? iconDiv.nextElementSibling : null;
+    if (contentDiv) {
+      const starsHtml = showStars ? renderStarRating(rating, maxRating) : '';
+      const valueText = rating.toFixed(1) + ' / ' + maxRating + '.0';
+      const countText = count + (_lang === 'en' ? ' reviews' : ' recenzija');
+
+      contentDiv.innerHTML =
+        '<div class="text-xs text-gray-500 font-medium"></div>' +
+        '<div class="font-display font-bold text-gray-900 text-sm flex items-center gap-1.5" id="hero-rating-display">' +
+          '<span id="hero-rating-stars" class="flex items-center gap-0.5">' + starsHtml + '</span>' +
+          '<span id="hero-rating-value">' + escHtml(valueText) + '</span>' +
+        '</div>' +
+        '<div class="text-[10px] text-gray-400 font-medium" id="hero-rating-count"' +
+          (showCount ? '' : ' style="display:none"') + '>' + escHtml(countText) + '</div>';
+
+      contentDiv.querySelector('.text-xs.text-gray-500').textContent = safeTitle;
+    } else {
+      /* Fallback: find elements by ID (fresh page without snapshot) */
+      const titleEl = el.querySelector('.text-xs.text-gray-500');
+      const starsEl = document.getElementById('hero-rating-stars');
+      const valueEl = document.getElementById('hero-rating-value');
+      const countEl = document.getElementById('hero-rating-count');
+
+      if (titleEl) titleEl.textContent = safeTitle;
+      if (starsEl) {
+        starsEl.innerHTML = showStars ? renderStarRating(rating, maxRating) : '';
+        starsEl.style.display = showStars ? '' : 'none';
+      }
+      if (valueEl) valueEl.textContent = rating.toFixed(1) + ' / ' + maxRating + '.0';
+      if (countEl) {
+        countEl.textContent = count + (_lang === 'en' ? ' reviews' : ' recenzija');
+        countEl.style.display = showCount ? '' : 'none';
+      }
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     HERO FEATURED PRODUCT (auto/manual mode)
+  ───────────────────────────────────────────────────────── */
+  async function _initHeroFeaturedProduct() {
+    const container = document.getElementById('hero-featured-product');
+    if (!container) return;
+
+    const API_BASE = (window.KEYIFY_CONFIG && window.KEYIFY_CONFIG.API_BASE) || 'http://localhost:3001/api';
+    const mode = container.dataset.mode || 'auto';
+    const manualId = container.dataset.productId || '';
+
+    try {
+      let product = null;
+
+      if (mode === 'manual' && manualId) {
+        const res = await fetch(API_BASE + '/products/' + encodeURIComponent(manualId));
+        if (res.ok) product = await res.json();
+      }
+
+      if (!product) {
+        const res = await fetch(API_BASE + '/products');
+        if (!res.ok) return;
+        const products = await res.json();
+        if (!products.length) return;
+        product = products[0];
+      }
+
+      _renderHeroFeaturedProduct(container, product);
+    } catch (err) {
+      console.warn('[Keyify] Hero featured product load failed:', err.message);
+    }
+  }
+
+  function _renderHeroFeaturedProduct(container, product) {
+    const lang = _lang;
+    const name = (lang === 'en' && product.name_en) ? product.name_en : (product.name_sr || product.name || '');
+    const desc = (lang === 'en' && product.description_en) ? product.description_en : (product.description_sr || '');
+    const price = parseFloat(product.price || 0).toFixed(2);
+    const origPrice = product.original_price ? parseFloat(product.original_price).toFixed(2) : null;
+    const disc = origPrice ? Math.round((1 - product.price / product.original_price) * 100) : 0;
+    const heroImg = product.homepage_hero_image || product.image_url || '';
+
+    const titleEl = document.getElementById('hero-fp-title');
+    const descEl = document.getElementById('hero-fp-desc');
+    const priceEl = document.getElementById('hero-fp-price');
+    const origPriceEl = document.getElementById('hero-fp-original-price');
+    const discountEl = document.getElementById('hero-fp-discount');
+    const imageWrap = document.getElementById('hero-fp-image-wrap');
+    const imageEl = document.getElementById('hero-fp-image');
+    const atcBtn = document.getElementById('hero-fp-atc-btn');
+
+    if (titleEl) titleEl.textContent = name;
+    if (descEl) descEl.textContent = desc;
+    if (priceEl) priceEl.innerHTML = '&euro; ' + escHtml(price);
+
+    if (origPriceEl && origPrice) {
+      origPriceEl.innerHTML = '&euro; ' + escHtml(origPrice);
+      origPriceEl.classList.remove('hidden');
+    }
+    if (discountEl && disc > 0) {
+      discountEl.textContent = '-' + disc + '%';
+      discountEl.classList.remove('hidden');
+    }
+
+    if (imageWrap && imageEl && heroImg) {
+      imageEl.src = heroImg;
+      imageEl.alt = name;
+      imageWrap.classList.remove('hidden');
+      imageWrap.classList.add('flex');
+    }
+
+    if (atcBtn) {
+      const payload = {
+        id: product.id || name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        product_id: product.id,
+        name: name,
+        price: parseFloat(product.price),
+        image: heroImg || null,
+      };
+      atcBtn.setAttribute('data-product', JSON.stringify(payload));
+      atcBtn.dataset.kveProductId = String(product.id || '');
+    }
+
+    _wireProductButtons();
+  }
+
+  async function _hydratePageSnapshot() {
+    /* Skip when visual editor will handle its own hydration */
+    const editorActive = localStorage.getItem('keyify_editor_active') === 'true'
+      || /[?&]mode=edit\b/.test(window.location.search);
+    if (editorActive) return;
+
+    const API_BASE = (window.KEYIFY_CONFIG && window.KEYIFY_CONFIG.API_BASE) || 'http://localhost:3001/api';
+    const file = window.location.pathname.split('/').pop() || 'index.html';
+    const slug = file.replace(/\.html$/i, '') || 'index';
+    try {
+      const res = await fetch(`${API_BASE}/pages/${encodeURIComponent(slug)}`);
+      if (!res.ok) return;
+      const payload = await res.json();
+      if (typeof payload.html !== 'string' || !payload.html.trim()) return;
+      const target = document.querySelector('main') || document.body;
+      const liveGrid = target.querySelector('#product-grid');
+      target.innerHTML = payload.html;
+      if (liveGrid) {
+        const snapshotGrid = target.querySelector('#product-grid');
+        if (snapshotGrid) snapshotGrid.replaceWith(liveGrid);
+      }
+    } catch {}
+  }
+
+  async function init() {
     _initTheme();
     _injectCartDrawer();
     _injectMiniCart();
     _injectNavbarExtras();
+    await _hydratePageSnapshot();
     _wireProductButtons();
     _updateAccountNavbar();
     _initQuickView();
     _initStorefrontFilters();
+    _initHeroRating();
+    _initHeroFeaturedProduct();
     LANG.apply();
     CART.updateNavbarText();
     CART._renderDrawerItems();
@@ -1992,7 +2176,7 @@ const KEYIFY = (() => {
   }
 
   /* Public API */
-  return { LANG, CART, lang: _lang, init, escHtml, escAttr, logout: _logout, setTheme: _applyTheme };
+  return { LANG, CART, lang: _lang, init, escHtml, escAttr, logout: _logout, setTheme: _applyTheme, renderStarRating, _renderHeroFP: _renderHeroFeaturedProduct };
 
 })();
 
