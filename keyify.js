@@ -2184,7 +2184,7 @@ const KEYIFY = (() => {
   }
 
   /* Public API */
-  return { LANG, CART, lang: _lang, init, escHtml, escAttr, logout: _logout, setTheme: _applyTheme, renderStarRating, _renderHeroFP: _renderHeroFeaturedProduct };
+  return { LANG, CART, lang: _lang, init, escHtml, escAttr, logout: _logout, setTheme: _applyTheme, renderStarRating, _initHeroRating, _initHeroFeaturedProduct, _wireProductButtons, repairVisibleText, _renderHeroFP: _renderHeroFeaturedProduct };
 
 })();
 

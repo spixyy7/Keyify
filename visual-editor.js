@@ -655,6 +655,15 @@
       wrap.remove();
     });
     clone.querySelectorAll('[data-kve]').forEach((el) => el.removeAttribute('data-kve'));
+    /* Strip runtime cart-wiring state so buttons re-initialize on hydrate */
+    clone.querySelectorAll('[data-add-to-cart]').forEach((el) => {
+      el.removeAttribute('data-add-to-cart');
+      el.removeAttribute('disabled');
+      el.style.background = '';
+      el.style.display = '';
+      el.style.alignItems = '';
+      el.style.gap = '';
+    });
     /* Clear product-grid contents — inline storefront re-renders fresh products */
     const gridClone = clone.querySelector('#product-grid');
     if (gridClone) gridClone.innerHTML = '';
@@ -841,6 +850,16 @@
 
   async function boot() {
     await hydrateEditorPageSnapshot();
+
+    /* Re-render dynamic components after snapshot hydration so editor matches public view */
+    if (typeof KEYIFY !== 'undefined') {
+      if (KEYIFY.repairVisibleText) KEYIFY.repairVisibleText(document.body);
+      if (KEYIFY._initHeroRating) KEYIFY._initHeroRating();
+      if (KEYIFY._initHeroFeaturedProduct) KEYIFY._initHeroFeaturedProduct();
+      if (KEYIFY._wireProductButtons) KEYIFY._wireProductButtons();
+      if (KEYIFY.LANG) KEYIFY.LANG.apply();
+    }
+
     injectStyles();
     injectPdpVariantEditorStyles();
     injectButtonStudioStyles();
@@ -2553,6 +2572,7 @@
   let _smartEl   = null;   // currently active element
   let _smartType = null;   // its type string
   let _stToolbar = null;   // #kve-smart-toolbar DOM ref
+  let _openButtonEditModalFn = null; // bridge: set by initElementHoverControls
 
   /** Containers/ancestors that the engine must never intercept */
   const _SKIP_PARENTS = [
@@ -2894,20 +2914,26 @@
       el.dataset.showStars = showStars ? '1' : '0';
       el.dataset.showCount = showCount ? '1' : '0';
 
-      const titleEl = el.querySelector('.text-xs.text-gray-500');
-      const starsEl = el.querySelector('#hero-rating-stars') || el.querySelector('[id$="-rating-stars"]');
-      const valueEl = el.querySelector('#hero-rating-value') || el.querySelector('[id$="-rating-value"]');
-      const countEl = el.querySelector('#hero-rating-count') || el.querySelector('[id$="-rating-count"]');
+      /* Let keyify.js rebuild the full component from data attributes */
+      if (typeof KEYIFY !== 'undefined' && KEYIFY._initHeroRating) {
+        KEYIFY._initHeroRating();
+      } else {
+        /* Fallback: manual DOM update */
+        const titleEl = el.querySelector('.text-xs.text-gray-500');
+        const starsEl = el.querySelector('#hero-rating-stars') || el.querySelector('[id$="-rating-stars"]');
+        const valueEl = el.querySelector('#hero-rating-value') || el.querySelector('[id$="-rating-value"]');
+        const countEl = el.querySelector('#hero-rating-count') || el.querySelector('[id$="-rating-count"]');
 
-      if (titleEl) titleEl.textContent = title;
-      if (starsEl && typeof KEYIFY !== 'undefined' && KEYIFY.renderStarRating) {
-        starsEl.innerHTML = showStars ? KEYIFY.renderStarRating(rating, maxR) : '';
-        starsEl.style.display = showStars ? '' : 'none';
-      }
-      if (valueEl) valueEl.textContent = rating.toFixed(1) + ' / ' + maxR + '.0';
-      if (countEl) {
-        countEl.textContent = count + ' recenzija';
-        countEl.style.display = showCount ? '' : 'none';
+        if (titleEl) titleEl.textContent = title;
+        if (starsEl && typeof KEYIFY !== 'undefined' && KEYIFY.renderStarRating) {
+          starsEl.innerHTML = showStars ? KEYIFY.renderStarRating(rating, maxR) : '';
+          starsEl.style.display = showStars ? '' : 'none';
+        }
+        if (valueEl) valueEl.textContent = rating.toFixed(1) + ' / ' + maxR + '.0';
+        if (countEl) {
+          countEl.textContent = count + ' recenzija';
+          countEl.style.display = showCount ? '' : 'none';
+        }
       }
 
       const snapshotSaved = await autosaveEditorPageSnapshot({ remote: true });
@@ -2968,7 +2994,11 @@
         break;
 
       case 'btn-function':
-        openButtonEditModal(el);
+        if (_openButtonEditModalFn) {
+          _openButtonEditModalFn(el);
+        } else {
+          toastMsg('Panel dugmeta nije spreman. Probaj ponovo.', true);
+        }
         break;
 
       case 'input-placeholder':
@@ -5284,6 +5314,9 @@
         }
       });
     }
+
+    /* Expose openButtonEditModal to smart engine scope */
+    _openButtonEditModalFn = openButtonEditModal;
 
     // ── Element edit modal (full) ──
     function openElementEditModal(el) {
