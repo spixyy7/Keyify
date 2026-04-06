@@ -37,70 +37,8 @@ const KEYIFY = (() => {
       CART.updateNavbarText();
     },
 
-    /** Apply current language to the whole page */
-    apply() {
-      /* 1. Elements with data-i18n="key" */
-      document.querySelectorAll('[data-i18n]').forEach(el => {
-        const key  = el.getAttribute('data-i18n');
-        const text = t(key, _lang);
-        if (text !== key) el.textContent = text;
-      });
-
-      /* 2. Elements with data-i18n-placeholder="key" */
-      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-        const key  = el.getAttribute('data-i18n-placeholder');
-        const text = t(key, _lang);
-        if (text !== key) el.placeholder = text;
-      });
-
-      /* 3. Nav links — matched by href */
-      const navMap = {
-        'index.html':    t('nav.home',       _lang),
-        'ai.html':       t('nav.shopAI',     _lang),
-        'design.html':   t('nav.design',     _lang),
-        'business.html': t('nav.business',   _lang),
-        'windows.html':  t('nav.windows',    _lang),
-        'music.html':    t('nav.music',      _lang),
-        'streaming.html':t('nav.streaming',  _lang),
-        'about.html':    t('nav.aboutUs',    _lang),
-        'contact.html':  t('nav.contact',    _lang),
-        'login.html':    t('nav.login',      _lang),
-      };
-      document.querySelectorAll('header nav a[href], #mobile-menu a[href]').forEach(a => {
-        const href = a.getAttribute('href');
-        if (navMap[href]) a.textContent = navMap[href];
-      });
-
-      /* 4. Dropdown button labels (Shop Software / Shop Streaming) */
-      document.querySelectorAll('header nav button[data-dd-label], header nav button').forEach(btn => {
-        if (btn.classList.contains('kf-lang-btn') || btn.id === 'kf-theme-toggle') return;
-        const textNode = Array.from(btn.childNodes).find(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
-        if (!textNode) return;
-        const txt = btn.textContent.trim();
-        if (txt.includes('Software'))
-          textNode.textContent = '\n                        ' + t('nav.shopSoftware', _lang) + '\n                        ';
-        else if (txt.includes('Streaming'))
-          textNode.textContent = '\n                        ' + t('nav.shopStreaming', _lang) + '\n                        ';
-      });
-
-      /* 5. "Dodaj u korpu" / "Add to Cart" buttons (skip hero CTA — keeps "Kupi Sada") */
-      document.querySelectorAll('button[data-add-to-cart]').forEach(btn => {
-        if (btn._loading) return;
-        if (btn.dataset.kfAtc === '1') return; /* preserve original CTA label */
-        const svgHTML = btn.querySelector('svg')?.outerHTML || '';
-        btn.innerHTML = `${svgHTML} ${t('btn.addToCart', _lang)}`;
-      });
-
-      /* 6. Language switcher button highlight */
-      document.querySelectorAll('.kf-lang-btn').forEach(b => {
-        const isActive = b.dataset.lang === _lang;
-        b.style.background = isActive ? '#1D6AFF'      : 'transparent';
-        b.style.color      = isActive ? '#ffffff'      : '#6b7280';
-        b.style.fontWeight = isActive ? '700'          : '500';
-      });
-
-      repairVisibleText(document.body);
-    },
+    /** No-op — translations are baked into static HTML */
+    apply() {},
   };
 
 
