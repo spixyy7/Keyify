@@ -886,29 +886,22 @@ const KEYIFY = (() => {
         if (!product) return;
         if (btn._loading) return;
 
-        /* Ensure smooth transition on background */
-        btn.style.transition = 'background 0.3s ease, opacity 0.3s ease';
-
-        /* Button feedback — single clean SVG checkmark + text */
-        const original = btn.innerHTML;
-        const origBg   = btn.style.background;
+        /* Save original state */
+        const originalHTML = btn.innerHTML;
+        const originalCssText = btn.style.cssText;
         btn._loading = true;
+
+        /* Show success feedback */
         btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> ${t('btn.added', _lang)}`;
-        btn.style.display = 'inline-flex';
-        btn.style.alignItems = 'center';
-        btn.style.gap = '6px';
-        btn.style.background = '#059669';
+        btn.style.cssText = originalCssText + ';display:inline-flex;align-items:center;gap:6px;background:#059669 !important;';
         btn.disabled = true;
 
         setTimeout(() => {
-          btn.innerHTML = original;
-          btn.style.background = origBg;
-          btn.style.display = '';
-          btn.style.alignItems = '';
-          btn.style.gap = '';
+          btn.innerHTML = originalHTML;
+          btn.style.cssText = originalCssText;
           btn.disabled = false;
           btn._loading = false;
-        }, 2500);
+        }, 1400);
 
         CART.add(product);
       });
@@ -2139,7 +2132,8 @@ const KEYIFY = (() => {
       if (!res.ok) return;
       const payload = await res.json();
       if (typeof payload.html !== 'string' || !payload.html.trim()) return;
-      const target = document.querySelector('main') || document.body;
+      const target = document.querySelector('main');
+      if (!target) return;
       const liveGrid = target.querySelector('#product-grid');
       target.innerHTML = payload.html;
       if (liveGrid) {

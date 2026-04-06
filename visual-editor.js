@@ -629,7 +629,8 @@
   }
 
   function buildEditorPageSnapshotHtml() {
-    const target = document.querySelector('main') || document.body;
+    const target = document.querySelector('main');
+    if (!target) return '';
     const clone = target.cloneNode(true);
     const editorSelectors = [
       '[data-kve-editor]',
@@ -708,12 +709,17 @@
   }
 
   async function hydrateEditorPageSnapshot() {
-    const target = document.querySelector('main') || document.body;
+    const target = document.querySelector('main');
     if (!target) return;
 
     let html = '';
     try {
       html = localStorage.getItem(getEditorPageStorageKey()) || '';
+      /* Discard corrupted snapshots that contain full body (header/footer/scripts) */
+      if (html && (html.includes('<header') || html.includes('<footer') || html.includes('<script'))) {
+        localStorage.removeItem(getEditorPageStorageKey());
+        html = '';
+      }
     } catch {}
 
     if (!html) {
