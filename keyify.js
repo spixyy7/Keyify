@@ -2163,10 +2163,6 @@ const KEYIFY = (() => {
     _loadSocialLinks();
     repairVisibleText(document.body);
 
-    /* Reveal <main> now that hydration + init is complete (prevents flash) */
-    const mainEl = document.querySelector('main');
-    if (mainEl) mainEl.classList.add('kf-ready');
-
     /* Re-wire on any dynamic DOM changes (e.g. API-loaded products) */
     let repairQueued = false;
     const scheduleRepair = () => {

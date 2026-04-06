@@ -49,9 +49,6 @@
         body { font-family: 'Inter', sans-serif; background: #F8F9FB; }
         h1, h2, h3, .font-display { font-family: 'Poppins', sans-serif; }
 
-        /* Prevent flash: hide main until JS hydration completes */
-        main:not(.kf-ready) { opacity: 0; }
-        main.kf-ready { opacity: 1; transition: opacity .15s ease-in; }
 
         /* Navbar blur */
         .navbar-blur { backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }

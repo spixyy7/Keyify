@@ -871,9 +871,6 @@
       if (KEYIFY.LANG) KEYIFY.LANG.apply();
     }
 
-    /* Reveal <main> now that hydration is complete */
-    const mainEl = document.querySelector('main');
-    if (mainEl) mainEl.classList.add('kf-ready');
 
     injectStyles();
     injectPdpVariantEditorStyles();
