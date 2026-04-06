@@ -2123,9 +2123,17 @@ const KEYIFY = (() => {
       || /[?&]mode=edit\b/.test(window.location.search);
     if (editorActive) return;
 
-    const API_BASE = (window.KEYIFY_CONFIG && window.KEYIFY_CONFIG.API_BASE) || 'http://localhost:3001/api';
+    /* Only hydrate pages that have a <main> with editable content */
+    if (!document.querySelector('main')) return;
+
     const file = window.location.pathname.split('/').pop() || 'index.html';
     const slug = file.replace(/\.html$/i, '') || 'index';
+
+    /* Skip non-storefront pages (login, register, admin, etc.) */
+    const skipPages = ['login', 'register', 'admin', 'forgot-password', 'reset-password'];
+    if (skipPages.includes(slug)) return;
+
+    const API_BASE = (window.KEYIFY_CONFIG && window.KEYIFY_CONFIG.API_BASE) || 'http://localhost:3001/api';
     try {
       const res = await fetch(`${API_BASE}/pages/${encodeURIComponent(slug)}`);
       if (!res.ok) return;
