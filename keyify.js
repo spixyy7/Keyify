@@ -893,7 +893,7 @@ const KEYIFY = (() => {
 
         /* Show success feedback */
         btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> ${t('btn.added', _lang)}`;
-        btn.style.cssText = originalCssText + ';display:inline-flex;align-items:center;gap:6px;background:#059669 !important;';
+        btn.style.cssText = originalCssText + ';background:#059669 !important;';
         btn.disabled = true;
 
         setTimeout(() => {
@@ -901,7 +901,7 @@ const KEYIFY = (() => {
           btn.style.cssText = originalCssText;
           btn.disabled = false;
           btn._loading = false;
-        }, 1400);
+        }, 800);
 
         CART.add(product);
       });

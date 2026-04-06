@@ -875,15 +875,6 @@
         });
     });
 
-    document.querySelectorAll('button').forEach(btn => {
-        if (btn.textContent.trim() === 'Kupi Sada') {
-            btn.addEventListener('click', function() {
-                const original = this.innerHTML;
-                this.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Dodano!`;
-                setTimeout(() => { this.innerHTML = original; }, 1800);
-            });
-        }
-    });
 </script>
 <script src="config.js"></script>
 <script src="translations.js"></script>
