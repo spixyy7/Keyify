@@ -866,10 +866,14 @@
     if (typeof KEYIFY !== 'undefined') {
       if (KEYIFY.repairVisibleText) KEYIFY.repairVisibleText(document.body);
       if (KEYIFY._initHeroRating) KEYIFY._initHeroRating();
-      if (KEYIFY._initHeroFeaturedProduct) KEYIFY._initHeroFeaturedProduct();
+      if (KEYIFY._initHeroFeaturedProduct) await KEYIFY._initHeroFeaturedProduct();
       if (KEYIFY._wireProductButtons) KEYIFY._wireProductButtons();
       if (KEYIFY.LANG) KEYIFY.LANG.apply();
     }
+
+    /* Reveal <main> now that hydration is complete */
+    const mainEl = document.querySelector('main');
+    if (mainEl) mainEl.classList.add('kf-ready');
 
     injectStyles();
     injectPdpVariantEditorStyles();
