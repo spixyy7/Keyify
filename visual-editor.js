@@ -866,7 +866,7 @@
     if (typeof KEYIFY !== 'undefined') {
       if (KEYIFY.repairVisibleText) KEYIFY.repairVisibleText(document.body);
       if (KEYIFY._initHeroRating) KEYIFY._initHeroRating();
-      if (KEYIFY._initHeroFeaturedProduct) await KEYIFY._initHeroFeaturedProduct();
+      if (KEYIFY._initHeroFeaturedProduct) KEYIFY._initHeroFeaturedProduct();
       if (KEYIFY._wireProductButtons) KEYIFY._wireProductButtons();
       if (KEYIFY.LANG) KEYIFY.LANG.apply();
     }
@@ -2668,8 +2668,10 @@
     if (inNav && tag === 'LI')  return 'navlink';
     if (inNav && tag === 'A')   return 'navlink';
 
-    /* ── Social link: <a> whose only/primary child is an icon (svg or <i>) ── */
-    if (tag === 'A' && !inNav && (el.querySelector('svg, i'))) return 'sociallink';
+    /* ── Social link: small <a> whose only/primary child is an icon (svg or <i>) ── */
+    /* Skip category cards and large link blocks — only treat compact icon-only links as social */
+    if (tag === 'A' && !inNav && el.querySelector('svg, i')
+        && el.children.length <= 2 && el.textContent.trim().length < 30) return 'sociallink';
 
     /* ── Skip text-type elements inside footer ── */
     if (el.closest('footer') && ['H1','H2','H3','H4','H5','H6','P','SPAN','DIV'].includes(tag)) return null;

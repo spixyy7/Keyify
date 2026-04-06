@@ -83,12 +83,12 @@ const KEYIFY = (() => {
           textNode.textContent = '\n                        ' + t('nav.shopStreaming', _lang) + '\n                        ';
       });
 
-      /* 5. "Dodaj u korpu" / "Add to Cart" buttons */
+      /* 5. "Dodaj u korpu" / "Add to Cart" buttons (skip hero CTA — keeps "Kupi Sada") */
       document.querySelectorAll('button[data-add-to-cart]').forEach(btn => {
-        if (!btn._loading) {
-          const svgHTML = btn.querySelector('svg')?.outerHTML || '';
-          btn.innerHTML = `${svgHTML} ${t('btn.addToCart', _lang)}`;
-        }
+        if (btn._loading) return;
+        if (btn.dataset.kfAtc === '1') return; /* preserve original CTA label */
+        const svgHTML = btn.querySelector('svg')?.outerHTML || '';
+        btn.innerHTML = `${svgHTML} ${t('btn.addToCart', _lang)}`;
       });
 
       /* 6. Language switcher button highlight */
