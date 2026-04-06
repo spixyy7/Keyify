@@ -115,8 +115,8 @@ const KEYIFY = (() => {
       const count = this.count();
       const total = this.total();
       const label = count > 0
-        ? `${t('cart.title', _lang)} (${count})  €\u202F${total.toFixed(2).replace('.', ',')}`
-        : `${t('cart.title', _lang)} €\u202F0,00`;
+        ? 'Korpa (' + count + ') \u20AC ' + total.toFixed(2).replace('.', ',')
+        : 'Korpa \u20AC 0,00';
 
       document.querySelectorAll('.kf-cart-label').forEach(el => {
         el.textContent = label;
