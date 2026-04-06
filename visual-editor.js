@@ -728,9 +728,14 @@
         const payload = await res.json().catch(() => ({}));
         if (res.ok && typeof payload.html === 'string' && payload.html.trim()) {
           html = payload.html;
-          persistEditorPageSnapshotLocally(html);
         }
       } catch {}
+    }
+
+    /* Discard corrupted snapshots that contain full body content */
+    if (html && (html.includes('<header') || html.includes('<footer') || html.includes('<script'))) {
+      html = '';
+      localStorage.removeItem(getEditorPageStorageKey());
     }
 
     if (html && html.trim()) {

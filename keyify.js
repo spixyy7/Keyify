@@ -2132,6 +2132,8 @@ const KEYIFY = (() => {
       if (!res.ok) return;
       const payload = await res.json();
       if (typeof payload.html !== 'string' || !payload.html.trim()) return;
+      /* Reject corrupted snapshots that contain full body content */
+      if (payload.html.includes('<header') || payload.html.includes('<footer') || payload.html.includes('<script')) return;
       const target = document.querySelector('main');
       if (!target) return;
       const liveGrid = target.querySelector('#product-grid');
