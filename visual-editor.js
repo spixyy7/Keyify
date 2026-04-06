@@ -860,28 +860,28 @@
   }
 
   async function boot() {
+    /* Inject editor UI immediately — don't wait for network */
+    injectStyles();
+    injectPdpVariantEditorStyles();
+    injectButtonStudioStyles();
+    injectToolbar();
+
+    /* Hydrate snapshot in background, then wire up editor features */
     await hydrateEditorPageSnapshot();
 
-    /* Re-render dynamic components after snapshot hydration so editor matches public view */
     if (typeof KEYIFY !== 'undefined') {
       if (KEYIFY.repairVisibleText) KEYIFY.repairVisibleText(document.body);
       if (KEYIFY._initHeroRating) KEYIFY._initHeroRating();
       if (KEYIFY._initHeroFeaturedProduct) KEYIFY._initHeroFeaturedProduct();
       if (KEYIFY._wireProductButtons) KEYIFY._wireProductButtons();
-      if (KEYIFY.LANG) KEYIFY.LANG.apply();
     }
 
-
-    injectStyles();
-    injectPdpVariantEditorStyles();
-    injectButtonStudioStyles();
-    injectToolbar();
     watchGrid();
-    initContentEditor();        // existing: [data-ck] key/value text fields
-    initSmartEngine();          // Universal click delegator (replaces initGlobalTextEditing)
-    initSectionHoverControls(); // Floating toolbar on section/header/article hover
+    initContentEditor();
+    initSmartEngine();
+    initSectionHoverControls();
     injectButtonStudioPanel();
-    injectAddSectionBtn();      // NEW: + Dodaj novu sekciju button
+    injectAddSectionBtn();
     initPdpVariantEditor();
   }
 
