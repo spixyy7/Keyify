@@ -2089,15 +2089,14 @@ const KEYIFY = (() => {
     _injectMiniCart();
     _injectNavbarExtras();
     _updateAccountNavbar();
+    CART.updateNavbarText();
+    CART._renderDrawerItems();
     await _hydratePageSnapshot();
     _wireProductButtons();
     _initQuickView();
     _initStorefrontFilters();
     _initHeroRating();
     await _initHeroFeaturedProduct();
-    LANG.apply();
-    CART.updateNavbarText();
-    CART._renderDrawerItems();
     _loadSocialLinks();
     repairVisibleText(document.body);
 
