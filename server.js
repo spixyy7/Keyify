@@ -4226,10 +4226,12 @@ app.get('/api/admin/transaction-logs', authenticateToken, requireAdmin, async (r
 
 /** POST /api/checkout/confirm – confirm payment, send receipt, log encrypted entry */
 const confirmCheckoutHandler = async (req, res) => {
+  try {
   const { buyer_email, buyer_name, guest_email, buyer_inputs, product_id, product_name, package_purchased, amount, payment_method, tx_reference } = req.body;
 
   // Identify buyer
   let userId = null;
+  let authenticatedUserId = null;
   let email  = buyer_email?.trim().toLowerCase() || guest_email?.trim().toLowerCase() || null;
   const authHeader = req.headers['authorization'];
   const jwtToken   = authHeader && authHeader.split(' ')[1];
@@ -4548,6 +4550,12 @@ const confirmCheckoutHandler = async (req, res) => {
     guest_order_url:     guestOrderUrl,
     tracking_url:        trackingUrl,
   });
+  } catch (err) {
+    console.error('[checkout/confirm] unhandled error:', err);
+    if (!res.headersSent) {
+      return res.status(500).json({ error: 'Greška pri obradi narudžbe. Pokušajte ponovo.' });
+    }
+  }
 };
 
 app.post('/api/checkout/confirm', confirmCheckoutHandler);

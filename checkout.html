@@ -923,7 +923,7 @@
           } else {
             alert(result.error || 'Greška pri potvrdi narudžbe.');
           }
-        } catch { alert('Mrežna greška. Pokušajte ponovo.'); }
+        } catch (err) { console.error('[checkout/paypal-confirm]', err); alert('Mrežna greška. Pokušajte ponovo.'); }
       },
       onError: (err) => {
         console.error('PayPal error:', err);
@@ -1002,6 +1002,7 @@
       routeAfterCheckout(data);
 
     } catch (err) {
+      console.error('[checkout/placeOrder]', err);
       if (btn) { btn.disabled = false; btn.textContent = 'Potvrdi narudžbu'; }
       alert('Mrežna greška. Pokušajte ponovo.');
     }
