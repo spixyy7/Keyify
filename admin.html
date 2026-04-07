@@ -4773,6 +4773,9 @@
         if (v.payment_type === 'manual_delivery') {
           proofCell = '<span class="text-xs font-semibold" style="color:#a78bfa">Custom isporuka</span>';
         }
+        if (v.payment_type === 'instagram') {
+          proofCell = '<span class="text-xs font-semibold" style="color:#E1306C">📸 Provjeri Instagram DM</span>';
+        }
 
         const date = new Date(v.created_at).toLocaleDateString('bs-BA', { day:'numeric', month:'short', year:'numeric' });
 
@@ -4780,12 +4783,16 @@
           ? 'PayPal'
           : v.payment_type === 'manual_delivery'
           ? 'Manual delivery'
+          : v.payment_type === 'instagram'
+          ? 'Instagram DM'
           : 'Kripto' + (v.network ? ' · ' + v.network : '');
 
         const paymentColor = v.payment_type === 'paypal'
           ? '#1D6AFF'
           : v.payment_type === 'manual_delivery'
           ? '#a78bfa'
+          : v.payment_type === 'instagram'
+          ? '#E1306C'
           : '#f59e0b';
 
         const actions = v.status === 'pending'

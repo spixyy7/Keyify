@@ -190,6 +190,19 @@
             </div>
           </div>
 
+          <!-- Instagram option -->
+          <label id="ig-check-label" class="flex items-center gap-3 mt-5 p-3.5 rounded-xl cursor-pointer transition-all"
+                 style="background:linear-gradient(135deg,rgba(225,48,108,0.08),rgba(131,58,180,0.08));border:1.5px solid rgba(225,48,108,0.25)">
+            <input type="checkbox" id="ig-check" onchange="toggleInstagram(this.checked)"
+                   class="w-5 h-5 rounded accent-pink-600 flex-shrink-0" style="accent-color:#E1306C"/>
+            <div class="flex items-center gap-2 flex-1 min-w-0">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E1306C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+              </svg>
+              <span class="text-sm font-semibold" style="color:#C13584">Šaljem screenshot preko Instagrama</span>
+            </div>
+          </label>
+
           <!-- Error message -->
           <div id="vp-error" style="display:none" class="mt-4 p-3 rounded-lg text-sm font-medium" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444"></div>
 
@@ -263,6 +276,7 @@
 
     let currentTab = 'paypal';
     let selectedFile = null;
+    let instagramMode = false;
     const API_BASE = window.KEYIFY_CONFIG?.API_BASE || 'http://localhost:3001/api';
 
     // Read order from sessionStorage or URL
@@ -313,6 +327,32 @@
       });
     };
 
+    window.toggleInstagram = function(checked) {
+      instagramMode = checked;
+      const formPaypal = document.getElementById('form-paypal');
+      const formCrypto = document.getElementById('form-crypto');
+      const tabs = document.querySelectorAll('.vp-tab');
+      const btn = document.getElementById('vp-submit-btn');
+
+      if (checked) {
+        formPaypal.style.opacity = '0.35';
+        formPaypal.style.pointerEvents = 'none';
+        formCrypto.style.opacity = '0.35';
+        formCrypto.style.pointerEvents = 'none';
+        tabs.forEach(t => { t.disabled = true; t.style.opacity = '0.35'; t.style.pointerEvents = 'none'; });
+        btn.textContent = 'Potvrdi – šaljem preko Instagrama';
+        btn.style.background = 'linear-gradient(135deg,#E1306C,#C13584,#833AB4)';
+      } else {
+        formPaypal.style.opacity = '';
+        formPaypal.style.pointerEvents = '';
+        formCrypto.style.opacity = '';
+        formCrypto.style.pointerEvents = '';
+        tabs.forEach(t => { t.disabled = false; t.style.opacity = ''; t.style.pointerEvents = ''; });
+        btn.textContent = 'Pošalji dokaz uplate';
+        btn.style.background = 'linear-gradient(135deg,#1D6AFF,#A259FF)';
+      }
+    };
+
     function showError(msg) {
       const el = document.getElementById('vp-error');
       el.textContent = msg;
@@ -332,21 +372,31 @@
       btn.disabled = true;
       btn.textContent = 'Slanje...';
 
+      const resetBtn = () => {
+        btn.disabled = false;
+        btn.textContent = instagramMode ? 'Potvrdi – šaljem preko Instagrama' : 'Pošalji dokaz uplate';
+      };
+
       const fd = new FormData();
       fd.append('transaction_id', txId);
-      fd.append('payment_type', currentTab);
 
-      if (currentTab === 'paypal') {
-        if (!selectedFile) { showError('Priložite screenshot uplate'); btn.disabled = false; btn.textContent = 'Pošalji dokaz uplate'; return; }
-        fd.append('screenshot', selectedFile);
-        fd.append('paypal_email', document.getElementById('paypal-email').value.trim());
-        fd.append('amount', document.getElementById('paypal-amount').value);
+      if (instagramMode) {
+        fd.append('payment_type', 'instagram');
       } else {
-        const hash = document.getElementById('crypto-txhash').value.trim();
-        if (!hash) { showError('Unesite Transaction Hash'); btn.disabled = false; btn.textContent = 'Pošalji dokaz uplate'; return; }
-        fd.append('tx_hash', hash);
-        fd.append('network', document.getElementById('crypto-network').value);
-        fd.append('amount', document.getElementById('crypto-amount').value);
+        fd.append('payment_type', currentTab);
+
+        if (currentTab === 'paypal') {
+          if (!selectedFile) { showError('Priložite screenshot uplate'); resetBtn(); return; }
+          fd.append('screenshot', selectedFile);
+          fd.append('paypal_email', document.getElementById('paypal-email').value.trim());
+          fd.append('amount', document.getElementById('paypal-amount').value);
+        } else {
+          const hash = document.getElementById('crypto-txhash').value.trim();
+          if (!hash) { showError('Unesite Transaction Hash'); resetBtn(); return; }
+          fd.append('tx_hash', hash);
+          fd.append('network', document.getElementById('crypto-network').value);
+          fd.append('amount', document.getElementById('crypto-amount').value);
+        }
       }
 
       const headers = {};
@@ -360,11 +410,16 @@
         const raw = await resp.text();
         let data = {};
         try { data = raw ? JSON.parse(raw) : {}; } catch {}
-        if (!resp.ok) { showError(data.error || raw || 'Greška pri slanju verifikacije'); btn.disabled = false; btn.textContent = 'Pošalji dokaz uplate'; return; }
+        if (!resp.ok) { showError(data.error || raw || 'Greška pri slanju verifikacije'); resetBtn(); return; }
 
         const successOverlay = document.getElementById('vp-success');
         const successCopy = document.getElementById('vp-success-copy');
         const successLink = document.getElementById('vp-success-link');
+
+        if (instagramMode) {
+          successCopy.textContent = 'Obavijestili smo admina da ćete poslati screenshot preko Instagrama. Pošaljite screenshot uplate na @keyifyshop sa vašim ID narudžbe.';
+        }
+
         if (guestOrderUrl) {
           successLink.href = guestOrderUrl;
           successLink.textContent = 'Prati status porudžbine';
@@ -389,8 +444,7 @@
         successOverlay.style.display = 'flex';
       } catch (e) {
         showError('Mrežna greška. Pokušajte ponovo.');
-        btn.disabled = false;
-        btn.textContent = 'Pošalji dokaz uplate';
+        resetBtn();
       }
     };
   })();

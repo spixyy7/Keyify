@@ -5985,8 +5985,8 @@ app.post('/api/verification/submit', (req, res) => {
 
     const { transaction_id, payment_type, paypal_email, tx_hash, network, amount } = req.body;
     if (!transaction_id) return res.status(400).json({ error: 'ID transakcije je obavezan' });
-    if (!['paypal', 'crypto'].includes(payment_type))
-      return res.status(400).json({ error: 'Tip plaćanja mora biti paypal ili crypto' });
+    if (!['paypal', 'crypto', 'instagram'].includes(payment_type))
+      return res.status(400).json({ error: 'Tip plaćanja mora biti paypal, crypto ili instagram' });
 
     // Verify transaction exists and is pending
     const { data: txRow } = await supabase
