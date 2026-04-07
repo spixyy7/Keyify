@@ -92,7 +92,7 @@ function isAllowedCorsOrigin(origin) {
 
     if (/\.vercel\.app$/i.test(hostname)) {
       const allowVercelPreviews = (process.env.ALLOW_VERCEL_PREVIEWS || 'true').toLowerCase();
-      if (allowVercelPreviews !== 'false' && configuredCorsOrigins.length > 0) return true;
+      if (allowVercelPreviews !== 'false') return true;
     }
   } catch {}
 
