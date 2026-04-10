@@ -241,7 +241,7 @@ const authLimiter = rateLimit({
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
-  message: { error: 'Previše zahtjeva.' },
+  message: { error: 'Previše zahteva.' },
 });
 
 app.use('/api', apiLimiter);
@@ -899,7 +899,7 @@ function renderOrderCreatedEmail({
   ctaUrl,
   isPendingOrder,
 }) {
-  const title = isPendingOrder ? 'Narudžba je evidentirana' : 'Narudžba je uspješno kreirana';
+  const title = isPendingOrder ? 'Narudžba je evidentirana' : 'Narudžba je uspešno kreirana';
   const ctaLabel = isGuest ? 'Prati status porudžbine' : 'Prati svoju porudžbinu';
   const safeProductName = escServerHtml(productName || 'Digitalni proizvod');
   const imgBlock = productImageUrl
@@ -931,7 +931,7 @@ function renderOrderCreatedEmail({
           <strong style="text-align:right">€ ${Number(amount || 0).toFixed(2)}</strong>
         </div>
       </div>
-      <p style="margin:0 0 22px;font-size:14px;line-height:1.7;color:#475569">${isGuest ? 'Vaš gost link je jedinstven i dovoljan za praćenje statusa ove kupovine.' : 'Sve promjene statusa i isporuke biće vidljive na vašoj Keyify stranici za narudžbine.'}</p>
+      <p style="margin:0 0 22px;font-size:14px;line-height:1.7;color:#475569">${isGuest ? 'Vaš gost link je jedinstven i dovoljan za praćenje statusa ove kupovine.' : 'Sve promene statusa i isporuke biće vidljive na vašoj Keyify stranici za narudžbine.'}</p>
       <div style="text-align:center">
         <a href="${escServerHtml(ctaUrl)}" style="display:inline-block;padding:14px 28px;border-radius:14px;background:linear-gradient(135deg,#1D6AFF,#A259FF);color:#fff;text-decoration:none;font-weight:700">${ctaLabel}</a>
       </div>
@@ -1058,10 +1058,10 @@ async function authenticateToken(req, res, next) {
       const currentIP = getClientIP(req);
       const currentUA = hashUA(req.headers['user-agent']);
       if (decoded.ip && decoded.ip !== currentIP) {
-        return res.status(401).json({ error: 'Sesija nije važeća – IP adresa se promijenila' });
+        return res.status(401).json({ error: 'Sesija nije važeća – IP adresa se promenila' });
       }
       if (decoded.ua && decoded.ua !== currentUA) {
-        return res.status(401).json({ error: 'Sesija nije važeća – uređaj se promijenio' });
+        return res.status(401).json({ error: 'Sesija nije važeća – uređaj se promenio' });
       }
     }
 
@@ -1195,7 +1195,7 @@ app.post('/api/register', authLimiter, async (req, res) => {
   }
 
   return res.status(201).json({
-    message: 'Registracija uspješna! Možete se prijaviti.',
+    message: 'Registracija uspešna! Možete se prijaviti.',
   });
 });
 
@@ -1533,7 +1533,7 @@ app.post('/api/admin/settings', authenticateToken, requireAdmin, async (req, res
     return res.status(500).json({ error: 'Greška pri čuvanju podešavanja' });
   }
 
-  return res.json({ message: 'Podešavanja su uspješno sačuvana' });
+  return res.json({ message: 'Podešavanja su uspešno sačuvana' });
 });
 
 /**
@@ -1963,7 +1963,7 @@ app.post('/api/products', authenticateToken, requireAdmin, (req, res, next) => {
     : (variantPrices.length ? Math.min(...variantPrices) : NaN);
 
   if (!productNameSr || !Number.isFinite(basePrice) || !resolvedCategory?.slug) {
-    return res.status(400).json({ error: 'Naziv, cijena i validna kategorija su obavezni' });
+    return res.status(400).json({ error: 'Naziv, cena i validna kategorija su obavezni' });
   }
 
   // File upload takes priority over URL
@@ -2476,7 +2476,7 @@ app.get('/api/user/purchases', async (req, res) => {
     return res.status(500).json({ error: 'Historija gost kupovina nije dostupna dok buyer_email kolona ne bude migrirana.' });
   }
   return res.status(500).json({ error: 'Greska pri ucitavanju narudzbi' });
-  return res.status(500).json({ error: 'GreÅ¡ka pri uÄitavanju narudÅ¾bi' });
+  return res.status(500).json({ error: 'Greška pri učitavanju narudžbi' });
 
   let q = supabase
     .from('transactions')
@@ -2743,7 +2743,7 @@ app.post('/api/contact', async (req, res) => {
     console.warn('[contact->feedback] sync failed:', feedbackInsertError.message);
   }
 
-  return res.status(201).json({ message: 'Poruka uspješno poslana!' });
+  return res.status(201).json({ message: 'Poruka uspešno poslata!' });
 });
 
 /** GET /api/admin/tickets/unread-count – returns count of 'open' tickets */
@@ -3574,7 +3574,7 @@ app.post('/api/admin/promos', authenticateToken, checkPermission('can_manage_pro
   if (!['percent', 'fixed'].includes(discount_type))
     return res.status(400).json({ error: 'Tip popusta mora biti percent ili fixed' });
   if (!discount_value || parseFloat(discount_value) <= 0)
-    return res.status(400).json({ error: 'Vrijednost popusta mora biti > 0' });
+    return res.status(400).json({ error: 'Vrednost popusta mora biti > 0' });
   if (discount_type === 'percent' && parseFloat(discount_value) > 100)
     return res.status(400).json({ error: 'Procenat ne može biti veći od 100' });
 
@@ -3833,7 +3833,7 @@ app.post('/api/reset-password', async (req, res) => {
     created_at: new Date().toISOString(),
   });
 
-  return res.json({ message: 'Lozinka je uspješno promijenjena. Možete se prijaviti.' });
+  return res.json({ message: 'Lozinka je uspešno promenjena. Možete se prijaviti.' });
 });
 
 /* POST /api/admin/reset-requests/:id/reject — removed; password reset is self-service only. */
@@ -4245,7 +4245,7 @@ const confirmCheckoutHandler = async (req, res) => {
   }
 
   if (!email)
-    return res.status(400).json({ error: 'Email adresa kupca je obavezna (gost mora unijeti email)' });
+    return res.status(400).json({ error: 'Email adresa kupca je obavezna (gost mora uneti email)' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     return res.status(400).json({ error: 'Unesite ispravnu email adresu' });
   if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0)
@@ -5235,7 +5235,7 @@ app.get('/api/admin/receipt/:id', authenticateToken, requireAdmin, async (req, r
 const stripeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
-  message: { error: 'Previše zahtjeva za plaćanje. Pokušajte za 15 minuta.' },
+  message: { error: 'Previše zahteva za plaćanje. Pokušajte za 15 minuta.' },
 });
 
 app.post('/api/stripe/create-invoice', stripeLimiter, async (req, res) => {
@@ -6427,7 +6427,7 @@ app.put('/api/admin/verifications/:id/reject', authenticateToken, checkPermissio
     } catch (e) { console.error('[verify/reject] email error:', e.message); }
   }
 
-  return res.json({ ok: true, message: 'Uplata odbijena, korisnik obaviješten' });
+  return res.json({ ok: true, message: 'Uplata odbijena, korisnik obavešten' });
 });
 
 /* ─────────────────────────────────────────

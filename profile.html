@@ -1,20 +1,21 @@
 <!DOCTYPE html>
-<html lang="bs">
+<html lang="sr">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Keyify – Moj Profil</title>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet"/>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <script src="theme-init.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
                     fontFamily: {
-                        display: ['Poppins', 'sans-serif'],
-                        body: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                        body: ['DM Sans', 'sans-serif'],
                     },
                     colors: {
                         brand: {
@@ -29,8 +30,8 @@
     </script>
     <style>
         * { box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: #F8F9FB; }
-        h1, h2, h3, .font-display { font-family: 'Poppins', sans-serif; }
+        body { font-family: 'DM Sans', sans-serif; background: #F8F9FB; }
+        h1, h2, h3, .font-display { font-family: 'Outfit', sans-serif; }
 
         .navbar-blur { backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 
@@ -308,7 +309,7 @@
                 <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                 </svg>
-                <span data-i18n="profile.emailSection">Promjena e-maila</span>
+                <span data-i18n="profile.emailSection">Promena e-maila</span>
             </h2>
             <form id="email-form" onsubmit="saveEmail(event)" class="space-y-3">
                 <div>
@@ -336,7 +337,7 @@
                 <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                 </svg>
-                <span data-i18n="profile.passwordSection">Promjena lozinke</span>
+                <span data-i18n="profile.passwordSection">Promena lozinke</span>
             </h2>
             <form id="pass-form" onsubmit="savePassword(event)" class="space-y-3">
                 <div>
@@ -426,7 +427,7 @@
                 </svg>
                 Google nalog
             </h2>
-            <div id="google-link-status" class="text-sm text-gray-500 mb-4">Provjera statusa...</div>
+            <div id="google-link-status" class="text-sm text-gray-500 mb-4">Provera statusa...</div>
             <button id="btn-link-google"
                 class="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-medium text-sm transition-all shadow-sm"
                 style="display:none">
@@ -722,7 +723,7 @@
           display.style.background = 'none';
 
           statusEl.className = 'text-xs mt-1.5 text-green-600';
-          statusEl.textContent = 'Slika uspješno promijenjena!';
+          statusEl.textContent = 'Slika uspešno promenjena!';
           statusEl.classList.remove('hidden');
           setTimeout(() => statusEl.classList.add('hidden'), 3000);
           closeCropModal();
@@ -861,7 +862,7 @@
         // Handle callback params
         const params = new URLSearchParams(window.location.search);
         if (params.get('google_linked') === '1') {
-            toastEl.textContent = 'Google nalog je uspješno povezan!';
+            toastEl.textContent = 'Google nalog je uspešno povezan!';
             toastEl.style.display = 'block';
             history.replaceState({}, '', window.location.pathname);
         }

@@ -174,7 +174,7 @@
       transform:translateY(16px) scale(.96) !important;
       transition:transform .28s cubic-bezier(.34,1.56,.64,1),
                  opacity .22s cubic-bezier(.4,0,.2,1) !important;
-      font-family:'Inter','Segoe UI',system-ui,sans-serif !important;
+      font-family:'DM Sans','Segoe UI',system-ui,sans-serif !important;
     }
     #kfy-chat-win.kfy-visible {
       opacity:1 !important;
@@ -253,30 +253,30 @@
     }
     .kfy-gate-card {
       text-align:left;
-      border:1px solid rgba(148,163,184,0.22);
+      border:1px solid var(--kfy-gate-card-border,rgba(148,163,184,0.22));
       border-radius:16px;
       padding:14px 12px;
-      background:linear-gradient(180deg,rgba(255,255,255,0.92),rgba(248,250,252,0.86));
-      color:#0f172a;
+      background:var(--kfy-gate-card-bg,linear-gradient(180deg,rgba(255,255,255,0.92),rgba(248,250,252,0.86)));
+      color:var(--kfy-gate-card-title,#0f172a);
       cursor:pointer;
-      transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;
-      box-shadow:0 10px 24px rgba(15,23,42,0.06);
+      transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease, background .25s ease;
+      box-shadow:var(--kfy-gate-card-shadow,0 10px 24px rgba(15,23,42,0.06));
     }
     .kfy-gate-card:hover {
       transform:translateY(-2px);
-      border-color:rgba(59,130,246,0.42);
-      box-shadow:0 16px 36px rgba(59,130,246,0.16);
+      border-color:var(--kfy-gate-card-hover-border,rgba(59,130,246,0.42));
+      box-shadow:var(--kfy-gate-card-hover-shadow,0 16px 36px rgba(59,130,246,0.16));
     }
     .kfy-gate-card-title {
       font-size:13px;
       font-weight:800;
       margin-bottom:4px;
-      color:#0f172a;
+      color:var(--kfy-gate-card-title,#0f172a);
     }
     .kfy-gate-card-sub {
       font-size:11px;
       line-height:1.45;
-      color:#64748b;
+      color:var(--kfy-gate-card-sub,#64748b);
     }
     .kfy-gate-select,
     .kfy-gate-textarea {
@@ -294,7 +294,7 @@
     }
     .kfy-gate-select {
       padding:11px 14px;
-      color-scheme:light;
+      color-scheme:var(--kfy-gate-select-scheme,light);
     }
     .kfy-gate-textarea {
       padding:12px 14px;
@@ -312,10 +312,11 @@
       text-align:left;
       font-size:11px;
       font-weight:700;
-      color:#64748b;
+      color:var(--kfy-gate-label-color,#64748b);
       margin-top:12px;
       text-transform:uppercase;
       letter-spacing:.06em;
+      transition:color .25s ease;
     }
 
     /* ── Header (theme-aware via CSS variables) ── */

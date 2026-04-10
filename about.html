@@ -1,12 +1,13 @@
-﻿<!DOCTYPE html>
-<html lang="bs">
+<!DOCTYPE html>
+<html lang="sr">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Keyify â€“ O nama</title>
+    <title>Keyify – O nama</title>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet"/>
 
+    <script src="theme-init.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -14,8 +15,8 @@
             theme: {
                 extend: {
                     fontFamily: {
-                        display: ['Poppins', 'sans-serif'],
-                        body: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                        body: ['DM Sans', 'sans-serif'],
                     },
                     colors: {
                         brand: {
@@ -46,98 +47,107 @@
     </script>
     <style>
         * { box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: #F8F9FB; }
-        h1, h2, h3, .font-display { font-family: 'Poppins', sans-serif; }
+        body { font-family: 'DM Sans', sans-serif; background: #F8F9FB; }
+        h1, h2, h3, .font-display { font-family: 'Outfit', sans-serif; }
 
         /* Navbar blur */
         .navbar-blur { backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 
-        /* Hero gradient */
-        .hero-gradient {
-            background: linear-gradient(135deg,
-            #FFF5EC 0%,
-            #FDECD5 20%,
-            #FCE4E4 45%,
-            #EDE9FD 70%,
-            #E8EFFE 100%
-            );
+        /* ── Theme-Aware Hero ─────────────────────────── */
+        .about-hero {
+            background: linear-gradient(160deg, #f0f4ff 0%, #f5f0ff 35%, #fff5f0 60%, #f0f8ff 100%);
+        }
+        [data-theme="dark"] .about-hero {
+            background: linear-gradient(160deg, #06080d 0%, #0a0e1e 35%, #0d0820 60%, #080c18 100%) !important;
+        }
+        .hero-mesh {
+            position: absolute; inset: 0;
+            background-image:
+                radial-gradient(ellipse 600px 400px at 25% 50%, rgba(29,106,255,0.07) 0%, transparent 70%),
+                radial-gradient(ellipse 500px 350px at 75% 30%, rgba(162,89,255,0.05) 0%, transparent 70%);
+        }
+        [data-theme="dark"] .hero-mesh {
+            background-image:
+                radial-gradient(ellipse 600px 400px at 25% 50%, rgba(29,106,255,0.20) 0%, transparent 70%),
+                radial-gradient(ellipse 500px 350px at 75% 30%, rgba(162,89,255,0.15) 0%, transparent 70%) !important;
+        }
+        .hero-grid {
+            position: absolute; inset: 0;
+            background-image:
+                linear-gradient(rgba(29,106,255,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(29,106,255,0.04) 1px, transparent 1px);
+            background-size: 56px 56px;
+            mask-image: radial-gradient(ellipse 80% 70% at center, black, transparent);
+            -webkit-mask-image: radial-gradient(ellipse 80% 70% at center, black, transparent);
+        }
+        [data-theme="dark"] .hero-grid {
+            background-image:
+                linear-gradient(rgba(29,106,255,0.07) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(29,106,255,0.07) 1px, transparent 1px) !important;
         }
 
-        /* Glassmorphism card image */
-        .glass-card {
-            background: rgba(255,255,255,0.08);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            border: 1px solid rgba(255,255,255,0.18);
+        /* ── Stat Cards ──────────────────────────────── */
+        .stat-card {
+            position: relative; overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .stat-card::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, var(--stat-accent, #1D6AFF), var(--stat-accent-end, #A259FF));
+            opacity: 0; transition: opacity 0.3s ease;
+        }
+        .stat-card:hover::after { opacity: 1; }
+        .stat-card:hover { transform: translateY(-4px); }
+        [data-theme="dark"] .stat-card:hover { box-shadow: 0 16px 48px rgba(29,106,255,0.15) !important; }
+
+        /* ── Team Cards ──────────────────────────────── */
+        .team-card {
+            transition: transform 0.35s cubic-bezier(.22,.68,0,1.2), box-shadow 0.3s ease;
+        }
+        .team-card:hover { transform: translateY(-8px); }
+        [data-theme="dark"] .team-card:hover { box-shadow: 0 24px 56px rgba(29,106,255,0.12) !important; }
+        .avatar-ring {
+            padding: 3px; border-radius: 22px;
+            background: linear-gradient(135deg, var(--ring-from, #1D6AFF), var(--ring-to, #A259FF));
         }
 
-        /* Product card hover */
-        .product-card {
-            transition: transform 0.28s cubic-bezier(.22,.68,0,1.2), box-shadow 0.28s ease;
+        /* ── Value Cards ─────────────────────────────── */
+        .value-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
-        .product-card:hover {
-            transform: translateY(-6px);
-            box-shadow: 0 20px 48px rgba(29,106,255,0.12);
+        .value-card:hover { transform: translateY(-5px); }
+        [data-theme="dark"] .value-card:hover { box-shadow: 0 16px 40px rgba(29,106,255,0.12) !important; }
+        .value-icon { transition: transform 0.3s ease; }
+        .value-card:hover .value-icon { transform: scale(1.1) rotate(-3deg); }
+
+        /* ── CTA Section ─────────────────────────────── */
+        .cta-section {
+            background: linear-gradient(160deg, #eef3ff 0%, #f5f0ff 50%, #fff5f5 100%);
+        }
+        [data-theme="dark"] .cta-section {
+            background: linear-gradient(160deg, #080c1a 0%, #0d1224 50%, #10082a 100%) !important;
         }
 
-        /* Quick view overlay */
-        .quick-view-overlay { opacity: 0; transition: opacity 0.2s ease; }
-        .product-card:hover .quick-view-overlay { opacity: 1; }
-
-        /* Animated underline nav links */
-        .nav-link { position: relative; }
-        .nav-link::after {
-            content: '';
-            position: absolute;
-            bottom: -2px; left: 0; right: 0;
-            height: 2px;
-            background: #1D6AFF;
-            transform: scaleX(0);
-            transform-origin: center;
-            transition: transform 0.2s ease;
-        }
-        .nav-link:hover::after { transform: scaleX(1); }
-
-        /* Staggered card animation */
+        /* ── Staggered animation ─────────────────────── */
         .card-animate { animation: fadeUp 0.6s ease both; }
         .card-animate:nth-child(1) { animation-delay: 0.05s; }
         .card-animate:nth-child(2) { animation-delay: 0.15s; }
         .card-animate:nth-child(3) { animation-delay: 0.25s; }
         .card-animate:nth-child(4) { animation-delay: 0.35s; }
-        .card-animate:nth-child(5) { animation-delay: 0.45s; }
 
-        /* Blob decorations */
-        .blob {
-            border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-            filter: blur(40px);
-            opacity: 0.45;
-        }
-
-        /* Dropdown */
+        /* ── Dropdown / Mobile ───────────────────────── */
         .dropdown-menu { display: none; }
         .dropdown-menu.is-open { display: block; }
-        @media (min-width: 1024px) {
-            .dropdown:hover > .dropdown-menu { display: block; }
-        }
-        /* Mobile menu */
+        @media (min-width: 1024px) { .dropdown:hover > .dropdown-menu { display: block; } }
         #mobile-menu { display: none; }
         #mobile-menu.open { display: block; }
-        /* Minimal header */
         #main-header[data-kf-minimal] { box-shadow: none; }
 
-        /* Category card hover */
-        .category-card {
-            transition: transform 0.28s cubic-bezier(.22,.68,0,1.2), box-shadow 0.28s ease;
-        }
-        .category-card:hover {
-            transform: translateY(-6px) scale(1.02);
-            box-shadow: 0 24px 56px rgba(0,0,0,0.18);
-        }
-
-        /* Custom scrollbar */
+        /* ── Scrollbar ───────────────────────────────── */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #1D6AFF; border-radius: 3px; }
+        [data-theme="dark"] ::-webkit-scrollbar-track { background: #0a0f1e; }
     </style>
 </head>
 <body class="antialiased">
@@ -147,7 +157,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center h-[62px] gap-8">
 
-            <!-- â”€â”€ LOGO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+            <!-- LOGO -->
             <a href="index.html" class="flex items-center gap-2 flex-shrink-0 select-none">
                 <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                      style="background: linear-gradient(135deg,#1D6AFF,#A259FF)">
@@ -162,15 +172,13 @@
                 </span>
             </a>
 
-            <!-- â”€â”€ DESKTOP NAV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+            <!-- DESKTOP NAV -->
             <nav class="hidden lg:flex items-center flex-1">
-
                 <a href="index.html"
                    class="px-3 py-2 text-[13.5px] font-bold text-gray-700 hover:text-gray-950 whitespace-nowrap select-none transition-colors duration-150">
-                    PoÄetna
+                    Početna
                 </a>
-
-                <!-- Shop Software â†“ -->
+                <!-- Shop Software -->
                 <div class="dropdown relative">
                     <button class="kf-dd-trigger flex items-center gap-[5px] px-3 py-2
                                    text-[13.5px] font-bold text-gray-700 hover:text-gray-950
@@ -202,8 +210,7 @@
                             Windows &amp; Office</a>
                     </div>
                 </div>
-
-                <!-- Shop Streaming â†“ -->
+                <!-- Shop Streaming -->
                 <div class="dropdown relative">
                     <button class="kf-dd-trigger flex items-center gap-[5px] px-3 py-2
                                    text-[13.5px] font-bold text-gray-700 hover:text-gray-950
@@ -231,7 +238,6 @@
                             TV/Video Streaming</a>
                     </div>
                 </div>
-
                 <!-- Shop AI -->
                 <a href="ai.html"
                    class="flex items-center gap-[5px] px-3 py-2
@@ -248,15 +254,11 @@
                     </svg>
                     Shop AI
                 </a>
-
-                <!-- O nama -->
                 <a href="about.html"
                    class="px-3 py-2 text-[13.5px] font-bold text-blue-600
                           whitespace-nowrap transition-colors duration-150 select-none">
                     O nama
                 </a>
-
-                <!-- Kontakt -->
                 <a href="contact.html"
                    class="px-3 py-2 text-[13.5px] font-bold text-gray-700 hover:text-gray-950
                           whitespace-nowrap transition-colors duration-150 select-none">
@@ -264,13 +266,13 @@
                 </a>
             </nav>
 
-            <!-- â”€â”€ RIGHT SIDE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+            <!-- RIGHT SIDE -->
             <div class="flex items-center gap-2 ml-auto">
                 <button id="kf-search-btn"
                         class="hidden sm:flex items-center justify-center w-9 h-9
                                text-gray-500 hover:text-blue-600 hover:bg-blue-50
                                rounded-lg transition-colors duration-150"
-                        title="PretraÅ¾i">
+                        title="Pretraži">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="M21 21l-4.35-4.35"/>
                     </svg>
@@ -290,10 +292,9 @@
                         <path stroke-linecap="round" stroke-linejoin="round"
                               d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
                     </svg>
-                    <span>Korpa â‚¬ 0,00</span>
+                    <span>Korpa € 0,00</span>
                 </button>
 
-                <!-- Mobile hamburger -->
                 <button id="mobile-toggle"
                         class="lg:hidden flex items-center justify-center w-9 h-9
                                text-gray-500 hover:bg-gray-100 rounded-lg transition-colors duration-150">
@@ -305,133 +306,133 @@
                     </svg>
                 </button>
             </div>
-
         </div>
     </div>
 
-    <!-- â”€â”€ MOBILE MENU â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- MOBILE MENU -->
     <div id="mobile-menu" class="lg:hidden border-t border-gray-100 bg-white">
         <div class="px-4 py-3 space-y-0.5">
-            <a href="index.html"
-               class="text-gray-700 px-3 py-2.5 rounded-lg text-sm font-bold transition-colors">
-                PoÄetna
-            </a>
-            <div class="px-3 pt-3 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
-                Shop Software
-            </div>
-            <a href="design.html"
-               class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                Design &amp; Creativity</a>
-            <a href="business.html"
-               class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                Business Software</a>
-            <a href="windows.html"
-               class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                Windows &amp; Office</a>
-            <div class="px-3 pt-3 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
-                Shop Streaming
-            </div>
-            <a href="music.html"
-               class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                Music Streaming</a>
-            <a href="streaming.html"
-               class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                TV/Video Streaming</a>
-            <a href="ai.html"
-               class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                Shop AI</a>
-            <a href="about.html"
-               class="block px-3 py-2.5 rounded-lg text-sm font-medium text-blue-600 bg-blue-50/70 font-bold hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                O nama</a>
-            <a href="contact.html"
-               class="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                Kontakt</a>
+            <a href="index.html" class="text-gray-700 px-3 py-2.5 rounded-lg text-sm font-bold transition-colors">Početna</a>
+            <div class="px-3 pt-3 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Shop Software</div>
+            <a href="design.html" class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">Design &amp; Creativity</a>
+            <a href="business.html" class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">Business Software</a>
+            <a href="windows.html" class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">Windows &amp; Office</a>
+            <div class="px-3 pt-3 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Shop Streaming</div>
+            <a href="music.html" class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">Music Streaming</a>
+            <a href="streaming.html" class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">TV/Video Streaming</a>
+            <a href="ai.html" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">Shop AI</a>
+            <a href="about.html" class="block px-3 py-2.5 rounded-lg text-sm font-medium text-blue-600 bg-blue-50/70 font-bold hover:bg-blue-50 hover:text-blue-600 transition-colors">O nama</a>
+            <a href="contact.html" class="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">Kontakt</a>
         </div>
     </div>
 </header>
 
 
-<!-- HERO SECTION -->
-<section style="background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);" class="relative overflow-hidden py-20 sm:py-28">
-    <div class="blob absolute -top-20 -left-20 w-96 h-96 pointer-events-none" style="background: #1D6AFF; opacity: 0.12;"></div>
-    <div class="blob absolute top-10 right-10 w-72 h-72 pointer-events-none" style="background: #A259FF; opacity: 0.10;"></div>
-    <div class="blob absolute bottom-0 left-1/3 w-64 h-64 pointer-events-none" style="background: #1D6AFF; opacity: 0.08;"></div>
+<!-- ═══════════════════════════════════════════════════════
+     HERO SECTION — Theme-Aware Gradient Mesh
+═══════════════════════════════════════════════════════ -->
+<section class="about-hero relative py-24 sm:py-32 overflow-hidden">
+    <div class="hero-mesh"></div>
+    <div class="hero-grid"></div>
 
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
-        <div class="inline-flex items-center gap-2 bg-white/10 backdrop-blur border border-white/20 text-blue-300 text-xs font-bold tracking-widest uppercase rounded-full px-4 py-1.5 mb-6">
+    <div class="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div class="inline-flex items-center gap-2 bg-blue-50 border border-blue-100 text-blue-600 text-xs font-bold tracking-widest uppercase rounded-full px-5 py-2 mb-8">
             <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-            <span data-ck="about_hero_badge">NaÅ¡a priÄa</span>
+            <span data-ck="about_hero_badge">Naša priča</span>
         </div>
-        <h1 class="font-display text-4xl sm:text-5xl xl:text-6xl font-bold text-white leading-tight tracking-tight mb-5">
-            <span data-ck="about_hero_title">O nama</span>
+
+        <h1 class="font-display text-4xl sm:text-5xl xl:text-6xl font-bold text-gray-900 leading-[1.08] tracking-tight mb-6" data-ck="about_hero_title">
+            Premium digitalne licence<br class="hidden sm:block"/> dostupne svima
         </h1>
-        <p class="text-gray-300 text-lg sm:text-xl leading-relaxed max-w-2xl mx-auto font-medium" data-ck="about_hero_subtitle">
-            VaÅ¡ pouzdani partner za digitalne licence
+
+        <p class="text-gray-500 text-lg sm:text-xl leading-relaxed max-w-2xl mx-auto font-medium" data-ck="about_hero_subtitle">
+            Vaš pouzdani partner za originalni softver, pretplate i digitalne ključeve po najboljim cenama na tržištu.
         </p>
     </div>
 </section>
 
 
-<!-- STATS ROW -->
-<section class="bg-white border-b border-gray-100 py-10">
+<!-- ═══════════════════════════════════════════════════════
+     STATS — Overlapping Cards with Gradient Accent
+═══════════════════════════════════════════════════════ -->
+<section class="relative z-10 -mt-10 pb-20">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center">
-            <div class="card-animate">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+
+            <div class="stat-card card-animate bg-white rounded-2xl p-5 sm:p-6 border border-gray-100 shadow-lg" style="--stat-accent:#1D6AFF;--stat-accent-end:#60a5fa">
+                <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center mb-4">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                </div>
                 <div class="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-1"><span data-ck="about_stat1_num">2400</span><span class="text-blue-600">+</span></div>
                 <div class="text-sm text-gray-500 font-medium" data-ck="about_stat1_label">Zadovoljnih kupaca</div>
             </div>
-            <div class="card-animate">
-                <div class="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-1"><span data-ck="about_stat2_num">150</span><span class="text-blue-600">+</span></div>
+
+            <div class="stat-card card-animate bg-white rounded-2xl p-5 sm:p-6 border border-gray-100 shadow-lg" style="--stat-accent:#A259FF;--stat-accent-end:#c084fc">
+                <div class="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center mb-4">
+                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                </div>
+                <div class="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-1"><span data-ck="about_stat2_num">150</span><span class="text-purple-600">+</span></div>
                 <div class="text-sm text-gray-500 font-medium" data-ck="about_stat2_label">Digitalnih proizvoda</div>
             </div>
-            <div class="card-animate">
-                <div class="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-1"><span data-ck="about_stat3_num">98</span><span class="text-blue-600">%</span></div>
-                <div class="text-sm text-gray-500 font-medium" data-ck="about_stat3_label">Pozitivnih ocjena</div>
+
+            <div class="stat-card card-animate bg-white rounded-2xl p-5 sm:p-6 border border-gray-100 shadow-lg" style="--stat-accent:#10b981;--stat-accent-end:#34d399">
+                <div class="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center mb-4">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <div class="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-1"><span data-ck="about_stat3_num">98</span><span class="text-green-600">%</span></div>
+                <div class="text-sm text-gray-500 font-medium" data-ck="about_stat3_label">Pozitivnih ocena</div>
             </div>
-            <div class="card-animate">
-                <div class="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-1"><span data-ck="about_stat4_num">4.9</span><span class="text-blue-600">/5</span></div>
-                <div class="text-sm text-gray-500 font-medium" data-ck="about_stat4_label">ProsjeÄna ocjena</div>
+
+            <div class="stat-card card-animate bg-white rounded-2xl p-5 sm:p-6 border border-gray-100 shadow-lg" style="--stat-accent:#f59e0b;--stat-accent-end:#fbbf24">
+                <div class="w-10 h-10 rounded-xl bg-yellow-50 flex items-center justify-center mb-4">
+                    <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+                </div>
+                <div class="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-1"><span data-ck="about_stat4_num">4.9</span><span class="text-yellow-600">/5</span></div>
+                <div class="text-sm text-gray-500 font-medium" data-ck="about_stat4_label">Prosečna ocena</div>
             </div>
+
         </div>
     </div>
 </section>
 
 
-<!-- MISSION SECTION -->
-<section class="py-20 bg-gray-50">
+<!-- ═══════════════════════════════════════════════════════
+     MISSION SECTION — Two-Column Storytelling
+═══════════════════════════════════════════════════════ -->
+<section class="py-20 sm:py-28 bg-gray-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-14 items-center">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
 
             <div>
-                <div class="inline-flex items-center gap-2 bg-blue-50 text-blue-600 text-xs font-bold tracking-widest uppercase rounded-full px-4 py-1.5 mb-5">
-                    <span data-ck="about_mission_badge">NaÅ¡a misija</span>
+                <div class="inline-flex items-center gap-2 bg-blue-50 border border-blue-100 text-blue-600 text-xs font-bold tracking-widest uppercase rounded-full px-4 py-1.5 mb-6">
+                    <span data-ck="about_mission_badge">Naša misija</span>
                 </div>
                 <h2 class="font-display text-3xl sm:text-4xl font-bold text-gray-900 leading-tight mb-6" data-ck="about_mission_title">
                     Digitalne licence dostupne svima
                 </h2>
                 <div class="space-y-4 text-gray-600 text-base leading-relaxed font-medium">
                     <p data-ck="about_mission_p1">
-                        Keyify je osnovan s jednom jasnom vizijom: uÄiniti premium digitalni softver i servise dostupnim svim korisnicima na Balkanu, bez da moraju plaÄ‡ati previsoke maloprodajne cijene.
+                        Keyify je osnovan s jednom jasnom vizijom: učiniti premium digitalni softver i servise dostupnim svim korisnicima na Balkanu, bez da moraju plaćati previsoke maloprodajne cene.
                     </p>
                     <p>
-                        SaraÄ‘ujemo direktno s provjerenim distributerima i partnerima Å¡irom Evrope, Å¡to nam omoguÄ‡ava da nudimo <span class="text-gray-900 font-semibold">100% originalne kljuÄeve</span> po cijenama koje su i do 70% niÅ¾e od zvaniÄne maloprodaje.
+                        Sarađujemo direktno s proverenim distributerima i partnerima širom Evrope, što nam omogućava da nudimo <span class="text-gray-900 font-semibold">100% originalne ključeve</span> po cenama koje su i do 70% niže od zvanične maloprodaje.
                     </p>
                     <p>
-                        Od alata za produktivnost poput Microsoft 365, do kreativnih paketa kao Å¡to je Adobe Creative Cloud, AI pretplata i streaming servisa â€” sve Å¡to vam treba za digitalni Å¾ivot je na jednom mjestu.
+                        Od alata za produktivnost poput Microsoft 365, do kreativnih paketa kao što je Adobe Creative Cloud, AI pretplata i streaming servisa – sve što vam treba za digitalni život je na jednom mestu.
                     </p>
                 </div>
-                <div class="mt-8 flex flex-wrap gap-4">
+                <div class="mt-8 flex flex-wrap gap-3">
                     <div class="flex items-center gap-2.5 bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
                         <div class="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
                             <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                         </div>
-                        <span class="text-sm font-semibold text-gray-800">Originalni kljuÄevi</span>
+                        <span class="text-sm font-semibold text-gray-800">Originalni ključevi</span>
                     </div>
                     <div class="flex items-center gap-2.5 bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
                         <div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
                             <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                         </div>
-                        <span class="text-sm font-semibold text-gray-800">Sigurna plaÄ‡anja</span>
+                        <span class="text-sm font-semibold text-gray-800">Sigurna plaćanja</span>
                     </div>
                     <div class="flex items-center gap-2.5 bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
                         <div class="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
@@ -442,24 +443,21 @@
                 </div>
             </div>
 
-            <!-- SVG Illustration -->
+            <!-- Dashboard Illustration -->
             <div class="flex justify-center lg:justify-end">
                 <div class="relative w-full max-w-sm">
-                    <div class="rounded-3xl overflow-hidden shadow-2xl relative" style="background: linear-gradient(145deg, #0f0f1a, #1e1e2e); min-height: 360px;">
+                    <div class="rounded-3xl overflow-hidden shadow-2xl relative bg-gray-900 border border-gray-800" style="min-height: 360px;">
                         <div class="absolute top-6 left-6 w-40 h-40 rounded-full opacity-15" style="background: radial-gradient(circle, #1D6AFF, transparent); filter: blur(30px);"></div>
                         <div class="absolute bottom-6 right-6 w-32 h-32 rounded-full opacity-15" style="background: radial-gradient(circle, #A259FF, transparent); filter: blur(25px);"></div>
 
-                        <!-- Central card illustration -->
                         <div class="absolute inset-0 flex items-center justify-center p-8">
                             <div class="w-full">
-                                <!-- Top bar -->
                                 <div class="flex items-center gap-2 mb-5">
                                     <div class="w-2.5 h-2.5 rounded-full bg-red-400 opacity-80"></div>
                                     <div class="w-2.5 h-2.5 rounded-full bg-yellow-400 opacity-80"></div>
                                     <div class="w-2.5 h-2.5 rounded-full bg-green-400 opacity-80"></div>
                                     <div class="flex-1 h-5 rounded-md ml-2" style="background: rgba(255,255,255,0.06);"></div>
                                 </div>
-                                <!-- Content rows -->
                                 <div class="space-y-3">
                                     <div class="flex items-center gap-3 p-3 rounded-xl" style="background: rgba(29,106,255,0.15); border: 1px solid rgba(29,106,255,0.25);">
                                         <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white text-sm" style="background: linear-gradient(135deg,#185ABD,#2B7CD3)">W</div>
@@ -488,9 +486,8 @@
                                         <div class="text-green-400 text-xs font-semibold">Aktivan</div>
                                     </div>
                                 </div>
-                                <!-- Bottom label -->
                                 <div class="mt-5 text-center">
-                                    <p class="text-white/30 text-xs font-medium">Sve vaÅ¡e licence na jednom mjestu</p>
+                                    <p class="text-white/30 text-xs font-medium">Sve vaše licence na jednom mestu</p>
                                 </div>
                             </div>
                         </div>
@@ -509,68 +506,76 @@
 </section>
 
 
-<!-- TEAM SECTION -->
-<section class="py-20 bg-white">
+<!-- ═══════════════════════════════════════════════════════
+     TEAM SECTION — Premium Profile Cards
+═══════════════════════════════════════════════════════ -->
+<section class="py-20 sm:py-28 bg-white">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="text-center mb-14">
-            <div class="inline-flex items-center gap-2 bg-blue-50 text-blue-600 text-xs font-bold tracking-widest uppercase rounded-full px-4 py-1.5 mb-4">
-                <span data-ck="about_team_badge">NaÅ¡ tim</span>
+        <div class="text-center mb-16">
+            <div class="inline-flex items-center gap-2 bg-blue-50 border border-blue-100 text-blue-600 text-xs font-bold tracking-widest uppercase rounded-full px-4 py-1.5 mb-5">
+                <span data-ck="about_team_badge">Naš tim</span>
             </div>
-            <h2 class="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-3" data-ck="about_team_title">Ljudi iza Keyify-a</h2>
-            <p class="text-gray-500 text-base font-medium max-w-xl mx-auto" data-ck="about_team_subtitle">Strasni timovi koji svaki dan rade da bi vam donijeli najbolje digitalne licence po najboljim cijenama.</p>
+            <h2 class="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-4" data-ck="about_team_title">Ljudi iza Keyify-a</h2>
+            <p class="text-gray-500 text-base font-medium max-w-xl mx-auto" data-ck="about_team_subtitle">Strasni profesionalci koji svaki dan rade da bi vam doneli najbolje digitalne licence po najboljim cenama.</p>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
 
             <!-- Team Member 1 -->
-            <div class="card-animate bg-gray-50 rounded-2xl p-6 text-center border border-gray-100 hover:border-blue-200 hover:shadow-lg transition-all duration-300">
-                <div class="w-20 h-20 mx-auto mb-4 rounded-2xl overflow-hidden" style="background: linear-gradient(135deg, #1D6AFF, #A259FF);">
-                    <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
-                        <circle cx="40" cy="32" r="14" fill="rgba(255,255,255,0.3)"/>
-                        <ellipse cx="40" cy="72" rx="24" ry="16" fill="rgba(255,255,255,0.2)"/>
-                        <circle cx="40" cy="32" r="10" fill="rgba(255,255,255,0.5)"/>
-                        <circle cx="36" cy="30" r="2" fill="white"/>
-                        <circle cx="44" cy="30" r="2" fill="white"/>
-                        <path d="M36 37 Q40 41 44 37" stroke="white" stroke-width="1.5" stroke-linecap="round" fill="none"/>
-                    </svg>
+            <div class="team-card card-animate bg-gray-50 rounded-2xl p-8 text-center border border-gray-100 hover:border-blue-200 hover:shadow-xl">
+                <div class="avatar-ring w-24 h-24 mx-auto mb-5" style="--ring-from:#1D6AFF;--ring-to:#A259FF">
+                    <div class="w-full h-full rounded-[19px] overflow-hidden" style="background: linear-gradient(135deg, #1D6AFF, #A259FF);">
+                        <svg viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                            <circle cx="48" cy="38" r="16" fill="rgba(255,255,255,0.35)"/>
+                            <circle cx="48" cy="38" r="12" fill="rgba(255,255,255,0.55)"/>
+                            <ellipse cx="48" cy="86" rx="28" ry="18" fill="rgba(255,255,255,0.25)"/>
+                            <circle cx="43" cy="36" r="2.5" fill="white"/>
+                            <circle cx="53" cy="36" r="2.5" fill="white"/>
+                            <path d="M43 44 Q48 49 53 44" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/>
+                        </svg>
+                    </div>
                 </div>
-                <h3 class="font-display font-bold text-gray-900 text-base mb-1" data-ck="about_member1_name">Amir HadÅ¾iÄ‡</h3>
-                <p class="text-blue-600 text-xs font-semibold uppercase tracking-wide mb-3" data-ck="about_member1_role">OsnivaÄ & CEO</p>
-                <p class="text-gray-500 text-sm leading-relaxed" data-ck="about_member1_bio">Vizionar i pokretaÄ projekta Keyify. StruÄnjak za digitalni marketing s viÅ¡e od 8 godina iskustva u e-commerce industriji.</p>
+                <h3 class="font-display font-bold text-gray-900 text-lg mb-1" data-ck="about_member1_name">Amir Hadžić</h3>
+                <p class="text-blue-600 text-xs font-bold uppercase tracking-wider mb-4" data-ck="about_member1_role">Osnivač &amp; CEO</p>
+                <p class="text-gray-500 text-sm leading-relaxed" data-ck="about_member1_bio">Vizionar i pokretač projekta Keyify. Stručnjak za digitalni marketing s više od 8 godina iskustva u e-commerce industriji.</p>
             </div>
 
             <!-- Team Member 2 -->
-            <div class="card-animate bg-gray-50 rounded-2xl p-6 text-center border border-gray-100 hover:border-blue-200 hover:shadow-lg transition-all duration-300">
-                <div class="w-20 h-20 mx-auto mb-4 rounded-2xl overflow-hidden" style="background: linear-gradient(135deg, #19c37d, #0ba360);">
-                    <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
-                        <circle cx="40" cy="32" r="14" fill="rgba(255,255,255,0.3)"/>
-                        <ellipse cx="40" cy="72" rx="24" ry="16" fill="rgba(255,255,255,0.2)"/>
-                        <circle cx="40" cy="32" r="10" fill="rgba(255,255,255,0.5)"/>
-                        <circle cx="36" cy="30" r="2" fill="white"/>
-                        <circle cx="44" cy="30" r="2" fill="white"/>
-                        <path d="M36 37 Q40 41 44 37" stroke="white" stroke-width="1.5" stroke-linecap="round" fill="none"/>
-                    </svg>
+            <div class="team-card card-animate bg-gray-50 rounded-2xl p-8 text-center border border-gray-100 hover:border-green-200 hover:shadow-xl">
+                <div class="avatar-ring w-24 h-24 mx-auto mb-5" style="--ring-from:#19c37d;--ring-to:#0ba360">
+                    <div class="w-full h-full rounded-[19px] overflow-hidden" style="background: linear-gradient(135deg, #19c37d, #0ba360);">
+                        <svg viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                            <circle cx="48" cy="38" r="16" fill="rgba(255,255,255,0.35)"/>
+                            <circle cx="48" cy="38" r="12" fill="rgba(255,255,255,0.55)"/>
+                            <ellipse cx="48" cy="86" rx="28" ry="18" fill="rgba(255,255,255,0.25)"/>
+                            <circle cx="43" cy="36" r="2.5" fill="white"/>
+                            <circle cx="53" cy="36" r="2.5" fill="white"/>
+                            <path d="M43 44 Q48 49 53 44" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/>
+                        </svg>
+                    </div>
                 </div>
-                <h3 class="font-display font-bold text-gray-900 text-base mb-1" data-ck="about_member2_name">Sara KovaÄeviÄ‡</h3>
-                <p class="text-green-600 text-xs font-semibold uppercase tracking-wide mb-3" data-ck="about_member2_role">Head of Operations</p>
-                <p class="text-gray-500 text-sm leading-relaxed" data-ck="about_member2_bio">ZaduÅ¾ena za odnose s dobavljaÄima i osiguranje kvaliteta svakog kljuÄa. Magistar ekonomije s fokusom na upravljanje nabavkom.</p>
+                <h3 class="font-display font-bold text-gray-900 text-lg mb-1" data-ck="about_member2_name">Sara Kovačević</h3>
+                <p class="text-green-600 text-xs font-bold uppercase tracking-wider mb-4" data-ck="about_member2_role">Head of Operations</p>
+                <p class="text-gray-500 text-sm leading-relaxed" data-ck="about_member2_bio">Zadužena za odnose s dobavljačima i osiguranje kvaliteta svakog ključa. Magistar ekonomije s fokusom na upravljanje nabavkom.</p>
             </div>
 
             <!-- Team Member 3 -->
-            <div class="card-animate bg-gray-50 rounded-2xl p-6 text-center border border-gray-100 hover:border-blue-200 hover:shadow-lg transition-all duration-300">
-                <div class="w-20 h-20 mx-auto mb-4 rounded-2xl overflow-hidden" style="background: linear-gradient(135deg, #FF6B35, #E05C31);">
-                    <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
-                        <circle cx="40" cy="32" r="14" fill="rgba(255,255,255,0.3)"/>
-                        <ellipse cx="40" cy="72" rx="24" ry="16" fill="rgba(255,255,255,0.2)"/>
-                        <circle cx="40" cy="32" r="10" fill="rgba(255,255,255,0.5)"/>
-                        <circle cx="36" cy="30" r="2" fill="white"/>
-                        <circle cx="44" cy="30" r="2" fill="white"/>
-                        <path d="M36 37 Q40 41 44 37" stroke="white" stroke-width="1.5" stroke-linecap="round" fill="none"/>
-                    </svg>
+            <div class="team-card card-animate bg-gray-50 rounded-2xl p-8 text-center border border-gray-100 hover:border-orange-200 hover:shadow-xl">
+                <div class="avatar-ring w-24 h-24 mx-auto mb-5" style="--ring-from:#FF6B35;--ring-to:#E05C31">
+                    <div class="w-full h-full rounded-[19px] overflow-hidden" style="background: linear-gradient(135deg, #FF6B35, #E05C31);">
+                        <svg viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                            <circle cx="48" cy="38" r="16" fill="rgba(255,255,255,0.35)"/>
+                            <circle cx="48" cy="38" r="12" fill="rgba(255,255,255,0.55)"/>
+                            <ellipse cx="48" cy="86" rx="28" ry="18" fill="rgba(255,255,255,0.25)"/>
+                            <circle cx="43" cy="36" r="2.5" fill="white"/>
+                            <circle cx="53" cy="36" r="2.5" fill="white"/>
+                            <path d="M43 44 Q48 49 53 44" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/>
+                        </svg>
+                    </div>
                 </div>
-                <h3 class="font-display font-bold text-gray-900 text-base mb-1" data-ck="about_member3_name">Tarik MeÅ¡iÄ‡</h3>
-                <p class="text-orange-600 text-xs font-semibold uppercase tracking-wide mb-3" data-ck="about_member3_role">Lead Developer</p>
-                <p class="text-gray-500 text-sm leading-relaxed" data-ck="about_member3_bio">Gradi i odrÅ¾ava Keyify platformu. Full-stack developer s iskustvom u skalabilnim e-commerce sistemima i sigurnosnim protokolima.</p>
+                <h3 class="font-display font-bold text-gray-900 text-lg mb-1" data-ck="about_member3_name">Tarik Mešić</h3>
+                <p class="text-orange-600 text-xs font-bold uppercase tracking-wider mb-4" data-ck="about_member3_role">Lead Developer</p>
+                <p class="text-gray-500 text-sm leading-relaxed" data-ck="about_member3_bio">Gradi i održava Keyify platformu. Full-stack developer s iskustvom u skalabilnim e-commerce sistemima i sigurnosnim protokolima.</p>
             </div>
 
         </div>
@@ -578,57 +583,59 @@
 </section>
 
 
-<!-- TRUST / VALUES SECTION -->
-<section class="py-20 bg-gray-50">
+<!-- ═══════════════════════════════════════════════════════
+     VALUES SECTION — Premium Feature Cards
+═══════════════════════════════════════════════════════ -->
+<section class="py-20 sm:py-28 bg-gray-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="text-center mb-14">
-            <div class="inline-flex items-center gap-2 bg-blue-50 text-blue-600 text-xs font-bold tracking-widest uppercase rounded-full px-4 py-1.5 mb-4">
-                <span data-ck="about_values_badge">NaÅ¡e vrijednosti</span>
+        <div class="text-center mb-16">
+            <div class="inline-flex items-center gap-2 bg-blue-50 border border-blue-100 text-blue-600 text-xs font-bold tracking-widest uppercase rounded-full px-4 py-1.5 mb-5">
+                <span data-ck="about_values_badge">Naše vrednosti</span>
             </div>
-            <h2 class="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-3" data-ck="about_values_title">ZaÅ¡to odabrati Keyify?</h2>
-            <p class="text-gray-500 text-base font-medium max-w-xl mx-auto" data-ck="about_values_subtitle">Svaki aspekt naÅ¡e usluge dizajniran je oko vaÅ¡eg povjerenja i zadovoljstva.</p>
+            <h2 class="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-4" data-ck="about_values_title">Zašto izabrati Keyify?</h2>
+            <p class="text-gray-500 text-base font-medium max-w-xl mx-auto" data-ck="about_values_subtitle">Svaki aspekt naše usluge dizajniran je oko vašeg poverenja i zadovoljstva.</p>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
-            <div class="card-animate bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-lg hover:border-blue-200 transition-all duration-300">
-                <div class="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center mb-4">
-                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <div class="value-card card-animate bg-white rounded-2xl p-7 border border-gray-100 shadow-sm hover:shadow-xl hover:border-blue-200">
+                <div class="value-icon w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center mb-5">
+                    <svg class="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                     </svg>
                 </div>
-                <h3 class="font-display font-bold text-gray-900 text-base mb-2" data-ck="about_val1_title">Sigurna Kupovina</h3>
-                <p class="text-gray-500 text-sm leading-relaxed" data-ck="about_val1_desc">SSL enkripcija i sigurni platni sistemi Å¡tite svaku vaÅ¡u transakciju. VaÅ¡i podaci su uvijek zaÅ¡tiÄ‡eni.</p>
+                <h3 class="font-display font-bold text-gray-900 text-base mb-2" data-ck="about_val1_title">Sigurna kupovina</h3>
+                <p class="text-gray-500 text-sm leading-relaxed" data-ck="about_val1_desc">SSL enkripcija i sigurni platni sistemi štite svaku vašu transakciju. Vaši podaci su uvek zaštićeni.</p>
             </div>
 
-            <div class="card-animate bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-lg hover:border-green-200 transition-all duration-300">
-                <div class="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center mb-4">
-                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <div class="value-card card-animate bg-white rounded-2xl p-7 border border-gray-100 shadow-sm hover:shadow-xl hover:border-green-200">
+                <div class="value-icon w-14 h-14 rounded-2xl bg-green-50 flex items-center justify-center mb-5">
+                    <svg class="w-7 h-7 text-green-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
                     </svg>
                 </div>
-                <h3 class="font-display font-bold text-gray-900 text-base mb-2" data-ck="about_val2_title">Originalni KljuÄevi</h3>
-                <p class="text-gray-500 text-sm leading-relaxed" data-ck="about_val2_desc">Svaki kljuÄ prolazi provjeru autentiÄnosti prije isporuke. Garantujemo 100% originalnost svakog proizvoda.</p>
+                <h3 class="font-display font-bold text-gray-900 text-base mb-2" data-ck="about_val2_title">Originalni ključevi</h3>
+                <p class="text-gray-500 text-sm leading-relaxed" data-ck="about_val2_desc">Svaki ključ prolazi proveru autentičnosti pre isporuke. Garantujemo 100% originalnost svakog proizvoda.</p>
             </div>
 
-            <div class="card-animate bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-lg hover:border-purple-200 transition-all duration-300">
-                <div class="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center mb-4">
-                    <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <div class="value-card card-animate bg-white rounded-2xl p-7 border border-gray-100 shadow-sm hover:shadow-xl hover:border-purple-200">
+                <div class="value-icon w-14 h-14 rounded-2xl bg-purple-50 flex items-center justify-center mb-5">
+                    <svg class="w-7 h-7 text-purple-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"/>
                     </svg>
                 </div>
-                <h3 class="font-display font-bold text-gray-900 text-base mb-2" data-ck="about_val3_title">24/7 PodrÅ¡ka</h3>
-                <p class="text-gray-500 text-sm leading-relaxed" data-ck="about_val3_desc">NaÅ¡ tim za podrÅ¡ku dostupan je svaki dan, u svako doba. Odgovaramo na sve upite u roku od 2 sata.</p>
+                <h3 class="font-display font-bold text-gray-900 text-base mb-2" data-ck="about_val3_title">24/7 Podrška</h3>
+                <p class="text-gray-500 text-sm leading-relaxed" data-ck="about_val3_desc">Naš tim za podršku dostupan je svaki dan, u svako doba. Odgovaramo na sve upite u roku od 2 sata.</p>
             </div>
 
-            <div class="card-animate bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-lg hover:border-orange-200 transition-all duration-300">
-                <div class="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center mb-4">
-                    <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <div class="value-card card-animate bg-white rounded-2xl p-7 border border-gray-100 shadow-sm hover:shadow-xl hover:border-orange-200">
+                <div class="value-icon w-14 h-14 rounded-2xl bg-orange-50 flex items-center justify-center mb-5">
+                    <svg class="w-7 h-7 text-orange-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                     </svg>
                 </div>
-                <h3 class="font-display font-bold text-gray-900 text-base mb-2" data-ck="about_val4_title">Garancija Povrata</h3>
-                <p class="text-gray-500 text-sm leading-relaxed" data-ck="about_val4_desc">Ako kljuÄ ne radi, mi ga zamjenjujemo ili vraÄ‡amo novac â€” bez pitanja i komplikacija. VaÅ¡e zadovoljstvo je garancija.</p>
+                <h3 class="font-display font-bold text-gray-900 text-base mb-2" data-ck="about_val4_title">Garancija povrata</h3>
+                <p class="text-gray-500 text-sm leading-relaxed" data-ck="about_val4_desc">Ako ključ ne radi, mi ga zamenjujemo ili vraćamo novac – bez pitanja i komplikacija. Vaše zadovoljstvo je garancija.</p>
             </div>
 
         </div>
@@ -636,30 +643,75 @@
 </section>
 
 
-<!-- CTA SECTION -->
-<section class="py-16 sm:py-20" style="background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 60%, #16213e 100%);">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative">
-        <div class="blob absolute -top-10 left-10 w-64 h-64 pointer-events-none" style="background: #1D6AFF; opacity: 0.08;"></div>
-        <div class="blob absolute bottom-0 right-10 w-56 h-56 pointer-events-none" style="background: #A259FF; opacity: 0.08;"></div>
-        <div class="relative z-10">
-            <h2 class="font-display text-3xl sm:text-4xl font-bold text-white mb-4" data-ck="about_cta_title">
-                Spremi za poÄetak?
-            </h2>
-            <p class="text-gray-400 text-base sm:text-lg font-medium mb-8 max-w-xl mx-auto" data-ck="about_cta_subtitle">
-                Pregledajte naÅ¡u kompletnu ponudu digitalnih licenci i uÅ¡tedite na omiljenim alatima.
-            </p>
-            <a href="ai.html" class="inline-flex items-center gap-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold px-8 py-4 rounded-xl shadow-lg shadow-blue-900/40 hover:shadow-blue-800/50 transition-all duration-200 text-base">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
-                </svg>
-                Pregledaj Ponudu
-            </a>
+<!-- ═══════════════════════════════════════════════════════
+     PAYMENT METHODS — Trust Strip
+═══════════════════════════════════════════════════════ -->
+<section class="py-16 bg-white">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-10">
+            <h3 class="font-display text-xl font-bold text-gray-900 mb-2">Sigurni načini plaćanja</h3>
+            <p class="text-gray-500 text-sm font-medium">Sve transakcije su zaštićene SSL enkripcijom i 3D Secure protokolom.</p>
+        </div>
+        <div class="flex flex-wrap justify-center gap-4">
+            <div class="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 hover:shadow-md transition-shadow">
+                <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-700" viewBox="0 0 24 24" fill="currentColor"><path d="M1 4h22v16H1V4zm1 1v14h20V5H2zm2 3h4v2H4V8zm0 4h6v1H4v-1z"/></svg>
+                </div>
+                <div>
+                    <div class="text-sm font-bold text-gray-900">Visa / Mastercard</div>
+                    <div class="text-xs text-gray-500">Kreditne i debitne kartice</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 hover:shadow-md transition-shadow">
+                <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="currentColor"><path d="M20.067 8.478c.492.88.556 2.014.3 3.327-.74 3.806-3.276 5.12-6.514 5.12h-.5a.805.805 0 00-.794.68l-.04.22-.63 3.993-.032.17a.804.804 0 01-.794.679H8.44a.483.483 0 01-.477-.558l.63-3.993.032-.17a.804.804 0 01.794-.679h.5c3.238 0 5.774-1.314 6.514-5.12.256-1.313.192-2.447-.3-3.327a2.64 2.64 0 00-.066-.342z"/></svg>
+                </div>
+                <div>
+                    <div class="text-sm font-bold text-gray-900">PayPal</div>
+                    <div class="text-xs text-gray-500">Brzo i sigurno</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 hover:shadow-md transition-shadow">
+                <div class="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                </div>
+                <div>
+                    <div class="text-sm font-bold text-gray-900">3D Secure</div>
+                    <div class="text-xs text-gray-500">Dodatna zaštita</div>
+                </div>
+            </div>
         </div>
     </div>
 </section>
 
 
-<!-- FOOTER -->
+<!-- ═══════════════════════════════════════════════════════
+     CTA SECTION — Theme-Aware Gradient
+═══════════════════════════════════════════════════════ -->
+<section class="cta-section relative py-20 sm:py-28 overflow-hidden">
+    <div class="hero-mesh"></div>
+    <div class="hero-grid"></div>
+
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+        <h2 class="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-5" data-ck="about_cta_title">
+            Spreman za početak?
+        </h2>
+        <p class="text-gray-500 text-base sm:text-lg font-medium mb-10 max-w-xl mx-auto" data-ck="about_cta_subtitle">
+            Pregledajte našu kompletnu ponudu digitalnih licenci i uštedite na omiljenim alatima.
+        </p>
+        <a href="ai.html" class="inline-flex items-center gap-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold px-8 py-4 rounded-xl shadow-lg shadow-blue-600/20 hover:shadow-blue-600/30 transition-all duration-200 text-base">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+            Pregledaj ponudu
+        </a>
+    </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     FOOTER
+═══════════════════════════════════════════════════════ -->
 <footer class="bg-gray-900 text-gray-400 pt-14 pb-8">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
@@ -675,7 +727,7 @@
                     <span class="font-display text-lg font-bold text-white tracking-tight">Key<span class="text-blue-500">ify</span></span>
                 </div>
                 <p class="text-sm leading-relaxed mb-5 font-medium" data-ck="footer_tagline">
-                    VaÅ¡ pouzdani izvor originalnih digitalnih kljuÄeva i pretplata po najboljim cijenama na trÅ¾iÅ¡tu.
+                    Vaš pouzdani izvor originalnih digitalnih ključeva i pretplata po najboljim cenama na tržištu.
                 </p>
                 <div class="flex gap-3">
                     <a href="#" id="footer-fb" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-blue-600 flex items-center justify-center transition-colors">
@@ -696,27 +748,27 @@
                     <li><a href="design.html" class="hover:text-white transition-colors">Shop Software</a></li>
                     <li><a href="streaming.html" class="hover:text-white transition-colors">Shop Streaming</a></li>
                     <li><a href="ai.html" class="hover:text-white transition-colors">Shop AI Alati</a></li>
-                    <li><a href="#" class="hover:text-white transition-colors">Akcije & Popusti</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">Akcije &amp; Popusti</a></li>
                     <li><a href="#" class="hover:text-white transition-colors">Novo u ponudi</a></li>
                 </ul>
             </div>
 
             <div>
-                <h4 class="text-white font-display font-semibold text-sm mb-4">PodrÅ¡ka</h4>
+                <h4 class="text-white font-display font-semibold text-sm mb-4">Podrška</h4>
                 <ul class="space-y-2.5 text-sm font-medium">
                     <li><a href="contact.html" class="hover:text-white transition-colors">Kontakt</a></li>
                     <li><a href="#" class="hover:text-white transition-colors">FAQ</a></li>
-                    <li><a href="#" class="hover:text-white transition-colors">PraÄ‡enje narudÅ¾be</a></li>
-                    <li><a href="#" class="hover:text-white transition-colors">Politika vraÄ‡anja</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">Praćenje narudžbe</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">Politika vraćanja</a></li>
                     <li><a href="about.html" class="hover:text-white transition-colors">O nama</a></li>
                 </ul>
             </div>
 
             <div>
                 <h4 class="text-white font-display font-semibold text-sm mb-4">Newsletter</h4>
-                <p class="text-sm mb-4 font-medium">Prijavite se za ekskluzivne popuste i obavijesti o novim proizvodima.</p>
+                <p class="text-sm mb-4 font-medium">Prijavite se za ekskluzivne popuste i obaveštenja o novim proizvodima.</p>
                 <div class="flex gap-2">
-                    <input type="email" placeholder="email@primjer.com"
+                    <input type="email" placeholder="email@primer.com"
                            class="flex-1 bg-gray-800 border border-gray-700 text-white text-sm rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 placeholder-gray-500 transition-colors min-w-0 font-medium"/>
                     <button class="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2.5 rounded-xl transition-colors flex-shrink-0">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
@@ -738,11 +790,11 @@
         </div>
 
         <div class="border-t border-gray-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-medium">
-            <p data-ck="footer_copyright">Â© 2025 Keyify. Sva prava zadrÅ¾ana.</p>
+            <p data-ck="footer_copyright">© 2026 Keyify. Sva prava zadržana.</p>
             <div class="flex gap-4">
                 <a href="#" class="hover:text-white transition-colors">Privatnost</a>
-                <a href="#" class="hover:text-white transition-colors">Uslovi koriÅ¡Ä‡enja</a>
-                <a href="#" class="hover:text-white transition-colors">KolaÄiÄ‡i</a>
+                <a href="#" class="hover:text-white transition-colors">Uslovi korišćenja</a>
+                <a href="#" class="hover:text-white transition-colors">Kolačići</a>
             </div>
         </div>
     </div>
@@ -754,7 +806,6 @@
         document.getElementById('mobile-menu').classList.toggle('open');
     });
 
-    // Dropdown hover with delay fix
     document.querySelectorAll('.dropdown').forEach(function(dd) {
         var menu = dd.querySelector('.dropdown-menu');
         var timer;
@@ -776,4 +827,3 @@
 <script src="search-overlay.js"></script>
 </body>
 </html>
-

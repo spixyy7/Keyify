@@ -239,7 +239,7 @@ const KEYIFY = (() => {
         el.style.cssText = `
           position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
           background:linear-gradient(135deg,#1D6AFF,#A259FF);
-          color:#fff; font-size:13px; font-weight:600; font-family:'Inter',sans-serif;
+          color:#fff; font-size:13px; font-weight:600; font-family:'DM Sans',sans-serif;
           padding:12px 20px; border-radius:999px;
           box-shadow:0 8px 32px rgba(29,106,255,0.35);
           opacity:0; transition:all 0.35s cubic-bezier(0.34,1.56,0.64,1);
@@ -280,10 +280,10 @@ const KEYIFY = (() => {
     ['Â©', '©'],
     ['Â·', '·'],
     ['Â', ''],
-    ['Ä', 'č'],
+    ['č', 'č'],
     ['Ä‡', 'ć'],
-    ['Å¡', 'š'],
-    ['Å¾', 'ž'],
+    ['š', 'š'],
+    ['ž', 'ž'],
     ['Å½', 'Ž'],
     ['Ä‘', 'đ'],
     ['Ä', 'Đ']
@@ -459,11 +459,11 @@ const KEYIFY = (() => {
       <!-- Drawer -->
       <div id="kf-cart-drawer"
            class="fixed inset-y-0 right-0 z-[200] flex flex-col bg-white shadow-2xl translate-x-full transition-transform duration-300 ease-in-out"
-           style="width:min(420px,100vw); font-family:'Inter',sans-serif;">
+           style="width:min(420px,100vw); font-family:'DM Sans',sans-serif;">
 
         <!-- Header -->
         <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 id="kf-cart-title" class="font-semibold text-gray-900 text-base" style="font-family:'Poppins',sans-serif;">
+          <h2 id="kf-cart-title" class="font-semibold text-gray-900 text-base" style="font-family:'Outfit',sans-serif;">
             Korpa
           </h2>
           <button onclick="KEYIFY.CART.close()"
@@ -491,7 +491,7 @@ const KEYIFY = (() => {
           </div>
           <!-- VAT note -->
           <p class="text-xs text-gray-400 mb-3" data-i18n="checkout.vatNote">
-            Cijena uključuje sve poreze i naknade.
+            Cena uključuje sve poreze i naknade.
           </p>
           <!-- Checkout button -->
           <a href="cart.html"
@@ -541,7 +541,7 @@ const KEYIFY = (() => {
       opacity:0; transform:translateY(-10px) scale(0.97);
       pointer-events:none;
       transition:opacity 0.25s cubic-bezier(.22,.68,0,1), transform 0.25s cubic-bezier(.22,.68,0,1);
-      font-family:'Inter',sans-serif;
+      font-family:'DM Sans',sans-serif;
       overflow:hidden;
     `;
 
@@ -554,7 +554,7 @@ const KEYIFY = (() => {
     mc.innerHTML = `
       <!-- Header -->
       <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid ${cBorder}">
-        <h3 id="kf-mc-title" style="font-family:'Poppins',sans-serif;font-size:15px;font-weight:700;color:${cText};margin:0">
+        <h3 id="kf-mc-title" style="font-family:'Outfit',sans-serif;font-size:15px;font-weight:700;color:${cText};margin:0">
           Korpa
         </h3>
         <button id="kf-mc-close" style="width:28px;height:28px;border:none;background:${cBtnBg};border-radius:8px;cursor:pointer;font-size:13px;color:${cMuted};display:flex;align-items:center;justify-content:center;transition:all 0.15s"
@@ -708,7 +708,7 @@ const KEYIFY = (() => {
           <div style="flex-shrink:0;width:44px;height:44px;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:${item.imageUrl ? 'linear-gradient(145deg,#0f0f1a,#1a1a2e)' : `linear-gradient(135deg,${iconBg},${iconBg}aa)`}">
             ${item.imageUrl
               ? `<img src="${escAttr(item.imageUrl)}" alt="${escAttr(item.name)}" style="width:44px;height:44px;object-fit:cover;border-radius:10px"/>`
-              : `<span style="color:#fff;font-weight:700;font-size:16px;font-family:'Poppins',sans-serif">${escHtml(item.name.charAt(0))}</span>`}
+              : `<span style="color:#fff;font-weight:700;font-size:16px;font-family:'Outfit',sans-serif">${escHtml(item.name.charAt(0))}</span>`}
           </div>
           <div style="flex:1;min-width:0">
             <p style="font-size:13px;font-weight:600;color:${mcText};margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.name)}${variantTag}</p>
@@ -776,7 +776,7 @@ const KEYIFY = (() => {
             <div style="width:40px;height:40px;border-radius:10px;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;background:${p.image_url ? 'linear-gradient(145deg,#0f0f1a,#1a1a2e)' : `linear-gradient(135deg,${color},${color}88)`}">
               ${p.image_url
                 ? `<img src="${escAttr(p.image_url)}" alt="${escAttr(name)}" style="width:32px;height:32px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))"/>`
-                : `<span style="color:#fff;font-weight:700;font-size:14px;font-family:'Poppins',sans-serif">${escHtml(name.charAt(0))}</span>`}
+                : `<span style="color:#fff;font-weight:700;font-size:14px;font-family:'Outfit',sans-serif">${escHtml(name.charAt(0))}</span>`}
             </div>
             <p style="font-size:11px;font-weight:600;color:#374151;margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(name)}</p>
             <p style="font-size:12px;font-weight:700;color:#1D6AFF;margin:0 0 6px">€ ${price.toFixed(2).replace('.', ',')}</p>
@@ -951,11 +951,11 @@ const KEYIFY = (() => {
     const canSQL         = role === 'admin' && (isSuperAdmin || perms.can_execute_sql === true);
     const canEditor      = role === 'admin' && (isSuperAdmin || perms.can_use_editor === true);
     const rankMeta       = {
-      super_admin: { label: 'Super Admin', icon: '👑', color: '#fbbf24', bg: 'rgba(251,191,36,0.14)', border: 'rgba(251,191,36,0.28)' },
-      admin:       { label: 'Admin',       icon: '⚙️', color: '#a78bfa', bg: 'rgba(167,139,250,0.14)', border: 'rgba(167,139,250,0.28)' },
-      moderator:   { label: 'Moderator',   icon: '🛡️', color: '#60a5fa', bg: 'rgba(96,165,250,0.14)', border: 'rgba(96,165,250,0.28)' },
-      support:     { label: 'Podrška',     icon: '🎧', color: '#34d399', bg: 'rgba(52,211,153,0.14)', border: 'rgba(52,211,153,0.28)' },
-      user:        { label: 'Korisnik',    icon: '👤', color: '#94a3b8', bg: 'rgba(148,163,184,0.14)', border: 'rgba(148,163,184,0.25)' },
+      super_admin: { label: 'Super Admin' },
+      admin:       { label: 'Admin' },
+      moderator:   { label: 'Moderator' },
+      support:     { label: 'Podrška' },
+      user:        { label: 'Korisnik' },
     };
     const activeRank = rankMeta[rank] || rankMeta.user;
 
@@ -964,15 +964,44 @@ const KEYIFY = (() => {
       const st = document.createElement('style');
       st.id = 'kf-dd-style';
       st.textContent = `
-        @keyframes kf-dd-in{from{opacity:0;transform:translateY(-10px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
-        #kf-dd-trigger:hover{background:rgba(29,106,255,0.12)!important;border-color:rgba(29,106,255,0.45)!important;box-shadow:0 0 0 3px rgba(29,106,255,0.08)!important}
-        #kf-dd-panel .kf-item{border-radius:10px;transition:background .15s ease,transform .12s ease!important}
-        #kf-dd-panel a.kf-item:hover,#kf-dd-panel button.kf-item:hover{background:var(--kf-dd-hover)!important;transform:translateX(3px)!important}
-        #kf-dd-panel .kf-item-danger:hover{background:rgba(239,68,68,0.10)!important;transform:translateX(3px)!important}
+        @keyframes kf-dd-in{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+        #kf-dd-trigger{transition:all .2s ease!important}
+        #kf-dd-trigger:hover{background:var(--kf-dd-hover)!important;border-color:var(--kf-dd-border)!important;transform:translateY(-1px)!important}
+        #kf-dd-trigger:active{transform:scale(.98)!important}
+        #kf-dd-panel .kf-item{border-radius:8px;transition:all .15s ease!important;position:relative;overflow:hidden;font-family:'DM Sans','Outfit',system-ui,sans-serif}
+        #kf-dd-panel a.kf-item:hover,#kf-dd-panel button.kf-item:hover{background:var(--kf-dd-hover)!important}
+        #kf-dd-panel .kf-item .kf-icon-wrap{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s ease;background:transparent}
+        #kf-dd-panel .kf-item .kf-icon-wrap svg{width:16px;height:16px;stroke:var(--kf-dd-icon);stroke-width:1.75;fill:none}
+        #kf-dd-panel .kf-item:hover .kf-icon-wrap svg{stroke:var(--kf-dd-icon-hover)}
+        #kf-dd-panel .kf-item-danger:hover{background:rgba(239,68,68,0.06)!important}
+        #kf-dd-panel .kf-item-danger .kf-icon-wrap svg{stroke:#ef4444}
+        #kf-dd-panel .kf-item-danger:hover .kf-icon-wrap svg{stroke:#dc2626}
         #kf-dd-panel::-webkit-scrollbar{width:3px}
-        #kf-dd-panel::-webkit-scrollbar-thumb{background:var(--kf-dd-border);border-radius:3px}`;
+        #kf-dd-panel::-webkit-scrollbar-thumb{background:var(--kf-dd-border);border-radius:3px}
+        .kf-dd-section-label{font-size:11px;font-weight:600;color:var(--kf-dd-label);text-transform:uppercase;letter-spacing:.06em;padding:8px 14px 4px;font-family:'DM Sans','Outfit',system-ui,sans-serif}
+        .kf-theme-seg{display:flex;padding:2px;border-radius:8px;background:var(--kf-seg-bg);border:1px solid var(--kf-seg-border)}
+        .kf-theme-opt{flex:1;padding:6px 0;border-radius:6px;border:none;background:transparent;font-size:11px;font-weight:500;color:var(--kf-dd-label);cursor:pointer;transition:all .15s ease!important;font-family:'DM Sans','Outfit',system-ui,sans-serif;display:flex;align-items:center;justify-content:center;gap:5px}
+        .kf-theme-opt svg{width:13px;height:13px;stroke:currentColor;stroke-width:1.75;fill:none}
+        .kf-theme-opt[data-active="true"]{background:var(--kf-seg-active-bg);color:var(--kf-seg-active-color);font-weight:600;box-shadow:var(--kf-seg-active-shadow)}
+        .kf-theme-opt:hover:not([data-active="true"]){color:var(--kf-dd-item)}`;
       document.head.appendChild(st);
     }
+
+    /* ── SVG icon helpers (Lucide-style, 24x24 viewBox, stroke-only) ── */
+    const _ico = {
+      package:  '<svg viewBox="0 0 24 24"><path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+      user:     '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+      gift:     '<svg viewBox="0 0 24 24"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5" rx="1"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>',
+      tag:      '<svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>',
+      layout:   '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>',
+      database: '<svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
+      palette:  '<svg viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 011.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>',
+      inbox:    '<svg viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>',
+      logout:   '<svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+      sun:      '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>',
+      moon:     '<svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>',
+      monitor:  '<svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
+    };
 
     /* ── Wrapper ── */
     const wrapper = document.createElement('div');
@@ -982,88 +1011,117 @@ const KEYIFY = (() => {
     /* ── Trigger button ── */
     const btn = document.createElement('button');
     btn.id = 'kf-dd-trigger';
-    btn.style.cssText = 'display:inline-flex;align-items:center;gap:7px;padding:4px 10px 4px 4px;border:1px solid rgba(29,106,255,0.2);border-radius:12px;background:rgba(29,106,255,0.05);cursor:pointer;font-family:inherit;transition:all .15s;';
+    btn.style.cssText = 'display:inline-flex;align-items:center;gap:8px;padding:5px 10px 5px 5px;border:1px solid var(--kf-dd-border);border-radius:10px;background:transparent;cursor:pointer;font-family:inherit;transition:all .15s;';
     const avatarUrl = localStorage.getItem('keyify_avatar') || '';
     const avatarBadge = isSupportAgent
-      ? `<span id="kf-nav-dot" style="display:none;position:absolute;top:-3px;right:-3px;width:14px;height:14px;border-radius:50%;background:#ef4444;color:#fff;font-size:8px;font-weight:700;align-items:center;justify-content:center;border:2px solid #fff;z-index:1"></span>`
+      ? `<span id="kf-nav-dot" style="display:none;position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:50%;background:#ef4444;color:#fff;font-size:7px;font-weight:700;align-items:center;justify-content:center;border:2px solid var(--kf-dd-bg);z-index:1"></span>`
       : '';
     const avatarContent = avatarUrl
-      ? `<img src="${escHtml(avatarUrl)}" alt="" style="width:26px;height:26px;border-radius:8px;object-fit:cover"/>`
-      : `<span style="width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;background:linear-gradient(135deg,#1D6AFF,#A259FF)">${initials}</span>`;
+      ? `<img src="${escHtml(avatarUrl)}" alt="" style="width:28px;height:28px;border-radius:8px;object-fit:cover"/>`
+      : `<span style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;background:linear-gradient(135deg,#6366f1,#8b5cf6)">${initials}</span>`;
     btn.innerHTML = `
       <span style="position:relative;display:inline-flex;flex-shrink:0">
         ${avatarContent}
         ${avatarBadge}
       </span>
-      <span style="font-size:13px;font-weight:600;color:#1D6AFF;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${firstName}</span>
-      <svg id="kf-dd-chevron" style="width:11px;height:11px;color:#1D6AFF;transition:transform .2s;flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <span style="font-size:13px;font-weight:600;color:var(--kf-dd-name);max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${firstName}</span>
+      <svg id="kf-dd-chevron" style="width:12px;height:12px;color:var(--kf-dd-label);transition:transform .2s;flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
       </svg>`;
 
     /* ── Dropdown panel ── */
     const panel = document.createElement('div');
     panel.id = 'kf-dd-panel';
-    panel.style.cssText = 'display:none;position:absolute;top:calc(100% + 10px);right:0;width:248px;background:var(--kf-dd-bg);border:1px solid var(--kf-dd-border);border-radius:var(--kf-dd-radius);box-shadow:var(--kf-dd-shadow);z-index:9999;overflow:hidden;animation:kf-dd-in .2s cubic-bezier(.34,1.56,.64,1);backdrop-filter:var(--kf-dd-blur);-webkit-backdrop-filter:var(--kf-dd-blur);';
+    panel.style.cssText = 'display:none;position:absolute;top:calc(100% + 8px);right:0;width:260px;max-width:calc(100vw - 24px);max-height:calc(100vh - 80px);overflow-y:auto;background:var(--kf-dd-bg);border:1px solid var(--kf-dd-border);border-radius:12px;box-shadow:var(--kf-dd-shadow);z-index:9999;animation:kf-dd-in .18s ease-out;backdrop-filter:var(--kf-dd-blur);-webkit-backdrop-filter:var(--kf-dd-blur);';
 
-    const sqlItem = canSQL ? `
-      <a href="admin.html" onclick="localStorage.setItem('kf_admin_goto','sql')" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:600;color:#a259ff;text-decoration:none;">
-        <span style="font-size:16px;line-height:1;flex-shrink:0">🗄️</span>SQL Editor
-      </a>` : '';
+    /* ── Build menu item helper ── */
+    const _menuItem = (icon, label, opts = {}) => {
+      const tag = opts.href ? 'a' : 'button';
+      const hrefAttr = opts.href ? ` href="${opts.href}"` : '';
+      const onclickAttr = opts.onclick ? ` onclick="${opts.onclick}"` : '';
+      const idAttr = opts.id ? ` id="${opts.id}"` : '';
+      const extraCls = opts.danger ? ' kf-item-danger' : '';
+      const colorStyle = opts.danger ? 'color:#ef4444;' : 'color:var(--kf-dd-item);';
+      const badgeHtml = opts.badge || '';
+      return `<${tag}${hrefAttr}${onclickAttr}${idAttr} class="kf-item${extraCls}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;font-size:13px;font-weight:500;${colorStyle}background:transparent;border:none;width:100%;cursor:pointer;border-radius:8px;text-align:left;text-decoration:none;">
+        <span class="kf-icon-wrap">${icon}</span><span style="flex:1">${label}</span>${badgeHtml}
+      </${tag}>`;
+    };
 
-    const editorItem = canEditor ? `
-      <a href="#" id="kf-editor-toggle" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:600;color:#10b981;text-decoration:none;">
-        <span style="font-size:16px;line-height:1;flex-shrink:0">🎨</span>Live Editor
-      </a>` : '';
+    const sqlItem = canSQL ? _menuItem(_ico.database, 'SQL Editor', { href: 'admin.html', onclick: "localStorage.setItem('kf_admin_goto','sql')" }) : '';
+    const editorItem = canEditor ? _menuItem(_ico.palette, 'Live Editor', { href: '#', id: 'kf-editor-toggle' }) : '';
 
-    const adminItem = role === 'admin' ? `
-      <div style="height:1px;background:var(--kf-dd-divider);margin:3px 0"></div>
-      <a href="admin.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:700;color:#1D6AFF;text-decoration:none;">
-        <span style="font-size:16px;line-height:1;flex-shrink:0">💻</span>Admin Panel
-      </a>
-      ${sqlItem}
-      ${editorItem}` : '';
+    const adminSection = role === 'admin' ? `
+      <div class="kf-dd-section-label">Admin</div>
+      <div style="padding:0 6px 4px">
+        ${_menuItem(_ico.layout, 'Admin Panel', { href: 'admin.html' })}
+        ${sqlItem}
+        ${editorItem}
+        ${isSupportAgent ? _menuItem(_ico.inbox, 'Support Inbox', { href: 'support-inbox.html', badge: '<span id="kf-inbox-count" style="display:none;margin-left:auto;min-width:18px;height:18px;border-radius:9px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;align-items:center;justify-content:center;padding:0 4px"></span>' }) : ''}
+      </div>
+      <div style="height:1px;background:var(--kf-dd-divider);margin:2px 14px"></div>` : '';
 
-    const inboxItem = isSupportAgent ? `
-      <a href="support-inbox.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:600;color:#10b981;text-decoration:none;">
-        <span style="font-size:16px;line-height:1;flex-shrink:0">💬</span>Support Inbox
-        <span id="kf-inbox-count" style="display:none;margin-left:auto;min-width:18px;height:18px;border-radius:9px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;align-items:center;justify-content:center;padding:0 4px"></span>
-      </a>` : '';
+    const _curPref = localStorage.getItem('keyify_theme') || 'light';
+    const _segBtn = (theme, icon, label) => {
+      const active = theme === _curPref;
+      return `<button class="kf-theme-opt" data-theme="${theme}" data-active="${active}">${icon} ${label}</button>`;
+    };
 
     panel.innerHTML = `
-      <div style="padding:14px 15px;border-bottom:1px solid var(--kf-dd-hdr-border);background:var(--kf-dd-hdr-bg)">
-        <div style="font-size:13px;font-weight:700;color:var(--kf-dd-name);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(name)}</div>
-        <div style="font-size:11px;color:var(--kf-dd-email);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(email)}</div>
-        ${(role === 'admin' || rank !== 'user') ? `<div style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:2px 8px;border-radius:6px;background:${activeRank.bg};border:1px solid ${activeRank.border};font-size:10px;font-weight:700;color:${activeRank.color};text-transform:uppercase;letter-spacing:.05em">${activeRank.icon} ${escHtml(activeRank.label)}</div>` : ''}
+      <div style="padding:16px 16px 14px;border-bottom:1px solid var(--kf-dd-divider)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="flex-shrink:0">${avatarContent}</span>
+          <div style="min-width:0;flex:1">
+            <div style="font-size:13px;font-weight:700;color:var(--kf-dd-name);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'DM Sans','Outfit',sans-serif">${escHtml(name)}</div>
+            <div style="font-size:11px;color:var(--kf-dd-label);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(email)}</div>
+          </div>
+        </div>
+        ${(role === 'admin' || rank !== 'user') ? `<div style="display:inline-flex;align-items:center;gap:4px;margin-top:10px;padding:3px 10px;border-radius:6px;background:var(--kf-dd-hover);font-size:10px;font-weight:600;color:var(--kf-dd-label);text-transform:uppercase;letter-spacing:.05em">${escHtml(activeRank.label)}</div>` : ''}
       </div>
-      <div style="padding:5px">
-        <button class="kf-item" id="kf-orders-btn" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:500;color:var(--kf-dd-item);background:transparent;border:none;width:100%;cursor:pointer;border-radius:10px;text-align:left;">
-          <span style="font-size:16px;line-height:1;flex-shrink:0">📦</span>Narudžbe
-        </button>
-        <a href="profile.html" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:500;color:var(--kf-dd-item);text-decoration:none;border-radius:10px;">
-          <span style="font-size:16px;line-height:1;flex-shrink:0">👤</span>Moj profil
-        </a>
-        <a href="profile.html#referral" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:500;color:var(--kf-dd-item);text-decoration:none;border-radius:10px;">
-          <span style="font-size:16px;line-height:1;flex-shrink:0">🏆</span>Referral Program
-        </a>
-        <a href="profile.html#coupons" class="kf-item" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:500;color:var(--kf-dd-item);text-decoration:none;border-radius:10px;">
-          <span style="font-size:16px;line-height:1;flex-shrink:0">🏷️</span>Moji kuponi
-        </a>
-        ${adminItem}
-        ${inboxItem}
+      <div style="padding:4px 6px">
+        ${_menuItem(_ico.package, 'Narudžbe', { id: 'kf-orders-btn' })}
+        ${_menuItem(_ico.user, 'Moj profil', { href: 'profile.html' })}
+        ${_menuItem(_ico.gift, 'Referral Program', { href: 'profile.html#referral' })}
+        ${_menuItem(_ico.tag, 'Moji kuponi', { href: 'profile.html#coupons' })}
       </div>
-      <div style="border-top:1px solid var(--kf-dd-divider);padding:5px">
-        <button class="kf-item kf-item-danger" id="kf-logout-btn" style="display:flex;align-items:center;gap:10px;padding:10px 13px;font-size:13px;font-weight:500;color:#ef4444;background:transparent;border:none;width:100%;cursor:pointer;border-radius:10px;text-align:left;">
-          <span style="font-size:16px;line-height:1;flex-shrink:0">🚪</span>Odjava
-        </button>
+      <div style="height:1px;background:var(--kf-dd-divider);margin:2px 14px"></div>
+      ${adminSection}
+      <div style="padding:6px 14px 8px">
+        <div class="kf-dd-section-label" style="padding:2px 0 6px">Tema</div>
+        <div class="kf-theme-seg">
+          ${_segBtn('light', _ico.sun, 'Light')}
+          ${_segBtn('dark', _ico.moon, 'Dark')}
+          ${_segBtn('system', _ico.monitor, 'Auto')}
+        </div>
+      </div>
+      <div style="height:1px;background:var(--kf-dd-divider);margin:0 14px"></div>
+      <div style="padding:4px 6px 6px">
+        ${_menuItem(_ico.logout, 'Odjava', { id: 'kf-logout-btn', danger: true })}
       </div>`;
 
     /* ── Toggle logic ── */
     let _open = false;
-    function _openDD()  { _open = true;  panel.style.display = 'block'; document.getElementById('kf-dd-chevron').style.transform = 'rotate(180deg)'; }
-    function _closeDD() { _open = false; panel.style.display = 'none';  const ch = document.getElementById('kf-dd-chevron'); if (ch) ch.style.transform = ''; }
+    function _openDD() {
+      _open = true;
+      panel.style.display = 'block';
+      document.getElementById('kf-dd-chevron').style.transform = 'rotate(180deg)';
+      /* Auto-reposition if panel overflows viewport */
+      requestAnimationFrame(() => {
+        const r = panel.getBoundingClientRect();
+        if (r.right > window.innerWidth) panel.style.right = '0';
+        if (r.left < 0) { panel.style.right = 'auto'; panel.style.left = -wrapper.getBoundingClientRect().left + 12 + 'px'; }
+        if (r.bottom > window.innerHeight) panel.style.maxHeight = (window.innerHeight - r.top - 12) + 'px';
+      });
+    }
+    function _closeDD() { _open = false; panel.style.display = 'none'; panel.style.maxHeight = 'calc(100vh - 80px)'; panel.style.left = ''; panel.style.right = '0'; const ch = document.getElementById('kf-dd-chevron'); if (ch) ch.style.transform = ''; }
     btn.addEventListener('click', e => { e.stopPropagation(); _open ? _closeDD() : _openDD(); });
     document.addEventListener('click', () => { if (_open) _closeDD(); });
     panel.addEventListener('click', e => e.stopPropagation());
+
+    /* ── Theme buttons in dropdown ── */
+    panel.querySelectorAll('.kf-theme-opt').forEach(b => {
+      b.addEventListener('click', () => _applyTheme(b.dataset.theme));
+    });
 
     /* ── Orders button ── */
     panel.querySelector('#kf-orders-btn').addEventListener('click', () => {
@@ -1075,19 +1133,16 @@ const KEYIFY = (() => {
     const editorBtn = panel.querySelector('#kf-editor-toggle');
     if (editorBtn) {
       const editorActive = localStorage.getItem('keyify_editor_active') === 'true';
+      const _editorBadge = '<span style="margin-left:auto;font-size:10px;font-weight:600;color:#10b981;background:rgba(16,185,129,0.1);padding:2px 7px;border-radius:5px">ON</span>';
       if (editorActive) {
-        editorBtn.innerHTML = '<span style="font-size:16px;line-height:1;flex-shrink:0">🎨</span>Live Editor <span style="margin-left:auto;font-size:10px;font-weight:700;color:#fff;background:#10b981;padding:2px 7px;border-radius:6px">ON</span>';
+        const labelEl = editorBtn.querySelector('span[style*="flex:1"]');
+        if (labelEl) labelEl.innerHTML = 'Live Editor ' + _editorBadge;
       }
       editorBtn.addEventListener('click', (e) => {
         e.preventDefault();
         const isOn = localStorage.getItem('keyify_editor_active') === 'true';
-        if (isOn) {
-          localStorage.removeItem('keyify_editor_active');
-          editorBtn.innerHTML = '<span style="font-size:16px;line-height:1;flex-shrink:0">🎨</span>Live Editor';
-        } else {
-          localStorage.setItem('keyify_editor_active', 'true');
-          editorBtn.innerHTML = '<span style="font-size:16px;line-height:1;flex-shrink:0">🎨</span>Live Editor <span style="margin-left:auto;font-size:10px;font-weight:700;color:#fff;background:#10b981;padding:2px 7px;border-radius:6px">ON</span>';
-        }
+        if (isOn) localStorage.removeItem('keyify_editor_active');
+        else localStorage.setItem('keyify_editor_active', 'true');
         _closeDD();
         window.location.reload();
       });
@@ -1131,7 +1186,7 @@ const KEYIFY = (() => {
     overlay.innerHTML = `
       <div style="background:#fff;border-radius:20px;padding:26px 28px;width:100%;max-width:580px;max-height:82vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.25)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-          <h3 style="font-family:'Poppins',sans-serif;font-size:16px;font-weight:700;color:#111;margin:0">📦 Moje narudžbe</h3>
+          <h3 style="font-family:'Outfit',sans-serif;font-size:16px;font-weight:700;color:#111;margin:0">📦 Moje narudžbe</h3>
           <button id="kf-orders-close" style="width:30px;height:30px;border:none;background:#f3f4f6;border-radius:8px;cursor:pointer;font-size:15px;color:#6b7280;display:flex;align-items:center;justify-content:center">✕</button>
         </div>
         <div id="kf-orders-body" style="min-height:60px;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:14px">Učitavanje...</div>
@@ -1234,23 +1289,38 @@ const KEYIFY = (() => {
         --kfy-closed-bdr:      #fde68a;
         --kfy-articles-bg:     #f9fafb;
         --kfy-articles-color:  #9ca3af;
+        /* Gate cards */
+        --kfy-gate-card-bg:    linear-gradient(180deg,rgba(255,255,255,0.92),rgba(248,250,252,0.86));
+        --kfy-gate-card-border:rgba(148,163,184,0.22);
+        --kfy-gate-card-title: #0f172a;
+        --kfy-gate-card-sub:   #64748b;
+        --kfy-gate-card-shadow:0 10px 24px rgba(15,23,42,0.06);
+        --kfy-gate-card-hover-border:rgba(59,130,246,0.42);
+        --kfy-gate-card-hover-shadow:0 16px 36px rgba(59,130,246,0.16);
+        --kfy-gate-label-color:#64748b;
+        --kfy-gate-select-scheme:light;
         /* Dropdown */
         --kf-dd-bg:            #ffffff;
         --kf-dd-border:        rgba(0,0,0,0.08);
-        --kf-dd-radius:        14px;
-        --kf-dd-shadow:        0 8px 30px rgba(0,0,0,0.12);
-        --kf-dd-blur:          none;
-        --kf-dd-hdr-bg:        rgba(0,0,0,0.02);
-        --kf-dd-hdr-border:    rgba(0,0,0,0.06);
+        --kf-dd-shadow:        0 4px 6px -1px rgba(0,0,0,0.05),0 10px 30px -5px rgba(0,0,0,0.1),0 0 0 1px rgba(0,0,0,0.03);
+        --kf-dd-blur:          blur(20px);
         --kf-dd-name:          #111827;
-        --kf-dd-email:         #9ca3af;
+        --kf-dd-label:         #9ca3af;
         --kf-dd-item:          #374151;
-        --kf-dd-hover:         rgba(240,244,255,1);
+        --kf-dd-icon:          #9ca3af;
+        --kf-dd-icon-hover:    #374151;
+        --kf-dd-hover:         #f5f5f5;
         --kf-dd-divider:       rgba(0,0,0,0.06);
+        /* Segmented theme control */
+        --kf-seg-bg:           #f5f5f5;
+        --kf-seg-border:       rgba(0,0,0,0.06);
+        --kf-seg-active-bg:    #ffffff;
+        --kf-seg-active-color: #111827;
+        --kf-seg-active-shadow:0 1px 3px rgba(0,0,0,0.08);
         /* Theme toggle button */
         --kf-theme-btn-bg:     #ffffff;
         --kf-theme-btn-border: #e5e7eb;
-        --kf-theme-btn-hover:  #f0f4ff;
+        --kf-theme-btn-hover:  #f5f5f5;
       }
 
       /* ── DARK MODE ── */
@@ -1289,23 +1359,38 @@ const KEYIFY = (() => {
         --kfy-closed-bdr:      rgba(245,158,11,0.2);
         --kfy-articles-bg:     rgba(6,8,18,0.95);
         --kfy-articles-color:  rgba(255,255,255,0.3);
+        /* Gate cards */
+        --kfy-gate-card-bg:    linear-gradient(180deg,rgba(20,24,48,0.9),rgba(15,18,38,0.85));
+        --kfy-gate-card-border:rgba(99,102,241,0.2);
+        --kfy-gate-card-title: #e0e0f8;
+        --kfy-gate-card-sub:   rgba(255,255,255,0.45);
+        --kfy-gate-card-shadow:0 10px 24px rgba(0,0,0,0.3);
+        --kfy-gate-card-hover-border:rgba(99,102,241,0.5);
+        --kfy-gate-card-hover-shadow:0 16px 36px rgba(99,102,241,0.2);
+        --kfy-gate-label-color:rgba(255,255,255,0.5);
+        --kfy-gate-select-scheme:dark;
         /* Dropdown */
-        --kf-dd-bg:            rgba(8,10,24,0.97);
-        --kf-dd-border:        rgba(255,255,255,0.09);
-        --kf-dd-radius:        18px;
-        --kf-dd-shadow:        0 28px 70px rgba(0,0,0,0.65),0 0 0 1px rgba(255,255,255,0.04);
-        --kf-dd-blur:          blur(28px);
-        --kf-dd-hdr-bg:        rgba(255,255,255,0.025);
-        --kf-dd-hdr-border:    rgba(255,255,255,0.07);
-        --kf-dd-name:          #f0f0ff;
-        --kf-dd-email:         #6366f1;
-        --kf-dd-item:          #c0c0e0;
-        --kf-dd-hover:         rgba(99,102,241,0.15);
-        --kf-dd-divider:       rgba(255,255,255,0.07);
+        --kf-dd-bg:            rgba(17,17,21,0.98);
+        --kf-dd-border:        rgba(255,255,255,0.08);
+        --kf-dd-shadow:        0 4px 6px -1px rgba(0,0,0,0.3),0 16px 48px -8px rgba(0,0,0,0.6),0 0 0 1px rgba(255,255,255,0.04);
+        --kf-dd-blur:          blur(24px);
+        --kf-dd-name:          #f0f0f4;
+        --kf-dd-label:         #71717a;
+        --kf-dd-item:          #a1a1aa;
+        --kf-dd-icon:          #71717a;
+        --kf-dd-icon-hover:    #d4d4d8;
+        --kf-dd-hover:         rgba(255,255,255,0.06);
+        --kf-dd-divider:       rgba(255,255,255,0.06);
+        /* Segmented theme control */
+        --kf-seg-bg:           rgba(255,255,255,0.05);
+        --kf-seg-border:       rgba(255,255,255,0.06);
+        --kf-seg-active-bg:    rgba(255,255,255,0.1);
+        --kf-seg-active-color: #f0f0f4;
+        --kf-seg-active-shadow:0 1px 3px rgba(0,0,0,0.3);
         /* Theme toggle button */
-        --kf-theme-btn-bg:     rgba(255,255,255,0.07);
-        --kf-theme-btn-border: rgba(255,255,255,0.15);
-        --kf-theme-btn-hover:  rgba(29,106,255,0.2);
+        --kf-theme-btn-bg:     rgba(255,255,255,0.06);
+        --kf-theme-btn-border: rgba(255,255,255,0.1);
+        --kf-theme-btn-hover:  rgba(255,255,255,0.1);
       }
 
       /* Theme toggle button */
@@ -1388,10 +1473,24 @@ const KEYIFY = (() => {
       [data-theme="dark"] header .bg-blue-600         { background-color: #1a4fc7 !important; }
       [data-theme="dark"] header .shadow-blue-200      { box-shadow: 0 4px 14px rgba(29,106,255,0.4) !important; }
 
+      /* ── DARK MODE: Font rendering ─────────────────────────────────── */
+      [data-theme="dark"] body {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+      }
+      [data-theme="dark"] .font-display,
+      [data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3,
+      [data-theme="dark"] h4, [data-theme="dark"] h5, [data-theme="dark"] h6 {
+        letter-spacing: -0.01em;
+      }
+
       /* ── DARK MODE: Page body & global backgrounds ──────────────────── */
       [data-theme="dark"] body {
-        background: #0a0f1e !important;
-        color: #cbd5e1 !important;
+        background: #0b0f1a !important;
+        color: #e2e8f0 !important;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
       }
       [data-theme="dark"] section,
       [data-theme="dark"] main   { background: transparent !important; }
@@ -1424,8 +1523,8 @@ const KEYIFY = (() => {
       [data-theme="dark"] .text-gray-800 { color: #e2e8f0 !important; }
       [data-theme="dark"] .text-gray-700 { color: #cbd5e1 !important; }
       [data-theme="dark"] .text-gray-600 { color: #94a3b8 !important; }
-      [data-theme="dark"] .text-gray-500 { color: #64748b !important; }
-      [data-theme="dark"] .text-gray-400 { color: #475569 !important; }
+      [data-theme="dark"] .text-gray-500 { color: #94a3b8 !important; }
+      [data-theme="dark"] .text-gray-400 { color: #64748b !important; }
 
       [data-theme="dark"] .text-blue-600  { color: #60a5fa !important; }
       [data-theme="dark"] .text-blue-700  { color: #93c5fd !important; }
@@ -1471,12 +1570,16 @@ const KEYIFY = (() => {
       [data-theme="dark"] input[type="tel"],
       [data-theme="dark"] textarea,
       [data-theme="dark"] select {
-        background-color: rgba(255,255,255,0.05) !important;
-        border-color: rgba(255,255,255,0.12) !important;
-        color: #e2e8f0 !important;
+        background-color: rgba(255,255,255,0.07) !important;
+        border-color: rgba(255,255,255,0.15) !important;
+        color: #f1f5f9 !important;
       }
       [data-theme="dark"] input::placeholder,
-      [data-theme="dark"] textarea::placeholder { color: rgba(255,255,255,0.28) !important; }
+      [data-theme="dark"] textarea::placeholder { color: rgba(255,255,255,0.38) !important; }
+      [data-theme="dark"] select option {
+        background: #1e293b !important;
+        color: #f1f5f9 !important;
+      }
       [data-theme="dark"] input:focus,
       [data-theme="dark"] textarea:focus,
       [data-theme="dark"] select:focus {
@@ -1502,7 +1605,7 @@ const KEYIFY = (() => {
       [data-theme="dark"] h1, [data-theme="dark"] h2,
       [data-theme="dark"] h3, [data-theme="dark"] h4,
       [data-theme="dark"] h5, [data-theme="dark"] h6 { color: #f1f5f9 !important; }
-      [data-theme="dark"] p   { color: #94a3b8 !important; }
+      [data-theme="dark"] p   { color: #cbd5e1 !important; }
       [data-theme="dark"] a:not(.btn):not([class*="bg-"]):not([class*="text-blue"]):not([class*="text-white"]) {
         color: #93c5fd !important;
       }
@@ -1545,8 +1648,220 @@ const KEYIFY = (() => {
       [data-theme="dark"] .product-card,
       [data-theme="dark"] [class*="product-card"],
       [data-theme="dark"] [class*="price-card"] {
-        background: #111827 !important;
+        background: #151c2e !important;
         border-color: rgba(255,255,255,0.08) !important;
+      }
+      [data-theme="dark"] .product-card:hover {
+        box-shadow: 0 24px 56px rgba(29,106,255,0.12), 0 0 0 1px rgba(29,106,255,0.15) !important;
+      }
+      [data-theme="dark"] .product-card .card-img-wrap {
+        background: linear-gradient(145deg, #0f0f1a, #1a1a2e) !important;
+      }
+
+      /* ── DARK MODE: Related product cards ────────────────────────────── */
+      [data-theme="dark"] .related-card {
+        background: #151c2e !important;
+        border-color: rgba(255,255,255,0.08) !important;
+      }
+      [data-theme="dark"] .related-card .rc-img {
+        background: linear-gradient(145deg, #0f0f1a, #1a1a2e) !important;
+      }
+
+      /* ── DARK MODE: PDP specific ──────────────────────────────────── */
+      [data-theme="dark"] .pdp-image-wrap {
+        background: linear-gradient(145deg, #0f0f1a, #1a1a2e) !important;
+      }
+      [data-theme="dark"] .pdp-tabs {
+        border-bottom-color: rgba(255,255,255,0.08) !important;
+      }
+      [data-theme="dark"] .pdp-tab {
+        color: #64748b !important;
+      }
+      [data-theme="dark"] .pdp-tab.active {
+        color: #60a5fa !important;
+        border-bottom-color: #60a5fa !important;
+      }
+      [data-theme="dark"] .pdp-tab:hover {
+        color: #94a3b8 !important;
+      }
+      [data-theme="dark"] .pdp-spec-row {
+        border-bottom-color: rgba(255,255,255,0.06) !important;
+      }
+      [data-theme="dark"] .pdp-spec-label {
+        color: #64748b !important;
+      }
+      [data-theme="dark"] .pdp-spec-value {
+        color: #f1f5f9 !important;
+      }
+      [data-theme="dark"] .pdp-badge {
+        background: rgba(29,106,255,0.10) !important;
+        border-color: rgba(29,106,255,0.20) !important;
+        color: #60a5fa !important;
+      }
+      [data-theme="dark"] .variant-btn {
+        background: #151c2e !important;
+        border-color: rgba(255,255,255,0.10) !important;
+      }
+      [data-theme="dark"] .variant-btn:hover {
+        border-color: rgba(96,165,250,0.4) !important;
+      }
+      [data-theme="dark"] .variant-btn.active {
+        border-color: #3b82f6 !important;
+        background: rgba(29,106,255,0.08) !important;
+      }
+      [data-theme="dark"] .variant-btn .vb-label {
+        color: #cbd5e1 !important;
+      }
+      [data-theme="dark"] .variant-btn .vb-price {
+        color: #f1f5f9 !important;
+      }
+      [data-theme="dark"] .feature-check {
+        background: rgba(16,185,129,0.15) !important;
+      }
+
+      /* ── DARK MODE: Info cards (contact/about) ───────────────────── */
+      [data-theme="dark"] .info-card {
+        background: linear-gradient(145deg, #151c2e, #111827) !important;
+        border-color: rgba(255,255,255,0.08) !important;
+      }
+      [data-theme="dark"] .stat-card {
+        background: #151c2e !important;
+        border-color: rgba(255,255,255,0.08) !important;
+      }
+      [data-theme="dark"] .team-card {
+        background: #151c2e !important;
+        border-color: rgba(255,255,255,0.08) !important;
+      }
+      [data-theme="dark"] .value-card {
+        background: #151c2e !important;
+        border-color: rgba(255,255,255,0.08) !important;
+      }
+
+      /* ── DARK MODE: Index category cards ─────────────────────────── */
+      [data-theme="dark"] .category-card {
+        background: #151c2e !important;
+        border-color: rgba(255,255,255,0.08) !important;
+      }
+      [data-theme="dark"] .category-card:hover {
+        box-shadow: 0 24px 56px rgba(0,0,0,0.4) !important;
+      }
+      [data-theme="dark"] .category-card .absolute.inset-0 {
+        opacity: 0.20 !important;
+      }
+
+      /* ── DARK MODE: Category pages ──────────────────────────────── */
+      [data-theme="dark"] .toolbar-wrap {
+        background: #151c2e !important;
+        border-color: rgba(255,255,255,0.08) !important;
+      }
+      [data-theme="dark"] .filter-pill {
+        background: rgba(255,255,255,0.06) !important;
+        color: #94a3b8 !important;
+        border-color: transparent !important;
+      }
+      [data-theme="dark"] .filter-pill:hover {
+        background: rgba(29,106,255,0.12) !important;
+        color: #60a5fa !important;
+      }
+      [data-theme="dark"] .filter-pill.active {
+        background: #1D6AFF !important;
+        color: #fff !important;
+      }
+      [data-theme="dark"] .toolbar-wrap .border-l { border-color: rgba(255,255,255,0.08) !important; }
+      [data-theme="dark"] #grid-btn, [data-theme="dark"] #list-btn {
+        color: #64748b !important;
+      }
+      [data-theme="dark"] #grid-btn.bg-blue-50,
+      [data-theme="dark"] #grid-btn[style*="background"] {
+        background: rgba(29,106,255,0.15) !important; color: #60a5fa !important;
+      }
+      [data-theme="dark"] #list-btn:hover, [data-theme="dark"] #grid-btn:hover {
+        background: rgba(255,255,255,0.06) !important; color: #cbd5e1 !important;
+      }
+
+      /* ── Custom Sort Dropdown ───────────────────────────────────── */
+      .kf-sort-wrap { position: relative; display: inline-flex; min-width: 180px; }
+      .kf-sort-trigger {
+        display: flex; align-items: center; gap: 8px; width: 100%;
+        padding: 9px 14px; border-radius: 12px; cursor: pointer;
+        font-size: 13px; font-weight: 600; white-space: nowrap;
+        background: #fff; border: 1.5px solid #e5e7eb; color: #374151;
+        transition: all 0.2s ease; user-select: none;
+      }
+      .kf-sort-trigger:hover { border-color: #d1d5db; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+      .kf-sort-trigger.open { border-color: #1D6AFF; box-shadow: 0 0 0 3px rgba(29,106,255,0.1); }
+      .kf-sort-trigger .kf-sort-arrow {
+        margin-left: auto; width: 16px; height: 16px; flex-shrink: 0;
+        transition: transform 0.2s ease; color: #9ca3af;
+      }
+      .kf-sort-trigger.open .kf-sort-arrow { transform: rotate(180deg); }
+      .kf-sort-panel {
+        position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 50;
+        background: #fff; border: 1.5px solid #e5e7eb; border-radius: 14px;
+        box-shadow: 0 12px 36px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.04);
+        padding: 4px; opacity: 0; visibility: hidden;
+        transform: translateY(-6px); transition: all 0.18s ease;
+        min-width: 200px;
+      }
+      .kf-sort-panel.open { opacity: 1; visibility: visible; transform: translateY(0); }
+      .kf-sort-option {
+        display: flex; align-items: center; gap: 8px;
+        padding: 10px 14px; border-radius: 10px; cursor: pointer;
+        font-size: 13px; font-weight: 500; color: #4b5563;
+        transition: all 0.15s ease; position: relative;
+      }
+      .kf-sort-option:hover { background: #f3f4f6; color: #111827; }
+      .kf-sort-option.active { background: rgba(29,106,255,0.06); color: #1D6AFF; font-weight: 600; }
+      .kf-sort-option .kf-sort-check {
+        width: 16px; height: 16px; margin-left: auto; opacity: 0;
+        color: #1D6AFF; flex-shrink: 0;
+      }
+      .kf-sort-option.active .kf-sort-check { opacity: 1; }
+
+      /* Dark mode sort dropdown */
+      [data-theme="dark"] .kf-sort-trigger {
+        background: rgba(255,255,255,0.05) !important;
+        border-color: rgba(255,255,255,0.1) !important;
+        color: #cbd5e1 !important;
+      }
+      [data-theme="dark"] .kf-sort-trigger:hover {
+        border-color: rgba(255,255,255,0.18) !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+      }
+      [data-theme="dark"] .kf-sort-trigger.open {
+        border-color: rgba(29,106,255,0.5) !important;
+        box-shadow: 0 0 0 3px rgba(29,106,255,0.15) !important;
+      }
+      [data-theme="dark"] .kf-sort-trigger .kf-sort-arrow { color: #64748b !important; }
+      [data-theme="dark"] .kf-sort-panel {
+        background: #1a2236 !important;
+        border-color: rgba(255,255,255,0.1) !important;
+        box-shadow: 0 16px 48px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.2) !important;
+      }
+      [data-theme="dark"] .kf-sort-option { color: #94a3b8 !important; }
+      [data-theme="dark"] .kf-sort-option:hover {
+        background: rgba(255,255,255,0.06) !important;
+        color: #e2e8f0 !important;
+      }
+      [data-theme="dark"] .kf-sort-option.active {
+        background: rgba(29,106,255,0.12) !important;
+        color: #60a5fa !important;
+      }
+      [data-theme="dark"] .kf-sort-option .kf-sort-check { color: #60a5fa !important; }
+
+      /* ── DARK MODE: Contact form overrides ───────────────────────── */
+      [data-theme="dark"] .kf-input {
+        background: rgba(255,255,255,0.07) !important;
+        border-color: rgba(255,255,255,0.15) !important;
+        color: #f1f5f9 !important;
+      }
+      [data-theme="dark"] .kf-input::placeholder {
+        color: rgba(255,255,255,0.38) !important;
+      }
+      [data-theme="dark"] .kf-input:focus {
+        border-color: rgba(29,106,255,0.6) !important;
+        box-shadow: 0 0 0 4px rgba(29,106,255,0.15) !important;
+        background: rgba(29,106,255,0.06) !important;
       }
 
       /* ── DARK MODE: Tables ───────────────────────────────────────────── */
@@ -1566,35 +1881,46 @@ const KEYIFY = (() => {
     document.head.insertBefore(s, document.head.firstChild);
   }
 
-  function _applyTheme(theme) {
+  function _applyTheme(preference) {
+    const effective = preference === 'system'
+      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : preference;
     const html = document.documentElement;
-    if (theme === 'dark') {
+    if (effective === 'dark') {
       html.setAttribute('data-theme', 'dark');
       html.classList.add('dark');
     } else {
       html.removeAttribute('data-theme');
       html.classList.remove('dark');
     }
-    localStorage.setItem('keyify_theme', theme);
+    localStorage.setItem('keyify_theme', preference);
     const btn = document.getElementById('kf-theme-toggle');
-    if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+    if (btn) btn.textContent = preference === 'system' ? '💻' : (effective === 'dark' ? '☀️' : '🌙');
+    document.querySelectorAll('.kf-theme-opt').forEach(el => {
+      el.dataset.active = String(el.dataset.theme === preference);
+    });
   }
 
   function _initTheme() {
     _injectThemeVars();
     const saved = localStorage.getItem('keyify_theme') || 'light';
     _applyTheme(saved);
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (localStorage.getItem('keyify_theme') === 'system') _applyTheme('system');
+    });
   }
 
   function _injectThemeToggle(container) {
     if (document.getElementById('kf-theme-toggle')) return;
     const btn = document.createElement('button');
     btn.id = 'kf-theme-toggle';
-    btn.title = 'Promijeni temu (Light / Dark)';
-    btn.textContent = (localStorage.getItem('keyify_theme') || 'light') === 'dark' ? '☀️' : '🌙';
+    btn.title = 'Promeni temu (Light / Dark / System)';
+    const pref = localStorage.getItem('keyify_theme') || 'light';
+    btn.textContent = pref === 'system' ? '💻' : (pref === 'dark' ? '☀️' : '🌙');
     btn.addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-      _applyTheme(current === 'dark' ? 'light' : 'dark');
+      const cur = localStorage.getItem('keyify_theme') || 'light';
+      const next = cur === 'light' ? 'dark' : cur === 'dark' ? 'system' : 'light';
+      _applyTheme(next);
     });
     container.prepend(btn);
   }
@@ -1831,9 +2157,104 @@ const KEYIFY = (() => {
     return sorted;
   }
 
+  /* ── Custom Sort Dropdown Upgrade ──────────────────────────────── */
+  function _upgradeSortSelect() {
+    const sel = document.getElementById('sort-select');
+    if (!sel || sel.dataset.kfUpgraded === '1') return;
+    sel.dataset.kfUpgraded = '1';
+
+    const options = Array.from(sel.options).map(o => ({ value: o.value, label: o.textContent }));
+    const parent = sel.closest('.flex.items-center.gap-2') || sel.parentElement;
+
+    // Build custom dropdown
+    const wrap = document.createElement('div');
+    wrap.className = 'kf-sort-wrap';
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'kf-sort-trigger';
+    trigger.innerHTML = `
+      <svg class="w-4 h-4 flex-shrink-0" style="color:#9ca3af" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M6 12h12M9 17h6"/>
+      </svg>
+      <span class="kf-sort-label">${options[0].label}</span>
+      <svg class="kf-sort-arrow" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+      </svg>
+    `;
+
+    const panel = document.createElement('div');
+    panel.className = 'kf-sort-panel';
+    panel.innerHTML = options.map((o, i) =>
+      `<div class="kf-sort-option${i === 0 ? ' active' : ''}" data-value="${o.value}">
+        <span>${o.label}</span>
+        <svg class="kf-sort-check" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>`
+    ).join('');
+
+    wrap.appendChild(trigger);
+    wrap.appendChild(panel);
+
+    // Replace the parent container
+    parent.replaceWith(wrap);
+    // Hide original select but keep it in DOM for JS compatibility
+    sel.style.display = 'none';
+    wrap.appendChild(sel);
+
+    // Interactions
+    let isOpen = false;
+    const toggle = () => {
+      isOpen = !isOpen;
+      trigger.classList.toggle('open', isOpen);
+      panel.classList.toggle('open', isOpen);
+    };
+    const close = () => {
+      isOpen = false;
+      trigger.classList.remove('open');
+      panel.classList.remove('open');
+    };
+
+    trigger.addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
+    document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) close(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+
+    panel.querySelectorAll('.kf-sort-option').forEach(opt => {
+      opt.addEventListener('click', () => {
+        const val = opt.dataset.value;
+        sel.value = val;
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+        trigger.querySelector('.kf-sort-label').textContent = opt.querySelector('span').textContent;
+        panel.querySelectorAll('.kf-sort-option').forEach(o => o.classList.remove('active'));
+        opt.classList.add('active');
+        close();
+      });
+    });
+
+    // Keyboard navigation
+    trigger.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); if (!isOpen) toggle(); panel.querySelector('.kf-sort-option')?.focus(); }
+    });
+    panel.querySelectorAll('.kf-sort-option').forEach((opt, i, all) => {
+      opt.tabIndex = 0;
+      opt.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); (all[i + 1] || all[0]).focus(); }
+        if (e.key === 'ArrowUp') { e.preventDefault(); (all[i - 1] || all[all.length - 1]).focus(); }
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); opt.click(); }
+        if (e.key === 'Escape') { close(); trigger.focus(); }
+      });
+    });
+  }
+
   function _initStorefrontFilters() {
     const grid = document.getElementById('product-grid');
     if (!grid) return;
+
+    // Always upgrade the native select — even on inline-managed storefronts
+    _upgradeSortSelect();
+
     if (grid.dataset.kfInlineStorefront === '1') return;
 
     const sortSelect = document.getElementById('sort-select');
@@ -1976,17 +2397,45 @@ const KEYIFY = (() => {
     try {
       let product = null;
 
+      // 1. Manual override
       if (mode === 'manual' && manualId) {
         const res = await fetch(API_BASE + '/products/' + encodeURIComponent(manualId));
         if (res.ok) product = await res.json();
       }
 
+      // 2. Auto: best seller logic with fallback chain
       if (!product) {
         const res = await fetch(API_BASE + '/products');
         if (!res.ok) return;
         const products = await res.json();
         if (!products.length) return;
-        product = products[0];
+
+        // a) Highest purchase_count (best seller)
+        var bestSeller = null;
+        var bestCount = 0;
+        for (var i = 0; i < products.length; i++) {
+          var pc = parseInt(products[i].purchase_count, 10) || 0;
+          if (pc > bestCount) { bestCount = pc; bestSeller = products[i]; }
+        }
+        if (bestSeller && bestCount > 0) { product = bestSeller; }
+
+        // b) Manually featured product (badge = 'Bestseller' or 'Featured')
+        if (!product) {
+          for (var j = 0; j < products.length; j++) {
+            var b = (products[j].badge || '').toLowerCase();
+            if (b === 'bestseller' || b === 'featured') { product = products[j]; break; }
+          }
+        }
+
+        // c) First product with hero image
+        if (!product) {
+          for (var k = 0; k < products.length; k++) {
+            if (products[k].homepage_hero_image) { product = products[k]; break; }
+          }
+        }
+
+        // d) First active product
+        if (!product) { product = products[0]; }
       }
 
       _renderHeroFeaturedProduct(container, product);
@@ -2003,6 +2452,7 @@ const KEYIFY = (() => {
     const origPrice = product.original_price ? parseFloat(product.original_price).toFixed(2) : null;
     const disc = origPrice ? Math.round((1 - product.price / product.original_price) * 100) : 0;
     const heroImg = product.homepage_hero_image || product.image_url || '';
+    const purchaseCount = parseInt(product.purchase_count, 10) || 0;
 
     const titleEl = document.getElementById('hero-fp-title');
     const descEl = document.getElementById('hero-fp-desc');
@@ -2011,6 +2461,9 @@ const KEYIFY = (() => {
     const discountEl = document.getElementById('hero-fp-discount');
     const imageWrap = document.getElementById('hero-fp-image-wrap');
     const imageEl = document.getElementById('hero-fp-image');
+    const fallbackEl = document.getElementById('hero-fp-fallback');
+    const badgeWrap = document.getElementById('hero-fp-badge-wrap');
+    const badgeEl = document.getElementById('hero-fp-badge');
     const atcBtn = document.getElementById('hero-fp-atc-btn');
 
     if (titleEl) titleEl.textContent = name;
@@ -2026,11 +2479,33 @@ const KEYIFY = (() => {
       discountEl.classList.remove('hidden');
     }
 
+    // Badge logic
+    if (badgeWrap && badgeEl) {
+      var badgeText = '';
+      if (purchaseCount > 0) {
+        badgeText = lang === 'en' ? 'BEST SELLER' : 'NAJPRODAVANIJE';
+      } else if (product.badge) {
+        badgeText = product.badge.toUpperCase();
+      }
+      if (badgeText) {
+        badgeEl.innerHTML = '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/></svg> ' + escHtml(badgeText);
+      } else {
+        badgeWrap.style.display = 'none';
+      }
+    }
+
+    // Hero image
     if (imageWrap && imageEl && heroImg) {
       imageEl.src = heroImg;
       imageEl.alt = name;
-      imageWrap.classList.remove('hidden');
-      imageWrap.classList.add('flex');
+      imageEl.onload = function() {
+        imageEl.style.opacity = '1';
+        if (fallbackEl) fallbackEl.style.display = 'none';
+      };
+      imageEl.onerror = function() {
+        imageEl.style.opacity = '0';
+        if (fallbackEl) fallbackEl.style.display = '';
+      };
     }
 
     if (atcBtn) {

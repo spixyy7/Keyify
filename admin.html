@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="bs">
+<html lang="sr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Keyify – Admin Dashboard</title>
 
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <script src="theme-init.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -13,7 +14,7 @@
       theme: {
         extend: {
           fontFamily: {
-            display: ['Poppins', 'sans-serif'],
+            display: ['Outfit', 'sans-serif'],
             body:    ['Inter',   'sans-serif'],
           },
           colors: {
@@ -45,8 +46,8 @@
 
   <style>
     * { box-sizing: border-box; }
-    body { font-family: 'Inter', sans-serif; background: #0a0a12; color: #e2e2f0; }
-    h1,h2,h3,.font-display { font-family: 'Poppins', sans-serif; }
+    body { font-family: 'DM Sans', sans-serif; background: #0a0a12; color: #e2e2f0; }
+    h1,h2,h3,.font-display { font-family: 'Outfit', sans-serif; }
 
     /* Glassmorphism panels */
     .glass {
@@ -504,10 +505,10 @@
             <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background:rgba(248,113,113,0.12)">
               <svg class="w-5 h-5" style="color:#f87171" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86l-7.5 13A1 1 0 003.67 18h16.66a1 1 0 00.87-1.5l-7.5-13a1 1 0 00-1.74 0z"/></svg>
             </div>
-            <span class="badge" style="background:rgba(248,113,113,0.14);color:#fca5a5">Neuspjesno</span>
+            <span class="badge" style="background:rgba(248,113,113,0.14);color:#fca5a5">Neuspešno</span>
           </div>
           <div class="font-display font-bold text-3xl" id="stat-failed" style="color:#f87171">0</div>
-          <div class="text-sm text-dark-300 mt-1 font-medium">Neuspjesne transakcije</div>
+          <div class="text-sm text-dark-300 mt-1 font-medium">Neuspešne transakcije</div>
         </div>
 
         <div class="stat-card glass stat-logs">
@@ -526,12 +527,12 @@
         <div class="p-5 border-b flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4" style="border-color:rgba(255,255,255,0.06)">
           <div>
             <h3 class="font-display font-semibold text-white">Pregled prihoda</h3>
-            <p class="text-xs text-dark-300 mt-0.5">Samo uspjesne transakcije. Prebaci opseg na dnevni, nedeljni ili mjesecni prikaz.</p>
+            <p class="text-xs text-dark-300 mt-0.5">Samo uspešne transakcije. Prebaci opseg na dnevni, nedeljni ili mesečni prikaz.</p>
           </div>
           <div class="flex items-center gap-2">
             <button id="dashboard-range-daily" type="button" onclick="setDashboardChartRange('daily')" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all" style="background:rgba(29,106,255,0.18);color:#fff;border:1px solid rgba(29,106,255,0.28)">Dnevno</button>
             <button id="dashboard-range-weekly" type="button" onclick="setDashboardChartRange('weekly')" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all" style="background:rgba(255,255,255,0.05);color:#a1a1c5;border:1px solid rgba(255,255,255,0.08)">Nedeljno</button>
-            <button id="dashboard-range-monthly" type="button" onclick="setDashboardChartRange('monthly')" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all" style="background:rgba(255,255,255,0.05);color:#a1a1c5;border:1px solid rgba(255,255,255,0.08)">Mjesecno</button>
+            <button id="dashboard-range-monthly" type="button" onclick="setDashboardChartRange('monthly')" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all" style="background:rgba(255,255,255,0.05);color:#a1a1c5;border:1px solid rgba(255,255,255,0.08)">Mesečno</button>
           </div>
         </div>
         <div class="p-5 space-y-4">
@@ -615,7 +616,7 @@
       <div class="max-w-2xl glass rounded-2xl p-8 space-y-7">
         <div>
           <h2 class="font-display font-bold text-white text-xl mb-1" data-i18n="admin.theme.title">Live Tema Editor</h2>
-          <p class="text-sm text-dark-300" data-i18n="admin.theme.sub">Promjene se odmah primjenjuju na sajtu putem CSS varijabli.</p>
+          <p class="text-sm text-dark-300" data-i18n="admin.theme.sub">Promene se odmah primenjuju na sajtu putem CSS varijabli.</p>
         </div>
 
         <div class="space-y-6">
@@ -885,7 +886,7 @@
                 <th data-i18n="admin.security.colEmail">Email</th>
                 <th data-i18n="admin.security.colAction">Akcija</th>
                 <th data-i18n="admin.security.colIp">IP adresa</th>
-                <th data-i18n="admin.security.colTime">Vrijeme</th>
+                <th data-i18n="admin.security.colTime">Vreme</th>
               </tr>
             </thead>
             <tbody id="logs-table-body">
@@ -904,7 +905,7 @@
         <div class="p-5 border-b flex items-center justify-between" style="border-color:rgba(255,255,255,0.06)">
           <div>
             <h3 class="font-display font-semibold text-white">Tiketi za podršku</h3>
-            <p class="text-xs text-dark-300 mt-0.5">Kontakt forma i widget feedback na jednom mjestu.</p>
+            <p class="text-xs text-dark-300 mt-0.5">Kontakt forma i widget feedback na jednom mestu.</p>
           </div>
           <div class="flex items-center gap-3">
             <div class="flex items-center gap-2 rounded-2xl border border-dark-600 p-1" style="background:rgba(255,255,255,0.04)">
@@ -973,7 +974,7 @@
               </div>
               <div class="flex items-center gap-2">
                 <span id="inbox-chat-status-badge" class="badge text-xs"></span>
-                <button id="inbox-ask-email-btn" onclick="askForEmail()" style="display:none;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:600;background:rgba(59,130,246,0.2);color:#60a5fa;border:none;cursor:pointer" title="Pošalji zahtjev korisniku za email">
+                <button id="inbox-ask-email-btn" onclick="askForEmail()" style="display:none;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:600;background:rgba(59,130,246,0.2);color:#60a5fa;border:none;cursor:pointer" title="Pošalji zahtev korisniku za email">
                   📧 Pitaj za mail
                 </button>
                 <button id="inbox-guest-info-btn" onclick="showGuestInfo()" style="display:none;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:600;background:rgba(16,185,129,0.2);color:#34d399;border:none;cursor:pointer" title="Prikaži info o korisniku">
@@ -1086,7 +1087,7 @@
             </select>
           </div>
           <div>
-            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Vrijednost *</label>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Vrednost *</label>
             <input type="number" id="promo-value" min="0.01" step="0.01" placeholder="20" class="admin-input"/>
           </div>
           <div>
@@ -1210,7 +1211,7 @@
           </div>
           <div class="overflow-x-auto">
             <table class="data-table">
-              <thead><tr><th>Korisnik</th><th>Query</th><th>Status</th><th>Redovi</th><th>IP</th><th>Vrijeme</th></tr></thead>
+              <thead><tr><th>Korisnik</th><th>Query</th><th>Status</th><th>Redovi</th><th>IP</th><th>Vreme</th></tr></thead>
               <tbody id="sql-logs-body">
                 <tr><td colspan="6" class="text-center py-8 text-dark-300">Učitavanje...</td></tr>
               </tbody>
@@ -1253,7 +1254,7 @@
         </div>
         <div class="glass rounded-xl p-4 text-center" style="border:1px solid rgba(248,113,113,0.2)">
           <div id="inv-stat-failed" class="font-display font-bold text-xl" style="color:#f87171">—</div>
-          <div class="text-xs text-dark-300 mt-1">Neuspjesno</div>
+          <div class="text-xs text-dark-300 mt-1">Neuspešno</div>
         </div>
         <div class="glass rounded-xl p-4 text-center" style="border:1px solid rgba(162,89,255,0.2)">
           <div id="inv-stat-revenue" class="font-display font-bold text-xl" style="color:#c084fc">—</div>
@@ -1267,7 +1268,7 @@
           <option value="">Svi statusi</option>
           <option value="completed">Završeno</option>
           <option value="pending">Na čekanju</option>
-          <option value="failed">Neuspješno</option>
+          <option value="failed">Neuspešno</option>
           <option value="refunded">Refund</option>
         </select>
         <select id="inv-method-filter" class="admin-input" style="width:auto" onchange="loadInvoices(1)">
@@ -1300,7 +1301,7 @@
                 <th>Kupac</th>
                 <th>Proizvod</th>
                 <th>Iznos</th>
-                <th>Datum i vrijeme</th>
+                <th>Datum i vreme</th>
                 <th>IP adresa</th>
                 <th>Metoda plaćanja</th>
                 <th>Account</th>
@@ -1326,7 +1327,7 @@
           <div class="w-9 h-9 rounded-xl flex items-center justify-center text-lg" style="background:rgba(162,89,255,0.15)">🔐</div>
           <div>
             <div class="font-display font-bold text-white text-sm">Encrypted Transaction Logs</div>
-            <div class="text-xs text-dark-300">Buyer email + iznos su AES-256-CBC enkriptovani u bazi. Dekriptuju se samo ovdje, u realnom vremenu.</div>
+            <div class="text-xs text-dark-300">Buyer email + iznos su AES-256-CBC enkriptovani u bazi. Dekriptuju se samo ovde, u realnom vremenu.</div>
           </div>
         </div>
       </div>
@@ -1402,7 +1403,7 @@
                 <th>Naziv</th>
                 <th>Potrebno referala</th>
                 <th>Tip nagrade</th>
-                <th>Vrijednost</th>
+                <th>Vrednost</th>
                 <th>Akcije</th>
               </tr>
             </thead>
@@ -1444,7 +1445,7 @@
             <input type="text" id="review-name" placeholder="Petar M." class="admin-input"/>
           </div>
           <div>
-            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Ocjena *</label>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Ocena *</label>
             <select id="review-rating" class="admin-input">
               <option value="5">★★★★★ (5)</option>
               <option value="4">★★★★☆ (4)</option>
@@ -1487,7 +1488,7 @@
               <tr>
                 <th>Proizvod</th>
                 <th>Ime</th>
-                <th>Ocjena</th>
+                <th>Ocena</th>
                 <th>Tekst</th>
                 <th>Tip</th>
                 <th>Vidljiv</th>
@@ -1629,11 +1630,11 @@
 
       <div class="grid grid-cols-3 gap-4">
         <div>
-          <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Cijena (€) *</label>
+          <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Cena (€) *</label>
           <input type="number" id="prod-price" required min="0" step="0.01" placeholder="9.99" class="admin-input"/>
         </div>
         <div>
-          <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Stara cijena</label>
+          <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Stara cena</label>
           <input type="number" id="prod-original-price" min="0" step="0.01" placeholder="14.99" class="admin-input"/>
         </div>
         <div>
@@ -1684,8 +1685,10 @@
               <option value="">Bez badge-a</option>
               <option value="SALE">SALE</option>
               <option value="Bestseller">Bestseller</option>
+              <option value="Featured">Featured (Hero)</option>
               <option value="Novo">Novo</option>
               <option value="Popular">Popular</option>
+              <option value="Top">Top izbor</option>
             </select>
           </div>
           <!-- Live preview -->
@@ -1742,7 +1745,7 @@
       <!-- Custom delivery message -->
       <div>
         <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Custom poruka za dostavu</label>
-        <textarea id="prod-delivery-msg" rows="3" placeholder="Opciono: link za preuzimanje, kredencijali, uputstva... Šalje se umjesto/uz licencni ključ u emailu kupcu." class="admin-input resize-none"></textarea>
+        <textarea id="prod-delivery-msg" rows="3" placeholder="Opciono: link za preuzimanje, kredencijali, uputstva... Šalje se umesto/uz licencni ključ u emailu kupcu." class="admin-input resize-none"></textarea>
         <p class="text-xs text-dark-400 mt-1">HTML dozvoljen. Ako je prazno, šalje se standardni licencni ključ.</p>
       </div>
 
@@ -1907,11 +1910,11 @@
       </div>
       <hr style="border-color:rgba(255,255,255,0.06)"/>
       <div>
-        <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Promijeni email</label>
+        <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Promeni email</label>
         <input type="email" id="ud-edit-email" placeholder="novi@email.com" class="admin-input"/>
       </div>
       <div>
-        <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Nova lozinka <span class="normal-case font-normal">(ostavi prazno = bez promjene)</span></label>
+        <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Nova lozinka <span class="normal-case font-normal">(ostavi prazno = bez promene)</span></label>
         <div class="flex gap-2">
           <input type="password" id="ud-edit-password" placeholder="min. 8 karaktera" class="admin-input flex-1"/>
           <button type="button" onclick="generateUserPassword()" title="Generiši privremenu lozinku"
@@ -2514,7 +2517,7 @@
     if (avgEl) avgEl.textContent = formatAdminEuro(averageRevenue);
 
     if (!successfulRows.length) {
-      tbody.innerHTML = `<tr><td colspan="5" class="text-center py-10 text-dark-300">Nema uspjesnih transakcija.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center py-10 text-dark-300">Nema uspešnih transakcija.</td></tr>`;
       return;
     }
 
@@ -2960,9 +2963,9 @@
     const row = document.createElement('div');
     row.className = 'flex items-center gap-2';
     row.innerHTML = `
-      <input type="text" placeholder="Label (npr. 3 mjeseca)" value="${label||''}" class="admin-input flex-1 text-xs py-2" data-vf="label"/>
-      <input type="number" step="0.01" placeholder="Cijena" value="${price||''}" class="admin-input w-24 text-xs py-2" data-vf="price"/>
-      <input type="number" step="0.01" placeholder="Orig. cijena" value="${origPrice||''}" class="admin-input w-24 text-xs py-2" data-vf="orig"/>
+      <input type="text" placeholder="Label (npr. 3 meseca)" value="${label||''}" class="admin-input flex-1 text-xs py-2" data-vf="label"/>
+      <input type="number" step="0.01" placeholder="Cena" value="${price||''}" class="admin-input w-24 text-xs py-2" data-vf="price"/>
+      <input type="number" step="0.01" placeholder="Orig. cena" value="${origPrice||''}" class="admin-input w-24 text-xs py-2" data-vf="orig"/>
       <button type="button" onclick="this.parentElement.remove()" class="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors" style="flex-shrink:0"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg></button>`;
     document.getElementById('variants-repeater').appendChild(row);
   };
@@ -4035,7 +4038,7 @@
                   animation:slideup .18s ease">
         <h4 style="margin:0 0 4px;font-family:'Poppins',sans-serif;font-size:16px;
                    font-weight:700;color:#fff">
-          🚫 Odbij zahtjev za reset lozinke
+          🚫 Odbij zahtev za reset lozinke
         </h4>
         <p style="margin:0 0 20px;font-size:12px;color:#5050a0">
           Korisnik: <strong style="color:#9090b8">${escHtml(name || email || '–')}</strong>
@@ -4106,7 +4109,7 @@
       // Update badge count
       const tbody = document.getElementById('reset-requests-body');
       if (tbody && !tbody.querySelector('tr[id]')) {
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-dark-300">Nema zahtjeva</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-dark-300">Nema zahteva</td></tr>';
       }
       const badge = document.getElementById('reset-badge');
       if (badge) {
@@ -4115,7 +4118,7 @@
         badge.classList.toggle('hidden', cnt <= 0);
       }
 
-      showToast(data.email_sent ? '✅ Zahtjev odbijen i email poslan.' : '✅ Zahtjev odbijen.', 'success');
+      showToast(data.email_sent ? '✅ Zahtev odbijen i email poslan.' : '✅ Zahtev odbijen.', 'success');
     } catch (err) {
       if (btn) { btn.textContent = '🚫 Potvrdi odbijanje'; btn.disabled = false; }
       showToast('✗ ' + err.message, 'error');
@@ -4345,7 +4348,7 @@
       if (m.sender === 'system' && m.message === '__ask_email__') {
         return `<div data-kfy-msg="1" style="max-width:90%;padding:9px 13px;border-radius:12px;font-size:12px;line-height:1.45;
                 background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.25);color:#93c5fd;align-self:center;text-align:center">
-          📧 Zahtjev za email poslan korisniku
+          📧 Zahtev za email poslan korisniku
           <div style="font-size:10px;opacity:.5;margin-top:4px">Sistem · ${fmtDate(m.created_at)}</div>
         </div>`;
       }
@@ -4435,7 +4438,7 @@
         method: 'POST', headers: authHeaders(),
       });
       if (!res.ok) throw new Error((await res.json()).error);
-      showToast('Zahtjev za email poslan korisniku');
+      showToast('Zahtev za email poslan korisniku');
       _inboxLastMsgCount = 0;
       await fetchMessages(_inboxActiveId);
     } catch (err) {
@@ -4849,7 +4852,7 @@
       });
       const data = await res.json();
       if (!res.ok) { alert(data.error || 'Greška'); return; }
-      alert('Uplata odbijena. Korisnik je obaviješten.');
+      alert('Uplata odbijena. Korisnik je obavešten.');
       loadVerifications(_vfCurrentFilter);
       loadVerifyBadge();
     } catch (e) { alert('Greška pri odbijanju'); }
@@ -5138,7 +5141,7 @@
         const map = {
           completed: ['#4ade80','rgba(74,222,128,0.12)','Završeno'],
           pending:   ['#fbbf24','rgba(251,191,36,0.12)', 'Na čekanju'],
-          failed:    ['#f87171','rgba(248,113,113,0.12)','Neuspješno'],
+          failed:    ['#f87171','rgba(248,113,113,0.12)','Neuspešno'],
           refunded:  ['#c084fc','rgba(192,132,252,0.12)','Refund'],
         };
         const [color, bg, label] = map[s] || ['#94a3b8','rgba(148,163,184,0.1)', s || '—'];
@@ -5464,7 +5467,7 @@
       <div>
         <div class="text-[11px] uppercase tracking-[0.18em] text-blue-300 font-semibold">Revenue Detail</div>
         <h3 class="font-display font-bold text-white text-xl mt-1">Uspjesne transakcije</h3>
-        <p class="text-sm text-dark-300 mt-1">Datum, proizvod i iznos za sve uspjesno naplacene kupovine.</p>
+        <p class="text-sm text-dark-300 mt-1">Datum, proizvod i iznos za sve uspešno naplaćene kupovine.</p>
       </div>
       <button onclick="closeRevenueDetailsModal()" class="w-10 h-10 rounded-xl flex items-center justify-center text-dark-300 hover:text-white transition-colors" style="background:rgba(255,255,255,0.05)">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -5498,7 +5501,7 @@
               </tr>
             </thead>
             <tbody id="revenue-details-body">
-              <tr><td colspan="5" class="text-center py-10 text-dark-300">Nema uspjesnih transakcija.</td></tr>
+              <tr><td colspan="5" class="text-center py-10 text-dark-300">Nema uspešnih transakcija.</td></tr>
             </tbody>
           </table>
         </div>

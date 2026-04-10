@@ -1,12 +1,13 @@
-﻿<!DOCTYPE html>
-<html lang="bs">
+<!DOCTYPE html>
+<html lang="sr">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Keyify â€“ Kontakt</title>
+    <title>Keyify – Kontakt</title>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet"/>
 
+    <script src="theme-init.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -14,8 +15,8 @@
             theme: {
                 extend: {
                     fontFamily: {
-                        display: ['Poppins', 'sans-serif'],
-                        body: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                        body: ['DM Sans', 'sans-serif'],
                     },
                     colors: {
                         brand: {
@@ -46,107 +47,126 @@
     </script>
     <style>
         * { box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: #F8F9FB; }
-        h1, h2, h3, .font-display { font-family: 'Poppins', sans-serif; }
+        body { font-family: 'DM Sans', sans-serif; background: #F8F9FB; }
+        h1, h2, h3, .font-display { font-family: 'Outfit', sans-serif; }
 
         /* Navbar blur */
         .navbar-blur { backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 
-        /* Hero gradient */
-        .hero-gradient {
-            background: linear-gradient(135deg,
-            #FFF5EC 0%,
-            #FDECD5 20%,
-            #FCE4E4 45%,
-            #EDE9FD 70%,
-            #E8EFFE 100%
-            );
+        /* ── Theme-Aware Hero ─────────────────────────── */
+        .contact-hero {
+            background: linear-gradient(160deg, #f0f4ff 0%, #f5f0ff 35%, #fff5f0 60%, #f0f8ff 100%);
+        }
+        [data-theme="dark"] .contact-hero {
+            background: linear-gradient(160deg, #06080d 0%, #0a0e1e 35%, #0d0820 60%, #080c18 100%) !important;
+        }
+        .hero-mesh {
+            position: absolute; inset: 0;
+            background-image:
+                radial-gradient(ellipse 600px 400px at 25% 50%, rgba(29,106,255,0.07) 0%, transparent 70%),
+                radial-gradient(ellipse 500px 350px at 75% 30%, rgba(162,89,255,0.05) 0%, transparent 70%);
+        }
+        [data-theme="dark"] .hero-mesh {
+            background-image:
+                radial-gradient(ellipse 600px 400px at 25% 50%, rgba(29,106,255,0.20) 0%, transparent 70%),
+                radial-gradient(ellipse 500px 350px at 75% 30%, rgba(162,89,255,0.15) 0%, transparent 70%) !important;
+        }
+        .hero-grid {
+            position: absolute; inset: 0;
+            background-image:
+                linear-gradient(rgba(29,106,255,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(29,106,255,0.04) 1px, transparent 1px);
+            background-size: 56px 56px;
+            mask-image: radial-gradient(ellipse 80% 70% at center, black, transparent);
+            -webkit-mask-image: radial-gradient(ellipse 80% 70% at center, black, transparent);
+        }
+        [data-theme="dark"] .hero-grid {
+            background-image:
+                linear-gradient(rgba(29,106,255,0.07) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(29,106,255,0.07) 1px, transparent 1px) !important;
         }
 
-        /* Glassmorphism card image */
-        .glass-card {
-            background: rgba(255,255,255,0.08);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            border: 1px solid rgba(255,255,255,0.18);
+        /* ── Contact Info Card ────────────────────────── */
+        .info-card {
+            background: linear-gradient(145deg, #f8fafc, #f1f5f9);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        [data-theme="dark"] .info-card {
+            background: linear-gradient(145deg, #111827, #0f172a) !important;
+        }
+        .info-card:hover { transform: translateY(-2px); }
+        .info-item-icon {
+            width: 44px; height: 44px; border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; transition: transform 0.3s ease;
+        }
+        .info-item:hover .info-item-icon { transform: scale(1.08); }
+
+        /* ── Form Inputs ──────────────────────────────── */
+        .kf-input {
+            width: 100%;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 14px 16px;
+            font-size: 14px;
+            color: #1e293b;
+            background: #ffffff;
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 500;
+            transition: all 0.25s ease;
+        }
+        .kf-input::placeholder { color: #94a3b8; }
+        .kf-input:hover { border-color: #cbd5e1; }
+        .kf-input:focus {
+            outline: none;
+            border-color: #1D6AFF;
+            box-shadow: 0 0 0 4px rgba(29,106,255,0.08);
+            background: #fafcff;
+        }
+        [data-theme="dark"] .kf-input {
+            background: rgba(255,255,255,0.04) !important;
+            border-color: rgba(255,255,255,0.10) !important;
+            color: #e2e8f0 !important;
+        }
+        [data-theme="dark"] .kf-input::placeholder { color: rgba(255,255,255,0.25) !important; }
+        [data-theme="dark"] .kf-input:hover { border-color: rgba(255,255,255,0.18) !important; }
+        [data-theme="dark"] .kf-input:focus {
+            border-color: rgba(29,106,255,0.6) !important;
+            box-shadow: 0 0 0 4px rgba(29,106,255,0.12) !important;
+            background: rgba(29,106,255,0.05) !important;
         }
 
-        /* Product card hover */
-        .product-card {
-            transition: transform 0.28s cubic-bezier(.22,.68,0,1.2), box-shadow 0.28s ease;
+        /* ── FAQ Accordion ────────────────────────────── */
+        details summary { cursor: pointer; list-style: none; }
+        details summary::-webkit-details-marker { display: none; }
+        details[open] .faq-chevron { transform: rotate(180deg); }
+        .faq-chevron { transition: transform 0.25s ease; }
+        .faq-item {
+            transition: box-shadow 0.3s ease, border-color 0.3s ease;
         }
-        .product-card:hover {
-            transform: translateY(-6px);
-            box-shadow: 0 20px 48px rgba(29,106,255,0.12);
-        }
+        .faq-item:hover { border-color: #cbd5e1; }
+        [data-theme="dark"] .faq-item:hover { border-color: rgba(255,255,255,0.12) !important; }
 
-        /* Quick view overlay */
-        .quick-view-overlay { opacity: 0; transition: opacity 0.2s ease; }
-        .product-card:hover .quick-view-overlay { opacity: 1; }
+        /* ── Dropdown / Mobile ───────────────────────── */
+        .dropdown-menu { display: none; }
+        .dropdown-menu.is-open { display: block; }
+        @media (min-width: 1024px) { .dropdown:hover > .dropdown-menu { display: block; } }
+        #mobile-menu { display: none; }
+        #mobile-menu.open { display: block; }
+        #main-header[data-kf-minimal] { box-shadow: none; }
 
-        /* Animated underline nav links */
-        .nav-link { position: relative; }
-        .nav-link::after {
-            content: '';
-            position: absolute;
-            bottom: -2px; left: 0; right: 0;
-            height: 2px;
-            background: #1D6AFF;
-            transform: scaleX(0);
-            transform-origin: center;
-            transition: transform 0.2s ease;
-        }
-        .nav-link:hover::after { transform: scaleX(1); }
-
-        /* Staggered card animation */
+        /* ── Staggered animation ─────────────────────── */
         .card-animate { animation: fadeUp 0.6s ease both; }
         .card-animate:nth-child(1) { animation-delay: 0.05s; }
         .card-animate:nth-child(2) { animation-delay: 0.15s; }
         .card-animate:nth-child(3) { animation-delay: 0.25s; }
         .card-animate:nth-child(4) { animation-delay: 0.35s; }
-        .card-animate:nth-child(5) { animation-delay: 0.45s; }
 
-        /* Blob decorations */
-        .blob {
-            border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-            filter: blur(40px);
-            opacity: 0.45;
-        }
-
-        /* Dropdown */
-        .dropdown-menu { display: none; }
-        .dropdown-menu.is-open { display: block; }
-        @media (min-width: 1024px) {
-            .dropdown:hover > .dropdown-menu { display: block; }
-        }
-        /* Mobile menu */
-        #mobile-menu { display: none; }
-        #mobile-menu.open { display: block; }
-        /* Minimal header */
-        #main-header[data-kf-minimal] { box-shadow: none; }
-
-        /* Category card hover */
-        .category-card {
-            transition: transform 0.28s cubic-bezier(.22,.68,0,1.2), box-shadow 0.28s ease;
-        }
-        .category-card:hover {
-            transform: translateY(-6px) scale(1.02);
-            box-shadow: 0 24px 56px rgba(0,0,0,0.18);
-        }
-
-        /* Custom scrollbar */
+        /* ── Scrollbar ───────────────────────────────── */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #1D6AFF; border-radius: 3px; }
-
-        /* FAQ accordion */
-        details summary { cursor: pointer; list-style: none; }
-        details summary::-webkit-details-marker { display: none; }
-        details[open] .faq-chevron { transform: rotate(180deg); }
-        .faq-chevron { transition: transform 0.25s ease; }
-
-        /* Form input focus */
-        .form-input:focus { outline: none; border-color: #1D6AFF; box-shadow: 0 0 0 3px rgba(29,106,255,0.1); }
+        [data-theme="dark"] ::-webkit-scrollbar-track { background: #0a0f1e; }
     </style>
 </head>
 <body class="antialiased">
@@ -156,7 +176,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center h-[62px] gap-8">
 
-            <!-- â”€â”€ LOGO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+            <!-- LOGO -->
             <a href="index.html" class="flex items-center gap-2 flex-shrink-0 select-none">
                 <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                      style="background: linear-gradient(135deg,#1D6AFF,#A259FF)">
@@ -171,15 +191,12 @@
                 </span>
             </a>
 
-            <!-- â”€â”€ DESKTOP NAV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+            <!-- DESKTOP NAV -->
             <nav class="hidden lg:flex items-center flex-1">
-
                 <a href="index.html"
                    class="px-3 py-2 text-[13.5px] font-bold text-gray-700 hover:text-gray-950 whitespace-nowrap select-none transition-colors duration-150">
-                    PoÄetna
+                    Početna
                 </a>
-
-                <!-- Shop Software â†“ -->
                 <div class="dropdown relative">
                     <button class="kf-dd-trigger flex items-center gap-[5px] px-3 py-2
                                    text-[13.5px] font-bold text-gray-700 hover:text-gray-950
@@ -200,19 +217,11 @@
                     </button>
                     <div class="dropdown-menu absolute top-full left-0 mt-1 w-52
                                 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50">
-                        <a href="design.html"
-                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                            Design &amp; Creativity</a>
-                        <a href="business.html"
-                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                            Business Software</a>
-                        <a href="windows.html"
-                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                            Windows &amp; Office</a>
+                        <a href="design.html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">Design &amp; Creativity</a>
+                        <a href="business.html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">Business Software</a>
+                        <a href="windows.html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">Windows &amp; Office</a>
                     </div>
                 </div>
-
-                <!-- Shop Streaming â†“ -->
                 <div class="dropdown relative">
                     <button class="kf-dd-trigger flex items-center gap-[5px] px-3 py-2
                                    text-[13.5px] font-bold text-gray-700 hover:text-gray-950
@@ -232,16 +241,10 @@
                     </button>
                     <div class="dropdown-menu absolute top-full left-0 mt-1 w-48
                                 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50">
-                        <a href="music.html"
-                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                            Music Streaming</a>
-                        <a href="streaming.html"
-                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                            TV/Video Streaming</a>
+                        <a href="music.html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">Music Streaming</a>
+                        <a href="streaming.html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">TV/Video Streaming</a>
                     </div>
                 </div>
-
-                <!-- Shop AI -->
                 <a href="ai.html"
                    class="flex items-center gap-[5px] px-3 py-2
                           text-[13.5px] font-bold text-gray-700 hover:text-gray-950
@@ -257,15 +260,11 @@
                     </svg>
                     Shop AI
                 </a>
-
-                <!-- O nama -->
                 <a href="about.html"
                    class="px-3 py-2 text-[13.5px] font-bold text-gray-700 hover:text-gray-950
                           whitespace-nowrap transition-colors duration-150 select-none">
                     O nama
                 </a>
-
-                <!-- Kontakt -->
                 <a href="contact.html"
                    class="px-3 py-2 text-[13.5px] font-bold text-blue-600
                           whitespace-nowrap transition-colors duration-150 select-none">
@@ -273,18 +272,17 @@
                 </a>
             </nav>
 
-            <!-- â”€â”€ RIGHT SIDE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+            <!-- RIGHT SIDE -->
             <div class="flex items-center gap-2 ml-auto">
                 <button id="kf-search-btn"
                         class="hidden sm:flex items-center justify-center w-9 h-9
                                text-gray-500 hover:text-blue-600 hover:bg-blue-50
                                rounded-lg transition-colors duration-150"
-                        title="PretraÅ¾i">
+                        title="Pretraži">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="M21 21l-4.35-4.35"/>
                     </svg>
                 </button>
-
                 <a href="login.html"
                    class="hidden sm:flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -293,16 +291,13 @@
                     </svg>
                     Prijavi se
                 </a>
-
                 <button id="kf-header-cart-btn" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all duration-200 shadow-sm hover:shadow-blue-200 hover:shadow-lg active:scale-95">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round"
                               d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
                     </svg>
-                    <span>Korpa â‚¬ 0,00</span>
+                    <span>Korpa € 0,00</span>
                 </button>
-
-                <!-- Mobile hamburger -->
                 <button id="mobile-toggle"
                         class="lg:hidden flex items-center justify-center w-9 h-9
                                text-gray-500 hover:bg-gray-100 rounded-lg transition-colors duration-150">
@@ -314,307 +309,266 @@
                     </svg>
                 </button>
             </div>
-
         </div>
     </div>
 
-    <!-- â”€â”€ MOBILE MENU â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- MOBILE MENU -->
     <div id="mobile-menu" class="lg:hidden border-t border-gray-100 bg-white">
         <div class="px-4 py-3 space-y-0.5">
-            <a href="index.html"
-               class="text-gray-700 px-3 py-2.5 rounded-lg text-sm font-bold transition-colors">
-                PoÄetna
-            </a>
-            <div class="px-3 pt-3 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
-                Shop Software
-            </div>
-            <a href="design.html"
-               class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                Design &amp; Creativity</a>
-            <a href="business.html"
-               class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                Business Software</a>
-            <a href="windows.html"
-               class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                Windows &amp; Office</a>
-            <div class="px-3 pt-3 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
-                Shop Streaming
-            </div>
-            <a href="music.html"
-               class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                Music Streaming</a>
-            <a href="streaming.html"
-               class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                TV/Video Streaming</a>
-            <a href="ai.html"
-               class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                Shop AI</a>
-            <a href="about.html"
-               class="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                O nama</a>
-            <a href="contact.html"
-               class="block px-3 py-2.5 rounded-lg text-sm font-medium text-blue-600 bg-blue-50/70 font-bold hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                Kontakt</a>
+            <a href="index.html" class="text-gray-700 px-3 py-2.5 rounded-lg text-sm font-bold transition-colors">Početna</a>
+            <div class="px-3 pt-3 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Shop Software</div>
+            <a href="design.html" class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">Design &amp; Creativity</a>
+            <a href="business.html" class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">Business Software</a>
+            <a href="windows.html" class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">Windows &amp; Office</a>
+            <div class="px-3 pt-3 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Shop Streaming</div>
+            <a href="music.html" class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">Music Streaming</a>
+            <a href="streaming.html" class="block px-5 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">TV/Video Streaming</a>
+            <a href="ai.html" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">Shop AI</a>
+            <a href="about.html" class="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">O nama</a>
+            <a href="contact.html" class="block px-3 py-2.5 rounded-lg text-sm font-medium text-blue-600 bg-blue-50/70 font-bold hover:bg-blue-50 hover:text-blue-600 transition-colors">Kontakt</a>
         </div>
     </div>
 </header>
 
 
-<!-- HERO HEADER -->
-<section class="bg-gray-50 border-b border-gray-100 py-10">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <nav class="flex items-center gap-2 text-sm text-gray-400 font-medium mb-4">
-            <a href="index.html" class="hover:text-blue-600 transition-colors">PoÄetna</a>
+<!-- ═══════════════════════════════════════════════════════
+     HERO — Theme-Aware Gradient
+═══════════════════════════════════════════════════════ -->
+<section class="contact-hero relative py-16 sm:py-20 overflow-hidden">
+    <div class="hero-mesh"></div>
+    <div class="hero-grid"></div>
+
+    <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <nav class="flex items-center gap-2 text-sm text-gray-400 font-medium mb-6">
+            <a href="index.html" class="hover:text-blue-600 transition-colors">Početna</a>
             <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
             </svg>
             <span class="text-gray-700">Kontakt</span>
         </nav>
-        <h1 class="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-2" data-ck="contact_hero_title">Kontakt</h1>
-        <p class="text-gray-500 text-base font-medium max-w-xl" data-ck="contact_hero_subtitle">Tu smo za sva vaÅ¡a pitanja, prijedloge i zahtjeve za podrÅ¡ku. Odgovaramo brzo i ljubazno.</p>
+        <h1 class="font-display text-3xl sm:text-4xl xl:text-5xl font-bold text-gray-900 mb-3" data-ck="contact_hero_title">Kontaktirajte nas</h1>
+        <p class="text-gray-500 text-base sm:text-lg font-medium max-w-xl" data-ck="contact_hero_subtitle">Tu smo za sva vaša pitanja, predloge i zahteve za podršku. Odgovaramo brzo i ljubazno.</p>
     </div>
 </section>
 
 
-<!-- MAIN CONTACT SECTION -->
+<!-- ═══════════════════════════════════════════════════════
+     MAIN CONTACT — Form + Info Side by Side
+═══════════════════════════════════════════════════════ -->
 <section class="py-16 sm:py-20 bg-gray-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
 
-            <!-- LEFT: Contact Info Card -->
-            <div class="rounded-2xl overflow-hidden shadow-xl" style="background: linear-gradient(145deg, #0f0f1a, #1a1a2e);">
-
-                <!-- SVG Envelope Illustration -->
-                <div class="p-8 pb-4 flex justify-center">
-                    <div class="relative w-56 h-44">
-                        <svg viewBox="0 0 224 176" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
-                            <!-- Background glow -->
-                            <circle cx="112" cy="88" r="70" fill="#1D6AFF" opacity="0.06"/>
-                            <!-- Main envelope body -->
-                            <rect x="24" y="48" width="176" height="116" rx="12" fill="#1e2235" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
-                            <!-- Envelope flap closed line-->
-                            <path d="M24 60 L112 112 L200 60" stroke="rgba(29,106,255,0.4)" stroke-width="1.5" fill="none"/>
-                            <!-- Envelope diagonal lines (fold) -->
-                            <line x1="24" y1="164" x2="88" y2="110" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
-                            <line x1="200" y1="164" x2="136" y2="110" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
-                            <!-- Envelope flap highlight -->
-                            <path d="M24 60 L112 112 L200 60 L188 48 L112 96 L36 48 Z" fill="#1D6AFF" opacity="0.12"/>
-                            <!-- Inner envelope shine -->
-                            <path d="M36 48 L112 96 L188 48" stroke="rgba(29,106,255,0.6)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-                            <!-- Floating circles suggesting connectivity -->
-                            <circle cx="56" cy="28" r="8" fill="rgba(29,106,255,0.25)" stroke="rgba(29,106,255,0.5)" stroke-width="1"/>
-                            <circle cx="168" cy="22" r="6" fill="rgba(162,89,255,0.2)" stroke="rgba(162,89,255,0.4)" stroke-width="1"/>
-                            <circle cx="196" cy="44" r="5" fill="rgba(29,106,255,0.15)" stroke="rgba(29,106,255,0.3)" stroke-width="1"/>
-                            <!-- Connection lines -->
-                            <line x1="56" y1="36" x2="56" y2="48" stroke="rgba(29,106,255,0.3)" stroke-width="1" stroke-dasharray="3 2"/>
-                            <line x1="168" y1="28" x2="168" y2="48" stroke="rgba(162,89,255,0.3)" stroke-width="1" stroke-dasharray="3 2"/>
-                            <!-- @ symbol in envelope center -->
-                            <circle cx="112" cy="130" r="14" fill="rgba(29,106,255,0.15)" stroke="rgba(29,106,255,0.3)" stroke-width="1"/>
-                            <text x="112" y="135" text-anchor="middle" fill="rgba(29,106,255,0.8)" font-size="14" font-family="sans-serif" font-weight="bold">@</text>
-                            <!-- Small dots decoration -->
-                            <circle cx="32" cy="100" r="2" fill="rgba(255,255,255,0.12)"/>
-                            <circle cx="192" cy="90" r="2" fill="rgba(255,255,255,0.12)"/>
-                            <circle cx="40" cy="140" r="1.5" fill="rgba(255,255,255,0.08)"/>
-                            <circle cx="184" cy="150" r="1.5" fill="rgba(255,255,255,0.08)"/>
-                        </svg>
-                    </div>
-                </div>
-
-                <!-- Contact Details -->
-                <div class="px-8 pb-8">
-                    <h2 class="font-display font-bold text-white text-xl mb-6" data-ck="contact_info_title">Kontakt informacije</h2>
-                    <div class="space-y-4">
-                        <div class="flex items-start gap-4">
-                            <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background: rgba(29,106,255,0.15); border: 1px solid rgba(29,106,255,0.2);">
-                                <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                                </svg>
-                            </div>
-                            <div>
-                                <p class="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-0.5">Email</p>
-                                <p class="text-white font-medium text-sm" data-ck="contact_email">csprofilrikavac@gmail.com</p>
-                            </div>
-                        </div>
-
-                        <div class="flex items-start gap-4">
-                            <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background: rgba(29,106,255,0.15); border: 1px solid rgba(29,106,255,0.2);">
-                                <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
-                                </svg>
-                            </div>
-                            <div>
-                                <p class="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-0.5">Telefon</p>
-                                <p class="text-white font-medium text-sm" data-ck="contact_phone"></p>
-                            </div>
-                        </div>
-
-                        <div class="flex items-start gap-4">
-                            <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background: rgba(29,106,255,0.15); border: 1px solid rgba(29,106,255,0.2);">
-                                <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                </svg>
-                            </div>
-                            <div>
-                                <p class="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-0.5">Radno vrijeme</p>
-                                <p class="text-white font-medium text-sm" data-ck="contact_hours">Ponâ€“Pet  9:00â€“18:00</p>
-                            </div>
-                        </div>
-
-                        <div class="flex items-start gap-4">
-                            <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background: rgba(29,106,255,0.15); border: 1px solid rgba(29,106,255,0.2);">
-                                <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                </svg>
-                            </div>
-                            <div>
-                                <p class="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-0.5">Lokacija</p>
-                                <p class="text-white font-medium text-sm" data-ck="contact_location">Sarajevo, Bosnia</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Social media links -->
-                    <div class="mt-8 pt-6 border-t border-white/10">
-                        <p class="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-3">Pratite nas</p>
-                        <div class="flex gap-3">
-                            <a href="#" class="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-110" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" title="Facebook">
-                                <svg class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                            </a>
-                            <a href="#" class="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-110" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" title="Twitter/X">
-                                <svg class="w-4 h-4 text-gray-300" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                            </a>
-                            <a href="#" class="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-110" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" title="Instagram">
-                                <svg class="w-4 h-4 text-pink-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- RIGHT: Contact Form -->
-            <div class="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
-                <h2 class="font-display font-bold text-gray-900 text-xl mb-1" data-ck="contact_form_title">PoÅ¡aljite nam poruku</h2>
-                <p class="text-gray-500 text-sm font-medium mb-7" data-ck="contact_form_subtitle">Odgovaramo u roku od 2 sata tokom radnog vremena.</p>
+            <!-- LEFT: Contact Form (3/5) -->
+            <div class="lg:col-span-3 bg-white rounded-2xl shadow-xl border border-gray-100 p-8 sm:p-10">
+                <h2 class="font-display font-bold text-gray-900 text-xl mb-1" data-ck="contact_form_title">Pošaljite nam poruku</h2>
+                <p class="text-gray-500 text-sm font-medium mb-8" data-ck="contact_form_subtitle">Odgovaramo u roku od 2 sata tokom radnog vremena.</p>
 
                 <form id="contact-form" class="space-y-5" novalidate>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1.5" for="full-name">Ime i prezime</label>
-                        <input type="text" id="full-name" placeholder="npr. Aleksa MojsiloviÄ‡" required
-                               class="form-input w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 transition-all duration-200 font-medium"/>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2" for="full-name">Ime i prezime</label>
+                            <input type="text" id="full-name" placeholder="npr. Aleksa Mojsilović" required
+                                   class="kf-input"/>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2" for="email">Email adresa</label>
+                            <input type="email" id="email" placeholder="vas@email.com" required
+                                   class="kf-input"/>
+                        </div>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1.5" for="email">Email adresa</label>
-                        <input type="email" id="email" placeholder="vas@email.com" required
-                               class="form-input w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 transition-all duration-200 font-medium"/>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1.5" for="tema">Tema</label>
-                        <select id="tema" required
-                                class="form-input w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 transition-all duration-200 font-medium bg-white cursor-pointer">
-                            <option value="" disabled selected>Odaberite temu...</option>
-                            <option value="podrska">TehniÄka podrÅ¡ka</option>
-                            <option value="narudzba">Pitanje o narudÅ¾bi</option>
-                            <option value="povrat">Povrat novca / Zamjena kljuÄa</option>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2" for="tema">Tema</label>
+                        <select id="tema" required class="kf-input cursor-pointer">
+                            <option value="" disabled selected>Izaberite temu...</option>
+                            <option value="podrska">Tehnička podrška</option>
+                            <option value="narudzba">Pitanje o narudžbi</option>
+                            <option value="povrat">Povrat novca / Zamena ključa</option>
                             <option value="partnerstvo">Partnerstvo / Saradnja</option>
                             <option value="ostalo">Ostalo</option>
                         </select>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1.5" for="poruka">Poruka</label>
-                        <textarea id="poruka" rows="5" placeholder="OpiÅ¡ite vaÅ¡ upit Å¡to detaljnije..." required
-                                  class="form-input w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 transition-all duration-200 font-medium resize-none"></textarea>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2" for="poruka">Poruka</label>
+                        <textarea id="poruka" rows="5" placeholder="Opišite vaš upit što detaljnije..." required
+                                  class="kf-input resize-none"></textarea>
                     </div>
 
                     <button type="submit"
-                            class="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold py-3.5 rounded-xl transition-all duration-200 shadow-sm hover:shadow-blue-200 hover:shadow-lg text-sm flex items-center justify-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            class="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold py-3 rounded-xl transition-all duration-200 shadow-sm hover:shadow-blue-600/20 hover:shadow-lg text-sm inline-flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
                         </svg>
-                        PoÅ¡alji poruku
+                        <span>Pošalji poruku</span>
                     </button>
                 </form>
 
-                <!-- Success Message (hidden by default) -->
-                <div id="success-msg" class="hidden mt-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3">
-                    <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <!-- Success Message -->
+                <div id="success-msg" class="hidden mt-6 p-5 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3">
+                    <div class="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
                         </svg>
                     </div>
                     <div>
-                        <p class="text-green-800 font-semibold text-sm">Poruka uspjeÅ¡no poslana!</p>
-                        <p class="text-green-700 text-xs font-medium mt-0.5">OdgovoriÄ‡emo vam u roku od 2 sata. Hvala Å¡to ste nas kontaktirali.</p>
+                        <p class="text-green-800 font-semibold text-sm">Poruka uspešno poslana!</p>
+                        <p class="text-green-700 text-xs font-medium mt-1">Odgovorićemo vam u roku od 2 sata. Hvala što ste nas kontaktirali.</p>
                     </div>
                 </div>
             </div>
 
+            <!-- RIGHT: Contact Info (2/5) -->
+            <div class="lg:col-span-2 space-y-5">
+
+                <!-- Info Card -->
+                <div class="info-card rounded-2xl border border-gray-200 shadow-lg p-7">
+                    <h3 class="font-display font-bold text-gray-900 text-lg mb-6" data-ck="contact_info_title">Kontakt informacije</h3>
+
+                    <div class="space-y-5">
+                        <div class="info-item flex items-start gap-4">
+                            <div class="info-item-icon bg-blue-50 border border-blue-100">
+                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Email</p>
+                                <p class="text-gray-900 font-semibold text-sm" data-ck="contact_email">csprofilrikavac@gmail.com</p>
+                            </div>
+                        </div>
+
+                        <div class="info-item flex items-start gap-4">
+                            <div class="info-item-icon bg-green-50 border border-green-100">
+                                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Telefon</p>
+                                <p class="text-gray-900 font-semibold text-sm" data-ck="contact_phone"></p>
+                            </div>
+                        </div>
+
+                        <div class="info-item flex items-start gap-4">
+                            <div class="info-item-icon bg-purple-50 border border-purple-100">
+                                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Radno vreme</p>
+                                <p class="text-gray-900 font-semibold text-sm" data-ck="contact_hours">Pon–Pet  9:00–18:00</p>
+                            </div>
+                        </div>
+
+                        <div class="info-item flex items-start gap-4">
+                            <div class="info-item-icon bg-orange-50 border border-orange-100">
+                                <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Lokacija</p>
+                                <p class="text-gray-900 font-semibold text-sm" data-ck="contact_location">Sarajevo, Bosnia</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Social Links Card -->
+                <div class="info-card rounded-2xl border border-gray-200 shadow-lg p-7">
+                    <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-4">Pratite nas</p>
+                    <div class="flex gap-3">
+                        <a href="#" class="w-11 h-11 rounded-xl bg-white border border-gray-100 flex items-center justify-center transition-all duration-200 hover:border-blue-200 hover:shadow-md hover:scale-105" title="Facebook">
+                            <svg class="w-5 h-5 text-gray-500 hover:text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                        </a>
+                        <a href="#" class="w-11 h-11 rounded-xl bg-white border border-gray-100 flex items-center justify-center transition-all duration-200 hover:border-gray-300 hover:shadow-md hover:scale-105" title="Twitter/X">
+                            <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                        </a>
+                        <a href="#" class="w-11 h-11 rounded-xl bg-white border border-gray-100 flex items-center justify-center transition-all duration-200 hover:border-pink-200 hover:shadow-md hover:scale-105" title="Instagram">
+                            <svg class="w-5 h-5 text-gray-500 hover:text-pink-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Response Time Card -->
+                <div class="info-card rounded-2xl border border-gray-200 shadow-lg p-7">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
+                        <span class="text-sm font-bold text-green-600">Online</span>
+                    </div>
+                    <p class="text-gray-500 text-sm font-medium leading-relaxed">Prosečno vreme odgovora: <span class="text-gray-900 font-bold">manje od 2 sata</span> tokom radnog vremena.</p>
+                </div>
+
+            </div>
         </div>
     </div>
 </section>
 
 
-<!-- FAQ SECTION -->
-<section class="py-16 bg-white">
+<!-- ═══════════════════════════════════════════════════════
+     FAQ SECTION — Premium Accordion
+═══════════════════════════════════════════════════════ -->
+<section class="py-16 sm:py-20 bg-white">
     <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-12">
-            <div class="inline-flex items-center gap-2 bg-blue-50 text-blue-600 text-xs font-bold tracking-widest uppercase rounded-full px-4 py-1.5 mb-4">
-                ÄŒesta pitanja
+            <div class="inline-flex items-center gap-2 bg-blue-50 border border-blue-100 text-blue-600 text-xs font-bold tracking-widest uppercase rounded-full px-4 py-1.5 mb-5">
+                Česta pitanja
             </div>
-            <h2 class="font-display text-3xl font-bold text-gray-900 mb-2">Imate pitanje?</h2>
-            <p class="text-gray-500 text-base font-medium">Pogledajte odgovore na najÄeÅ¡Ä‡e upite naÅ¡ih kupaca.</p>
+            <h2 class="font-display text-3xl font-bold text-gray-900 mb-3">Imate pitanje?</h2>
+            <p class="text-gray-500 text-base font-medium">Pogledajte odgovore na najčešće upite naših kupaca.</p>
         </div>
 
         <div class="space-y-3">
 
-            <details class="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden group">
+            <details class="faq-item bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden">
                 <summary class="flex items-center justify-between px-6 py-5 font-semibold text-gray-900 text-sm hover:text-blue-600 transition-colors">
-                    Kako primim digitalni kljuÄ nakon kupovine?
+                    Kako primim digitalni ključ nakon kupovine?
                     <svg class="faq-chevron w-4 h-4 text-gray-400 flex-shrink-0 ml-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </summary>
                 <div class="px-6 pb-5 text-sm text-gray-600 leading-relaxed font-medium">
-                    Nakon Å¡to vaÅ¡a uplata bude potvrÄ‘ena, kljuÄ vam se Å¡alje automatski na email adresu koju ste naveli pri kupovini â€” obiÄno u roku od nekoliko minuta. Molimo provjerite i spam folder ako ga ne vidite u pristigloj poÅ¡ti.
+                    Nakon što vaša uplata bude potvrđena, ključ vam se šalje automatski na email adresu koju ste naveli pri kupovini – obično u roku od nekoliko minuta. Molimo proverite i spam folder ako ga ne vidite u pristigloj pošti.
                 </div>
             </details>
 
-            <details class="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden group">
+            <details class="faq-item bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden">
                 <summary class="flex items-center justify-between px-6 py-5 font-semibold text-gray-900 text-sm hover:text-blue-600 transition-colors">
-                    Å ta ako kupljeni kljuÄ ne radi?
+                    Šta ako kupljeni ključ ne radi?
                     <svg class="faq-chevron w-4 h-4 text-gray-400 flex-shrink-0 ml-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </summary>
                 <div class="px-6 pb-5 text-sm text-gray-600 leading-relaxed font-medium">
-                    Ukoliko kupljeni kljuÄ ne radi, kontaktirajte nas putem ovog formulara ili direktno na email info@keyify.ba. ZamijeniÄ‡emo vam kljuÄ bez pitanja ili Ä‡emo vam u potpunosti refundirati uplatu â€” po vaÅ¡em izboru.
+                    Ukoliko kupljeni ključ ne radi, kontaktirajte nas putem ovog formulara ili direktno na naš email. Zamenićemo vam ključ bez pitanja ili ćemo vam u potpunosti refundirati uplatu – po vašem izboru.
                 </div>
             </details>
 
-            <details class="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden group">
+            <details class="faq-item bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden">
                 <summary class="flex items-center justify-between px-6 py-5 font-semibold text-gray-900 text-sm hover:text-blue-600 transition-colors">
-                    Koje naÄine plaÄ‡anja prihvatate?
+                    Koje načine plaćanja prihvatate?
                     <svg class="faq-chevron w-4 h-4 text-gray-400 flex-shrink-0 ml-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </summary>
                 <div class="px-6 pb-5 text-sm text-gray-600 leading-relaxed font-medium">
-                    Prihvatamo plaÄ‡anje karticama Visa i Mastercard, kao i putem PayPal-a. Sve transakcije su zaÅ¡tiÄ‡ene SSL enkripcijom i 3D Secure protokolom za maksimalnu sigurnost vaÅ¡ih podataka.
+                    Prihvatamo plaćanje karticama Visa i Mastercard, kao i putem PayPal-a. Sve transakcije su zaštićene SSL enkripcijom i 3D Secure protokolom za maksimalnu sigurnost vaših podataka.
                 </div>
             </details>
 
-            <details class="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden group">
+            <details class="faq-item bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden">
                 <summary class="flex items-center justify-between px-6 py-5 font-semibold text-gray-900 text-sm hover:text-blue-600 transition-colors">
-                    Da li su vaÅ¡i kljuÄevi originalni i legalni?
+                    Da li su vaši ključevi originalni i legalni?
                     <svg class="faq-chevron w-4 h-4 text-gray-400 flex-shrink-0 ml-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </summary>
                 <div class="px-6 pb-5 text-sm text-gray-600 leading-relaxed font-medium">
-                    Da, apsolutno. Svi naÅ¡i kljuÄevi su 100% originalni i legalni, nabavljeni od ovlaÅ¡tenih distributera i partnera. Svaki kljuÄ prolazi provjeru autentiÄnosti prije nego Å¡to ga isporuÄimo kupcu. Nudimo punu garanciju originalnosti.
+                    Da, apsolutno. Svi naši ključevi su 100% originalni i legalni, nabavljeni od ovlašćenih distributera i partnera. Svaki ključ prolazi proveru autentičnosti pre nego što ga isporučimo kupcu. Nudimo punu garanciju originalnosti.
                 </div>
             </details>
 
@@ -623,7 +577,9 @@
 </section>
 
 
-<!-- FOOTER -->
+<!-- ═══════════════════════════════════════════════════════
+     FOOTER
+═══════════════════════════════════════════════════════ -->
 <footer class="bg-gray-900 text-gray-400 pt-14 pb-8">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
@@ -639,7 +595,7 @@
                     <span class="font-display text-lg font-bold text-white tracking-tight">Key<span class="text-blue-500">ify</span></span>
                 </div>
                 <p class="text-sm leading-relaxed mb-5 font-medium" data-ck="footer_tagline">
-                    VaÅ¡ pouzdani izvor originalnih digitalnih kljuÄeva i pretplata po najboljim cijenama na trÅ¾iÅ¡tu.
+                    Vaš pouzdani izvor originalnih digitalnih ključeva i pretplata po najboljim cenama na tržištu.
                 </p>
                 <div class="flex gap-3">
                     <a href="#" id="footer-fb" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-blue-600 flex items-center justify-center transition-colors">
@@ -660,27 +616,27 @@
                     <li><a href="design.html" class="hover:text-white transition-colors">Shop Software</a></li>
                     <li><a href="streaming.html" class="hover:text-white transition-colors">Shop Streaming</a></li>
                     <li><a href="ai.html" class="hover:text-white transition-colors">Shop AI Alati</a></li>
-                    <li><a href="#" class="hover:text-white transition-colors">Akcije & Popusti</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">Akcije &amp; Popusti</a></li>
                     <li><a href="#" class="hover:text-white transition-colors">Novo u ponudi</a></li>
                 </ul>
             </div>
 
             <div>
-                <h4 class="text-white font-display font-semibold text-sm mb-4">PodrÅ¡ka</h4>
+                <h4 class="text-white font-display font-semibold text-sm mb-4">Podrška</h4>
                 <ul class="space-y-2.5 text-sm font-medium">
                     <li><a href="contact.html" class="hover:text-white transition-colors">Kontakt</a></li>
                     <li><a href="#" class="hover:text-white transition-colors">FAQ</a></li>
-                    <li><a href="#" class="hover:text-white transition-colors">PraÄ‡enje narudÅ¾be</a></li>
-                    <li><a href="#" class="hover:text-white transition-colors">Politika vraÄ‡anja</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">Praćenje narudžbe</a></li>
+                    <li><a href="#" class="hover:text-white transition-colors">Politika vraćanja</a></li>
                     <li><a href="about.html" class="hover:text-white transition-colors">O nama</a></li>
                 </ul>
             </div>
 
             <div>
                 <h4 class="text-white font-display font-semibold text-sm mb-4">Newsletter</h4>
-                <p class="text-sm mb-4 font-medium">Prijavite se za ekskluzivne popuste i obavijesti o novim proizvodima.</p>
+                <p class="text-sm mb-4 font-medium">Prijavite se za ekskluzivne popuste i obaveštenja o novim proizvodima.</p>
                 <div class="flex gap-2">
-                    <input type="email" placeholder="email@primjer.com"
+                    <input type="email" placeholder="email@primer.com"
                            class="flex-1 bg-gray-800 border border-gray-700 text-white text-sm rounded-xl px-3 py-2.5 outline-none focus:border-blue-500 placeholder-gray-500 transition-colors min-w-0 font-medium"/>
                     <button class="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2.5 rounded-xl transition-colors flex-shrink-0">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
@@ -702,11 +658,11 @@
         </div>
 
         <div class="border-t border-gray-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-medium">
-            <p data-ck="footer_copyright">Â© 2025 Keyify. Sva prava zadrÅ¾ana.</p>
+            <p data-ck="footer_copyright">© 2026 Keyify. Sva prava zadržana.</p>
             <div class="flex gap-4">
                 <a href="#" class="hover:text-white transition-colors">Privatnost</a>
-                <a href="#" class="hover:text-white transition-colors">Uslovi koriÅ¡Ä‡enja</a>
-                <a href="#" class="hover:text-white transition-colors">KolaÄiÄ‡i</a>
+                <a href="#" class="hover:text-white transition-colors">Uslovi korišćenja</a>
+                <a href="#" class="hover:text-white transition-colors">Kolačići</a>
             </div>
         </div>
     </div>
@@ -719,7 +675,6 @@
         document.getElementById('mobile-menu').classList.toggle('open');
     });
 
-    // Dropdown hover with delay fix
     document.querySelectorAll('.dropdown').forEach(function(dd) {
         var menu = dd.querySelector('.dropdown-menu');
         var timer;
@@ -754,13 +709,12 @@
                 }),
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'GreÅ¡ka pri slanju');
+            if (!res.ok) throw new Error(data.error || 'Greška pri slanju');
             this.style.display = 'none';
             document.getElementById('success-msg').classList.remove('hidden');
         } catch (err) {
             btn.disabled = false;
             btn.innerHTML = orig;
-            // Show inline error
             let errEl = document.getElementById('contact-err');
             if (!errEl) {
                 errEl = document.createElement('div');
@@ -780,4 +734,3 @@
 <script src="search-overlay.js"></script>
 </body>
 </html>
-

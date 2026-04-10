@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html lang="bs">
+<html lang="sr">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Keyify – Blagajna</title>
 
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet"/>
   <script src="https://js.stripe.com/v3/"></script>
+  <script src="theme-init.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -22,8 +23,8 @@
 
   <style>
     * { box-sizing: border-box; }
-    body { font-family: 'Inter', sans-serif; background: #F8F9FB; }
-    h1,h2,h3,.font-display { font-family: 'Poppins', sans-serif; }
+    body { font-family: 'DM Sans', sans-serif; background: #F8F9FB; }
+    h1,h2,h3,.font-display { font-family: 'Outfit', sans-serif; }
     .navbar-blur { backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
     .form-input:focus { outline: none; border-color: #1D6AFF; box-shadow: 0 0 0 3px rgba(29,106,255,0.10); }
     /* dropdown */
@@ -228,7 +229,7 @@
           <button onclick="applyPromo()"
                   class="px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90 active:scale-95 flex-shrink-0"
                   style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
-            Primijeni
+            Primeni
           </button>
         </div>
         <div id="promo-msg" class="hidden mt-2.5 text-xs font-semibold rounded-lg px-3 py-2"></div>
@@ -243,7 +244,7 @@
         </svg>
         <span data-i18n="checkout.placeOrder">Potvrdi narudžbu</span>
       </button>
-      <p class="text-center text-xs text-gray-400" data-i18n="checkout.vatNote">Cijena uključuje sve poreze i naknade.</p>
+      <p class="text-center text-xs text-gray-400" data-i18n="checkout.vatNote">Cena uključuje sve poreze i naknade.</p>
       <a href="cart.html" class="flex items-center justify-center gap-2 text-sm font-semibold text-gray-500 hover:text-blue-600 transition-colors mt-2">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
@@ -319,7 +320,7 @@
         </div>
         <span class="font-display text-white font-bold">Key<span class="text-blue-500">ify</span></span>
       </div>
-      <p data-i18n="footer.rights">© 2025 Keyify. Sva prava zadržana.</p>
+      <p data-i18n="footer.rights">© 2026 Keyify. Sva prava zadržana.</p>
       <div class="flex gap-4">
         <a href="#" class="hover:text-white transition-colors" data-i18n="footer.privacy">Privatnost</a>
         <a href="#" class="hover:text-white transition-colors" data-i18n="footer.terms">Uslovi korišćenja</a>
@@ -927,7 +928,7 @@
       },
       onError: (err) => {
         console.error('PayPal error:', err);
-        alert('PayPal plaćanje nije uspjelo. Pokušajte ponovo.');
+        alert('PayPal plaćanje nije uspelo. Pokušajte ponovo.');
       },
     }).render('#paypal-button-container');
   }
@@ -947,7 +948,7 @@
 
     // Stripe nije dostupno
     if (selectedMethod === 'stripe_card' || selectedMethod === 'stripe_coming_soon') {
-      alert('Plaćanje karticom trenutno nije dostupno. Molimo odaberite drugu metodu plaćanja.');
+      alert('Plaćanje karticom trenutno nije dostupno. Molimo izaberite drugu metodu plaćanja.');
       return;
     }
 
@@ -1137,7 +1138,7 @@
     const identity   = getCheckoutIdentity();
     const buyerInputs = collectCheckoutExtraInputs();
     if (buyerInputs === null) {
-      if (btn) { btn.disabled = false; btn.textContent = 'Potvrdi narudÅ¾bu'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Potvrdi narudžbu'; }
       return;
     }
 

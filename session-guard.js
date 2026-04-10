@@ -108,7 +108,7 @@
         width:90%;
         text-align:center;
         box-shadow:0 8px 40px rgba(15,23,42,0.14),0 1px 4px rgba(15,23,42,0.06);
-        font-family:'Inter',system-ui,sans-serif;
+        font-family:'DM Sans',system-ui,sans-serif;
       ">
         <!-- countdown ring -->
         <div style="position:relative;width:72px;height:72px;margin:0 auto 20px;">
@@ -118,14 +118,14 @@
                     stroke="#1D6AFF" stroke-width="5" stroke-linecap="round"/>
           </svg>
           <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
-            <span id="sg-countdown" style="font-family:'Poppins',sans-serif;font-size:1.2rem;font-weight:700;color:#1D6AFF;line-height:1;">60</span>
+            <span id="sg-countdown" style="font-family:'Outfit',sans-serif;font-size:1.2rem;font-weight:700;color:#1D6AFF;line-height:1;">60</span>
           </div>
         </div>
 
-        <h2 style="font-family:'Poppins',sans-serif;font-size:1.2rem;font-weight:700;
+        <h2 style="font-family:'Outfit',sans-serif;font-size:1.2rem;font-weight:700;
                    color:#0f172a;margin:0 0 8px;">Sesija ističe</h2>
         <p style="color:#64748b;font-size:0.875rem;line-height:1.6;margin:0 0 24px;">
-          Bit ćete automatski odjavljeni zbog neaktivnosti.<br>
+          Bićete automatski odjavljeni zbog neaktivnosti.<br>
           Kliknite <strong style="color:#0f172a;">Ostani prijavljen</strong> da nastavite.
         </p>
 
@@ -133,12 +133,12 @@
           <button id="sg-stay" style="
             background:#1D6AFF;color:#fff;border:none;border-radius:10px;
             padding:11px 26px;font-size:0.875rem;font-weight:600;cursor:pointer;
-            transition:background 0.15s;font-family:'Inter',sans-serif;
+            transition:background 0.15s;font-family:'DM Sans',sans-serif;
           ">Ostani prijavljen</button>
           <button id="sg-logout" style="
             background:#fff;color:#ef4444;border:1px solid #fecaca;border-radius:10px;
             padding:11px 26px;font-size:0.875rem;font-weight:600;cursor:pointer;
-            transition:background 0.15s;font-family:'Inter',sans-serif;
+            transition:background 0.15s;font-family:'DM Sans',sans-serif;
           ">Odjavi se</button>
         </div>
       </div>`;

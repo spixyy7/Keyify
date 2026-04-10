@@ -300,7 +300,7 @@
         margin-bottom: 8px;
       }
       #kve-button-studio .kve-bs-title {
-        font-family: 'Poppins', sans-serif;
+        font-family: 'Outfit', sans-serif;
         font-size: 17px;
         font-weight: 700;
         line-height: 1.2;
@@ -992,7 +992,7 @@
         position: fixed; top: 0; left: 0; right: 0; z-index: 99999;
         background: linear-gradient(90deg, #1254D4 0%, #1D6AFF 40%, #A259FF 100%);
         color: #fff; display: flex; align-items: center; gap: 8px;
-        padding: 8px 16px; font-family: 'Inter', sans-serif;
+        padding: 8px 16px; font-family: 'DM Sans', sans-serif;
         font-size: 12px; font-weight: 600;
         box-shadow: 0 4px 24px rgba(29,106,255,0.45);
         flex-wrap: wrap;
@@ -1128,7 +1128,7 @@
         display: inline-flex; align-items: center; gap: 4px;
         padding: 5px 10px; border: none; border-radius: 8px;
         font-size: 11px; font-weight: 700; cursor: pointer;
-        font-family: 'Inter', sans-serif;
+        font-family: 'DM Sans', sans-serif;
         box-shadow: 0 3px 12px rgba(0,0,0,0.3);
         transition: transform .12s, box-shadow .12s;
         white-space: nowrap;
@@ -1149,7 +1149,7 @@
         border: 2.5px dashed rgba(29,106,255,0.42);
         background: rgba(29,106,255,0.04); border-radius: 16px;
         cursor: pointer; text-align: center;
-        font-family: 'Inter', sans-serif; font-size: 14px;
+        font-family: 'DM Sans', sans-serif; font-size: 14px;
         font-weight: 700; color: #1D6AFF;
         transition: border-color .2s, background .2s, transform .15s;
         user-select: none;
@@ -1170,7 +1170,7 @@
         border-radius: 20px; padding: 28px 24px;
         width: 720px; max-width: calc(100vw - 24px);
         max-height: 88vh; overflow-y: auto;
-        font-family: 'Inter', sans-serif; color: #e2e2f0;
+        font-family: 'DM Sans', sans-serif; color: #e2e2f0;
         box-shadow: 0 36px 90px rgba(0,0,0,0.75);
         animation: kveSlideUp .22s ease;
       }
@@ -1181,7 +1181,7 @@
         margin-bottom: 6px;
       }
       .kve-bl-header h3 {
-        font-family: 'Poppins', sans-serif; font-size: 17px;
+        font-family: 'Outfit', sans-serif; font-size: 17px;
         font-weight: 700; color: #fff; margin: 0;
       }
       .kve-bl-close {
@@ -1228,7 +1228,7 @@
       .kve-modal {
         background: #13132a; border: 1px solid rgba(255,255,255,0.12);
         border-radius: 18px; padding: 26px; width: 380px; max-width: calc(100vw - 32px);
-        font-family: 'Inter', sans-serif; color: #e2e2f0;
+        font-family: 'DM Sans', sans-serif; color: #e2e2f0;
         box-shadow: 0 24px 64px rgba(0,0,0,0.65);
         animation: kveSlideUp .2s ease;
       }
@@ -1237,7 +1237,7 @@
         to   { transform: translateY(0);    opacity: 1 }
       }
       .kve-modal h4 {
-        font-family: 'Poppins', sans-serif; font-size: 15px; font-weight: 700;
+        font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 700;
         color: #fff; margin: 0 0 18px;
       }
       .kve-modal label {
@@ -1282,7 +1282,7 @@
         background: #13132a; border: 1px solid rgba(255,255,255,0.1);
         border-radius: 12px; padding: 5px; min-width: 190px;
         box-shadow: 0 12px 40px rgba(0,0,0,0.55);
-        font-family: 'Inter', sans-serif; font-size: 13px;
+        font-family: 'DM Sans', sans-serif; font-size: 13px;
         animation: kveFadeIn .12s ease;
       }
       #kve-ctx .kve-ctx-header {
@@ -1320,7 +1320,7 @@
       }
       .kve-add-card-wrap:hover .kve-add-icon { background: rgba(29,106,255,0.28); }
       .kve-add-label {
-        font-family: 'Inter', sans-serif; font-size: 13px;
+        font-family: 'DM Sans', sans-serif; font-size: 13px;
         font-weight: 600; color: #1D6AFF; opacity: .85;
       }
 
@@ -1341,7 +1341,7 @@
       .kve-empty-placeholder .kve-add-icon { width: 72px; height: 72px; font-size: 36px; }
       .kve-empty-placeholder .kve-add-label { font-size: 16px; }
       .kve-empty-subtitle {
-        font-family: 'Inter', sans-serif; font-size: 12px;
+        font-family: 'DM Sans', sans-serif; font-size: 12px;
         color: rgba(255,255,255,0.3); margin-top: -8px;
       }
 
@@ -1357,7 +1357,7 @@
         width: 100%; background: rgba(255,255,255,0.05);
         border: 1px solid rgba(255,255,255,0.1); border-radius: 9px;
         padding: 9px 12px; font-size: 13px; color: #e2e2f0;
-        font-family: 'Inter', sans-serif; box-sizing: border-box;
+        font-family: 'DM Sans', sans-serif; box-sizing: border-box;
       }
       .kve-draft-wrap input:focus, .kve-draft-wrap select:focus {
         outline: none; border-color: #1D6AFF;
@@ -1367,7 +1367,7 @@
       .kve-draft-name[contenteditable], .kve-draft-desc[contenteditable] {
         outline: none; border-radius: 9px; padding: 9px 12px;
         background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-        color: #e2e2f0; font-family: 'Inter', sans-serif; min-height: 36px;
+        color: #e2e2f0; font-family: 'DM Sans', sans-serif; min-height: 36px;
       }
       .kve-draft-name[contenteditable] { font-size: 14px; font-weight: 700; }
       .kve-draft-desc[contenteditable] { font-size: 13px; min-height: 54px; }
@@ -1384,7 +1384,7 @@
       .kve-draft-save, .kve-draft-cancel {
         flex: 1; padding: 10px; border-radius: 9px; font-size: 13px;
         font-weight: 700; cursor: pointer; border: none;
-        font-family: 'Inter', sans-serif; transition: opacity .15s;
+        font-family: 'DM Sans', sans-serif; transition: opacity .15s;
       }
       .kve-draft-save   { background: linear-gradient(135deg,#1D6AFF,#A259FF); color: #fff; }
       .kve-draft-cancel { background: rgba(255,255,255,0.07); color: #9090b8; }
@@ -1397,7 +1397,7 @@
         padding: 8px 12px; border-radius: 9px; font-size: 12px; font-weight: 600;
         cursor: pointer; border: 1px solid rgba(255,255,255,0.15);
         background: rgba(255,255,255,0.06); color: #9090b8;
-        font-family: 'Inter', sans-serif; transition: all .15s; white-space: nowrap;
+        font-family: 'DM Sans', sans-serif; transition: all .15s; white-space: nowrap;
       }
       .kve-draft-img-upload-btn:hover { background: rgba(29,106,255,0.15); border-color: #1D6AFF; color: #fff; }
       .kve-draft-img-upload-btn.uploading { opacity: .6; cursor: not-allowed; }
@@ -1421,7 +1421,7 @@
         color: #1D6AFF; background: rgba(29,106,255,0.1);
         padding: 1px 5px; border-radius: 3px; pointer-events: none;
         white-space: nowrap; opacity: 0; transition: opacity .15s;
-        font-family: 'Inter', monospace;
+        font-family: 'DM Sans', monospace;
       }
       [data-ck]:hover::before { opacity: 1; }
 
@@ -1429,7 +1429,7 @@
       #kve-toast {
         position: fixed; bottom: 24px; right: 24px; z-index: 100000;
         padding: 10px 18px; border-radius: 10px;
-        font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; color: #fff;
+        font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; color: #fff;
         pointer-events: none; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         transition: opacity .3s ease;
       }
@@ -1441,7 +1441,7 @@
         background: #13132a; border: 1px solid rgba(255,255,255,0.13);
         border-radius: 10px; padding: 5px 7px;
         box-shadow: 0 8px 32px rgba(0,0,0,0.55);
-        font-family: 'Inter', sans-serif;
+        font-family: 'DM Sans', sans-serif;
         pointer-events: auto;
       }
       #kve-smart-toolbar.kve-st-visible {
@@ -1683,7 +1683,7 @@
       <div contenteditable="true" class="kve-draft-name" data-placeholder="Naziv proizvoda *"></div>
       <div contenteditable="true" class="kve-draft-desc" data-placeholder="Opis (opciono)"></div>
       <div class="kve-draft-row">
-        <input type="number" class="kve-draft-price" placeholder="Cijena €" min="0.01" step="0.01"/>
+        <input type="number" class="kve-draft-price" placeholder="Cena €" min="0.01" step="0.01"/>
         <select class="kve-draft-cat">
           ${getCategoryOptionsHtml(currentCat)}
         </select>
@@ -1760,7 +1760,7 @@
       row.style.cssText = 'display:flex;gap:4px;align-items:center';
       row.innerHTML = `
         <input type="text" class="kve-vr-label" placeholder="Label (npr. 1 mjesec)" style="flex:1;font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);color:#fff;outline:none"/>
-        <input type="number" class="kve-vr-price" placeholder="Cijena €" step="0.01" style="width:80px;font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);color:#fff;outline:none"/>
+        <input type="number" class="kve-vr-price" placeholder="Cena €" step="0.01" style="width:80px;font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);color:#fff;outline:none"/>
         <button type="button" style="width:22px;height:22px;border:none;background:rgba(220,38,38,0.2);color:#f87171;border-radius:6px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center" onclick="this.parentElement.remove()">×</button>`;
       variantList.appendChild(row);
     });
@@ -1965,9 +1965,9 @@
     const modal = createModal(editing ? '📦 Uredi paket' : '📦 Dodaj paket', `
       <label>Naziv paketa</label>
       <input type="text" id="kve-pdp-variant-label" value="${esc(variant?.label || '')}" placeholder="npr. 3 meseca"/>
-      <label>Cijena (€)</label>
+      <label>Cena (€)</label>
       <input type="number" id="kve-pdp-variant-price" min="0.01" step="0.01" value="${esc(variant?.price != null ? parseFloat(variant.price).toFixed(2) : '')}" placeholder="npr. 19.99"/>
-      <label>Stara cijena (€) - opciono</label>
+      <label>Stara cena (€) - opciono</label>
       <input type="number" id="kve-pdp-variant-original" min="0" step="0.01" value="${esc(variant?.original_price != null ? parseFloat(variant.original_price).toFixed(2) : '')}" placeholder="ostavite prazno ako nema popusta"/>
     `);
     modal.ok.textContent = editing ? 'Sačuvaj paket' : 'Dodaj paket';
@@ -2077,15 +2077,19 @@
     bar.className = 'kve-card-bar';
     bar.setAttribute('data-kve-editor', '1');
     bar.innerHTML = `
-      <button class="kve-btn-img"   title="Promijeni sliku">🖼</button>
-      <button class="kve-btn-price" title="Uredi cijenu">€</button>
-      <button class="kve-btn-size"  title="Promijeni veličinu">⬜</button>
-      <button class="kve-btn-cat"   title="Premjesti kategoriju">↗</button>
+      <button class="kve-btn-img"   title="Promeni sliku">🖼</button>
+      <button class="kve-btn-hero"  title="Hero slika (index)">🏠</button>
+      <button class="kve-btn-badge" title="Badge / Featured">⭐</button>
+      <button class="kve-btn-price" title="Uredi cenu">€</button>
+      <button class="kve-btn-size"  title="Promeni veličinu">⬜</button>
+      <button class="kve-btn-cat"   title="Premesti kategoriju">↗</button>
       <button class="kve-btn-del"   title="Obriši proizvod" style="color:#f87171">🗑️</button>
     `;
     wrap.appendChild(bar);
 
     bar.querySelector('.kve-btn-img').addEventListener('click',   e => { e.stopPropagation(); openImageModal(p, id, wrap); });
+    bar.querySelector('.kve-btn-hero').addEventListener('click',  e => { e.stopPropagation(); openHeroImageModal(p, id, wrap); });
+    bar.querySelector('.kve-btn-badge').addEventListener('click', e => { e.stopPropagation(); openBadgeModal(p, id, wrap); });
     bar.querySelector('.kve-btn-price').addEventListener('click', e => { e.stopPropagation(); openPriceModal(p, id, wrap); });
     bar.querySelector('.kve-btn-size').addEventListener('click',  e => { e.stopPropagation(); toggleSize(wrap, id); });
     bar.querySelector('.kve-btn-cat').addEventListener('click',   e => { e.stopPropagation(); showCategoryMenu(e, id); });
@@ -2112,7 +2116,7 @@
     const starsEl = card.querySelector('.kve-stars');
     if (starsEl) {
       starsEl.style.cursor = 'pointer';
-      starsEl.title = 'Klikni za promjenu ocjene (1–5)';
+      starsEl.title = 'Klikni za promenu ocene (1–5)';
       starsEl.addEventListener('click', e => {
         e.stopPropagation();
         const svgs    = [...starsEl.querySelectorAll('svg')];
@@ -2238,7 +2242,7 @@
   function openImageModal(product, id, wrap) {
     const imgEl = wrap.querySelector('img');
     openHybridMediaModal(imgEl || null, {
-      title: '🖼️ Promijeni sliku proizvoda',
+      title: '🖼️ Promeni sliku proizvoda',
       initSrc: product.image_url || '',
       onApply: async (url) => {
         await saveField(id, 'image_url', url, wrap);
@@ -2253,13 +2257,75 @@
   }
 
   /* ─────────────────────────────────────────────────────────────────
+     9b. HERO IMAGE MODAL  (homepage hero image)
+  ──────────────────────────────────────────────────────────────────── */
+  function openHeroImageModal(product, id, wrap) {
+    openHybridMediaModal(null, {
+      title: '🏠 Hero slika (naslovnica)',
+      initSrc: product.homepage_hero_image || '',
+      onApply: async (url) => {
+        flashSaved(wrap, '⏳');
+        try {
+          const res = await fetch(`${API}/products/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ homepage_hero_image: url || null }),
+          });
+          if (!res.ok) throw new Error();
+          product.homepage_hero_image = url || null;
+          flashSaved(wrap, '✓ Hero slika sačuvana');
+        } catch {
+          flashSaved(wrap, '✗ Greška', true);
+        }
+      },
+    });
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     9c. BADGE MODAL  (badge / featured status)
+  ──────────────────────────────────────────────────────────────────── */
+  function openBadgeModal(product, id, wrap) {
+    const currentBadge = product.badge || '';
+    const modal = createModal('⭐ Badge / Featured', `
+      <label style="font-size:13px;color:#ccc;margin-bottom:6px;display:block">Izaberi badge za proizvod:</label>
+      <select id="kve-badge-sel" style="width:100%;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:white;font-size:13px">
+        <option value="" ${!currentBadge ? 'selected' : ''}>Bez badge-a</option>
+        <option value="SALE" ${currentBadge === 'SALE' ? 'selected' : ''}>SALE</option>
+        <option value="Bestseller" ${currentBadge === 'Bestseller' ? 'selected' : ''}>Bestseller</option>
+        <option value="Featured" ${currentBadge === 'Featured' ? 'selected' : ''}>Featured (Hero)</option>
+        <option value="Novo" ${currentBadge === 'Novo' ? 'selected' : ''}>Novo</option>
+        <option value="Popular" ${currentBadge === 'Popular' ? 'selected' : ''}>Popular</option>
+        <option value="Top" ${currentBadge === 'Top' ? 'selected' : ''}>Top izbor</option>
+      </select>
+      <p style="font-size:11px;color:#666;margin-top:8px">Badge "Featured" ili "Bestseller" prikazuje proizvod na naslovnici ako nema proizvoda sa više kupovina.</p>
+    `);
+    modal.ok.addEventListener('click', async () => {
+      const val = modal.overlay.querySelector('#kve-badge-sel').value;
+      closeModal(modal.overlay);
+      flashSaved(wrap, '⏳');
+      try {
+        const res = await fetch(`${API}/products/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ badge: val || null }),
+        });
+        if (!res.ok) throw new Error();
+        product.badge = val || null;
+        flashSaved(wrap, '✓ Badge sačuvan');
+      } catch {
+        flashSaved(wrap, '✗ Greška', true);
+      }
+    });
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
      10. PRICE MODAL
   ──────────────────────────────────────────────────────────────────── */
   function openPriceModal(product, id, wrap) {
-    const modal = createModal('€ Uredi cijenu', `
-      <label>Nova cijena (€)</label>
+    const modal = createModal('€ Uredi cenu', `
+      <label>Nova cena (€)</label>
       <input type="number" id="kve-price" min="0.01" step="0.01" value="${esc(parseFloat(product.price || 0).toFixed(2))}"/>
-      <label>Stara cijena (€) — ostavite prazno za bez popusta</label>
+      <label>Stara cena (€) — ostavite prazno za bez popusta</label>
       <input type="number" id="kve-orig" min="0" step="0.01"
              value="${esc(product.original_price ? parseFloat(product.original_price).toFixed(2) : '')}"/>
     `);
@@ -2282,7 +2348,7 @@
         const glassPrice = wrap.querySelector('.glass-card .text-white\\/60');
         if (glassPrice) glassPrice.textContent = `€ ${newPrice.toFixed(2)}`;
         product.price = newPrice;
-        flashSaved(wrap, '✓ Cijena sačuvana');
+        flashSaved(wrap, '✓ Cena sačuvana');
       } catch {
         flashSaved(wrap, '✗ Greška', true);
       }
@@ -2315,7 +2381,7 @@
       <div class="kve-ctx-header">Akcije</div>
       <div class="kve-ctx-item kve-ctx-sale">${hasSale ? '✕ Ukloni SALE badge' : '🏷 Dodaj SALE badge'}</div>
       <div class="kve-ctx-sep"></div>
-      <div class="kve-ctx-header">Premjesti u kategoriju</div>
+      <div class="kve-ctx-header">Premesti u kategoriju</div>
       <div class="kve-ctx-sep"></div>
       <div class="kve-ctx-cats">${getCategoryContextItemsHtml()}</div>
     `;
@@ -2440,7 +2506,7 @@
   async function saveLayout() {
     syncGridOrders();
     if (pendingLayout.size === 0) {
-      toastMsg('Nema izmjena rasporeda za čuvanje.');
+      toastMsg('Nema izmena rasporeda za čuvanje.');
       return;
     }
     const saveBtn = document.getElementById('kve-save-btn');
@@ -3312,7 +3378,7 @@
       <!-- Global sync option -->
       <label class="kve-hm-sync-row" id="kve-hm-sync-row">
         <input type="checkbox" id="kve-hm-sync-chk"/>
-        <span>🔄 Primijeni na sve slične elemente (isti tag + klase)</span>
+        <span>🔄 Primeni na sve slične elemente (isti tag + klase)</span>
       </label>
     `);
 
@@ -3710,7 +3776,7 @@
       <select id="kve-atc-product">${options}</select>
       <label style="margin-top:14px">Paket / varijacija</label>
       <select id="kve-atc-variant">
-        <option value="">Osnovna cijena proizvoda</option>
+        <option value="">Osnovna cena proizvoda</option>
       </select>
       <div id="kve-atc-variant-note" style="margin-top:8px;font-size:11px;color:#9090b8">Ako proizvod ima pakete, izaberi konkretan paket koji dugme dodaje u korpu.</div>
       <label style="margin-top:14px">Tekst dugmeta</label>
@@ -3736,7 +3802,7 @@
     const syncVariantOptions = async (selectedToken = '') => {
       const productId = productInput.value;
       if (!productId) {
-        variantInput.innerHTML = '<option value="">Osnovna cijena proizvoda</option>';
+        variantInput.innerHTML = '<option value="">Osnovna cena proizvoda</option>';
         variantInput.disabled = true;
         variantNote.textContent = 'Prvo odaberi proizvod.';
         return;
@@ -3755,14 +3821,14 @@
             : '';
           return `<option value="${esc(variant._token)}"${selected}>${esc(variant.label || 'Paket')} — €${esc(Number(variant.price).toFixed(2))}${esc(original)}</option>`;
         }).join('');
-        variantInput.innerHTML = `<option value="">Osnovna cijena proizvoda</option>${rows}`;
+        variantInput.innerHTML = `<option value="">Osnovna cena proizvoda</option>${rows}`;
         variantInput.disabled = false;
         variantNote.textContent = variants.length
-          ? 'Izabrani paket određuje cijenu i naziv varijacije koja se dodaje u korpu.'
-          : 'Ovaj proizvod nema definisane pakete. Dugme će koristiti osnovnu cijenu proizvoda.';
+          ? 'Izabrani paket određuje cenu i naziv varijacije koja se dodaje u korpu.'
+          : 'Ovaj proizvod nema definisane pakete. Dugme će koristiti osnovnu cenu proizvoda.';
       } catch (error) {
         selectedProductDetails = products.find((item) => String(item.id) === String(productId)) || null;
-        variantInput.innerHTML = '<option value="">Osnovna cijena proizvoda</option>';
+        variantInput.innerHTML = '<option value="">Osnovna cena proizvoda</option>';
         variantInput.disabled = true;
         variantNote.textContent = error.message || 'Paketi nisu dostupni za ovaj proizvod.';
       }
@@ -3864,7 +3930,7 @@
     const panel = document.createElement('aside');
     panel.id = 'kve-button-studio';
     panel.setAttribute('data-kve-editor', '1');
-    panel.setAttribute('title', 'Prevuci cijeli toolbox ako želiš promijeniti poziciju.');
+    panel.setAttribute('title', 'Prevuci cijeli toolbox ako želiš promeniti poziciju.');
     panel.innerHTML = `
       <div class="kve-bs-kicker">Button Studio</div>
       <h3 class="kve-bs-title">Prevuci dugme na sekciju</h3>
@@ -4352,7 +4418,7 @@
     if (oldCls) oldCls.split(/\s+/).forEach(c => c && sec.classList.remove(c));
     if (newCls) newCls.split(/\s+/).forEach(c => c && sec.classList.add(c));
     sec.dataset.kveBgClass = newCls;
-    toastMsg('🎨 Stil primijenjen — klikni "Sačuvaj stranicu" za čuvanje.');
+    toastMsg('🎨 Stil primenjen — klikni "Sačuvaj stranicu" za čuvanje.');
   }
 
   /* ── Hero Featured Product Config Modal ── */
@@ -4458,7 +4524,7 @@
   <div class="max-w-3xl mx-auto">
     <h1 class="font-display text-5xl font-bold text-gray-900 mb-5 leading-tight">Vaš naslov ovdje</h1>
     <p class="text-lg text-gray-600 mb-8 max-w-xl mx-auto leading-relaxed">
-      Dodajte podnaslov koji objašnjava vrijednost vaše ponude korisnicima.
+      Dodajte podnaslov koji objašnjava vrednost vaše ponude korisnicima.
     </p>
     <a href="#" class="inline-block bg-[#1D6AFF] text-white font-bold px-8 py-4 rounded-2xl text-base shadow-lg hover:bg-[#1254D4] transition-colors">
       Početak →
@@ -4903,7 +4969,7 @@
         enableFlexibleEditorButton(el);
         const resizeBtn = document.createElement('button');
         resizeBtn.className = 'kve-elem-btn kve-elem-resize';
-        resizeBtn.title = 'Promijeni veličinu';
+        resizeBtn.title = 'Promeni veličinu';
         resizeBtn.textContent = '↔';
         btnWrap.appendChild(resizeBtn);
         resizeBtn.addEventListener('mousedown', ev => {
@@ -4992,7 +5058,7 @@
           enableFlexibleEditorButton(el);
           const resizeBtn = document.createElement('button');
           resizeBtn.className = 'kve-elem-btn kve-elem-resize';
-          resizeBtn.title = 'Promijeni veličinu';
+          resizeBtn.title = 'Promeni veličinu';
           resizeBtn.textContent = '↔';
           btnWrap.appendChild(resizeBtn);
           resizeBtn.addEventListener('mousedown', ev => {
@@ -5111,8 +5177,8 @@
 
       const items = [
         { icon:'🎨', label:'Edituraj Tailwind klase', action: () => openClassEditor(el) },
-        hasHref ? { icon:'🔗', label:'Promijeni href link', action: () => openAttrEditor(target, 'href') } : null,
-        hasSrc  ? { icon:'🖼️', label:'Promijeni src sliku',  action: () => openAttrEditor(el.tagName==='IMG'?el:el.querySelector('img')||el, 'src') } : null,
+        hasHref ? { icon:'🔗', label:'Promeni href link', action: () => openAttrEditor(target, 'href') } : null,
+        hasSrc  ? { icon:'🖼️', label:'Promeni src sliku',  action: () => openAttrEditor(el.tagName==='IMG'?el:el.querySelector('img')||el, 'src') } : null,
         { icon:'📋', label:'Kopiraj HTML element', action: () => { navigator.clipboard?.writeText(el.outerHTML); toastMsg('📋 Kopirano!'); } },
         'sep',
         { icon:'🗑️', label:'Obriši element', action: () => {
@@ -5148,7 +5214,7 @@
         <label style="margin-top:10px">Dodaj klase</label>
         <input type="text" id="kve-cls-add" placeholder="npr. rounded-xl shadow-lg text-blue-500"/>
         <div id="kve-sync-cls-notice" style="margin-top:10px;font-size:11px;color:#9090b8;display:none">
-          💡 <strong style="color:#c084fc">Sync tip:</strong> Ova izmjena može se primijeniti na sve <code>&lt;${el.tagName.toLowerCase()}&gt;</code> elemente.
+          💡 <strong style="color:#c084fc">Sync tip:</strong> Ova izmena može se primeniti na sve <code>&lt;${el.tagName.toLowerCase()}&gt;</code> elemente.
         </div>`);
 
       const txtarea = modal.overlay.querySelector('#kve-cls-input');
@@ -5170,7 +5236,7 @@
     function openAttrEditor(el, attr) {
       if (!el) return;
       const modal = createModal(`🔗 Uredi ${attr}`, `
-        <label>Trenutna vrijednost</label>
+        <label>Trenutna vrednost</label>
         <input type="text" id="kve-attr-val" value="${esc(el.getAttribute(attr)||'')}" placeholder="${attr==='href'?'https://...':'https://images.../slika.jpg'}"/>`);
       modal.ok.addEventListener('click', async () => {
         const v = modal.overlay.querySelector('#kve-attr-val').value.trim();
@@ -5227,7 +5293,7 @@
           <select id="kve-el-btn-product"${products.length ? '' : ' disabled'}>${productOptions}</select>
           <label style="margin-top:10px">Paket / varijacija</label>
           <select id="kve-el-btn-variant">
-            <option value="">Osnovna cijena proizvoda</option>
+            <option value="">Osnovna cena proizvoda</option>
           </select>
           <div id="kve-el-btn-variant-note" style="margin-top:8px;font-size:11px;color:#9090b8">Odaberi konkretan paket ako dugme treba da dodaje određenu varijaciju.</div>
           ${productLoadError ? `<div style="margin-top:8px;font-size:11px;color:#fca5a5">${esc(productLoadError)}</div>` : ''}
@@ -5261,7 +5327,7 @@
         const productId = productInput?.value || '';
         if (!variantInput) return;
         if (!productId) {
-          variantInput.innerHTML = '<option value="">Osnovna cijena proizvoda</option>';
+          variantInput.innerHTML = '<option value="">Osnovna cena proizvoda</option>';
           variantInput.disabled = true;
           if (variantNote) variantNote.textContent = 'Prvo odaberi proizvod.';
           return;
@@ -5277,16 +5343,16 @@
             const selected = preferred && preferred === variant._token ? ' selected' : '';
             return `<option value="${esc(variant._token)}"${selected}>${esc(variant.label || 'Paket')} — €${esc(Number(variant.price).toFixed(2))}</option>`;
           }).join('');
-          variantInput.innerHTML = `<option value="">Osnovna cijena proizvoda</option>${optionMarkup}`;
+          variantInput.innerHTML = `<option value="">Osnovna cena proizvoda</option>${optionMarkup}`;
           variantInput.disabled = false;
           if (variantNote) {
             variantNote.textContent = variants.length
-              ? 'Izabrani paket određuje cijenu i naziv varijacije koja ide u korpu.'
-              : 'Ovaj proizvod nema pakete. Dugme koristi osnovnu cijenu proizvoda.';
+              ? 'Izabrani paket određuje cenu i naziv varijacije koja ide u korpu.'
+              : 'Ovaj proizvod nema pakete. Dugme koristi osnovnu cenu proizvoda.';
           }
         } catch (error) {
           selectedProductDetails = products.find((item) => String(item.id) === String(productId)) || currentProduct || null;
-          variantInput.innerHTML = '<option value="">Osnovna cijena proizvoda</option>';
+          variantInput.innerHTML = '<option value="">Osnovna cena proizvoda</option>';
           variantInput.disabled = true;
           if (variantNote) variantNote.textContent = error.message || 'Paketi nisu dostupni.';
         }

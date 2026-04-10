@@ -480,7 +480,7 @@
       return;
     }
     if (resolvedPrice === null) {
-      showToast('Unesite cijenu ili dodajte barem jedan paket.', 'error');
+      showToast('Unesite cenu ili dodajte barem jedan paket.', 'error');
       return;
     }
 
@@ -621,7 +621,7 @@
     const labels = {
       completed: 'Završeno',
       pending: 'Na čekanju',
-      failed: 'Neuspješno',
+      failed: 'Neuspešno',
       refunded: 'Refund',
     };
     return `<span class="badge" style="${styles[status] || 'background:rgba(255,255,255,0.05);color:#9090b8'}">${escapeHtml(labels[status] || status || '—')}</span>`;

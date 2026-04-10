@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="bs">
+<html lang="sr">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Keyify - Guest Porudžbina</title>
+  <script src="theme-init.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet"/>
   <script>
@@ -11,16 +12,16 @@
       theme: {
         extend: {
           fontFamily: {
-            display: ['Poppins', 'sans-serif'],
-            body: ['Inter', 'sans-serif'],
+            display: ['Outfit', 'sans-serif'],
+            body: ['DM Sans', 'sans-serif'],
           }
         }
       }
     }
   </script>
   <style>
-    body { font-family: 'Inter', sans-serif; background: radial-gradient(circle at top, #eef4ff 0%, #f8fafc 42%, #ffffff 100%); }
-    h1, h2, h3, .font-display { font-family: 'Poppins', sans-serif; }
+    body { font-family: 'DM Sans', sans-serif; background: radial-gradient(circle at top, #eef4ff 0%, #f8fafc 42%, #ffffff 100%); }
+    h1, h2, h3, .font-display { font-family: 'Outfit', sans-serif; }
     .glass-card {
       background: rgba(255,255,255,0.82);
       backdrop-filter: blur(18px);
@@ -48,7 +49,7 @@
         </div>
         <h1 class="font-display text-4xl font-extrabold tracking-tight text-slate-950 sm:text-5xl">Prati svoju porudžbinu bez naloga</h1>
         <p class="mt-4 max-w-2xl text-base leading-7 text-slate-600">
-          Tvoj gost link je vezan za ovu kupovinu. Ovdje vidiš status, dokaz uplate i isporuku čim admin potvrdi porudžbinu.
+          Tvoj gost link je vezan za ovu kupovinu. Ovde vidiš status, dokaz uplate i isporuku čim admin potvrdi porudžbinu.
         </p>
       </div>
 
@@ -100,7 +101,7 @@
                 </button>
               </div>
               <div id="guest-order-delivery" class="mt-5 rounded-3xl border border-slate-200 bg-white/90 px-5 py-5 text-sm leading-7 text-slate-700">
-                Čeka se potvrda admina. Isporuka će se pojaviti ovdje čim porudžbina pređe u završeno stanje.
+                Čeka se potvrda admina. Isporuka će se pojaviti ovde čim porudžbina pređe u završeno stanje.
               </div>
             </div>
 
@@ -356,7 +357,7 @@
             } catch {}
           };
         } else {
-          deliveryBox.textContent = 'Čeka se potvrda admina. Isporuka će se pojaviti ovdje čim porudžbina pređe u završeno stanje.';
+          deliveryBox.textContent = 'Čeka se potvrda admina. Isporuka će se pojaviti ovde čim porudžbina pređe u završeno stanje.';
           deliveryBox.className = 'mt-5 rounded-3xl border border-slate-200 bg-white/90 px-5 py-5 text-sm leading-7 text-slate-700';
           copyBtn.classList.add('hidden');
         }
@@ -398,7 +399,7 @@
               : 'Nalog je kreiran i ova porudžbina je odmah povezana sa vašim Keyify profilom.'
           );
           return;
-          if (!response.ok) throw new Error(payload.error || 'Automatska prijava nije uspjela.');
+          if (!response.ok) throw new Error(payload.error || 'Automatska prijava nije uspela.');
 
           persistAuthSession(payload);
           setSignedInState(
@@ -410,7 +411,7 @@
           setSignedInState('Nalog sa ovim emailom već postoji. Automatski ste prijavljeni i ova porudžbina je povezana sa vašim nalogom.');
         } catch (error) {
           setConvertButtonDefault();
-          convertMsg.textContent = error.message || 'Automatska prijava nije uspjela.';
+          convertMsg.textContent = error.message || 'Automatska prijava nije uspela.';
           convertMsg.className = 'mt-2 text-sm text-red-600';
         }
       }
@@ -461,7 +462,7 @@
 
           persistAuthSession(payload);
 
-          convertMsg.textContent = 'Nalog je kreiran. Preusmjeravamo vas na istoriju narudžbina...';
+          convertMsg.textContent = 'Nalog je kreiran. Preusmeravamo vas na istoriju narudžbina...';
           convertMsg.className = 'mt-2 text-sm text-emerald-600';
           window.setTimeout(() => {
             window.location.href = 'purchases.html';

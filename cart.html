@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="bs">
+<html lang="sr">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Keyify – Korpa</title>
 
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <script src="theme-init.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -23,8 +24,8 @@
 
   <style>
     * { box-sizing: border-box; }
-    body { font-family: 'Inter', sans-serif; background: #F8F9FB; }
-    h1,h2,h3,.font-display { font-family: 'Poppins', sans-serif; }
+    body { font-family: 'DM Sans', sans-serif; background: #F8F9FB; }
+    h1,h2,h3,.font-display { font-family: 'Outfit', sans-serif; }
     .navbar-blur { backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
     .dropdown-menu { display: none; }
     .dropdown-menu.is-open { display: block; }
@@ -215,7 +216,7 @@
           <button onclick="applyPromo()"
                   class="px-5 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90 active:scale-95 flex-shrink-0"
                   style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
-            Primijeni
+            Primeni
           </button>
         </div>
         <div id="promo-msg" class="hidden mt-2.5 text-xs font-semibold rounded-lg px-3 py-2"></div>

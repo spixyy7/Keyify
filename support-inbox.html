@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Support Inbox – Keyify</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet"/>
+  <script src="theme-init.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -114,7 +115,7 @@
       <div style="text-align:center;color:#505070">
         <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24" style="margin:0 auto 12px;opacity:.4"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.862 9.862 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
         <p style="font-size:14px;font-weight:600;color:#707090">Izaberi razgovor</p>
-        <p style="font-size:12px;margin-top:4px">Klikni na sesiju lijevo</p>
+        <p style="font-size:12px;margin-top:4px">Klikni na sesiju levo</p>
       </div>
     </div>
 
@@ -379,7 +380,7 @@
       }
       if (m.sender === 'system' && m.message === '__ask_email__') {
         return `<div style="text-align:center;padding:8px;font-size:11px;color:#93c5fd;background:rgba(59,130,246,0.1);border-radius:10px;margin:4px 0">
-          📧 Zahtjev za email poslan · ${fmtFull(m.created_at)}</div>`;
+          📧 Zahtev za email poslan · ${fmtFull(m.created_at)}</div>`;
       }
       if (m.sender === 'system' && m.message.startsWith('__email_received__')) {
         return `<div style="text-align:center;padding:8px;font-size:11px;color:#6ee7b7;background:rgba(16,185,129,0.1);border-radius:10px;margin:4px 0">
@@ -491,7 +492,7 @@
   }
 
   async function declineSession(id) {
-    if (!confirm('Odbiti ovaj chat zahtjev?')) return;
+    if (!confirm('Odbiti ovaj chat zahtev?')) return;
     try {
       const r = await fetch(`${API()}/admin/chat/sessions/${id}/decline`, {
         method: 'POST', headers: HDRS(),
