@@ -559,7 +559,7 @@
   var lang    = localStorage.getItem('keyify_lang') || 'sr';
   var activeFilter = 'sve';
   var sortSelect = document.getElementById('sort-select');
-  var filterButtons = Array.from(document.querySelectorAll('button.text-xs.font-semibold.rounded-full')).filter(function(btn) {
+  var filterButtons = Array.from(document.querySelectorAll('button.filter-pill')).filter(function(btn) {
     return !btn.querySelector('svg');
   });
   var FILTER_ALIASES = {
