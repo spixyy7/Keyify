@@ -1,5 +1,5 @@
 /**
- * Keyify Live Chat Widget
+ * Keyify Live Chat Widget — Premium Redesign
  * Floating chat button + window with email capture & real-time polling.
  * Add <script src="chat-widget.js"></script> before </body> on any public page.
  */
@@ -10,15 +10,10 @@
   if (window.location.pathname.includes('admin')) return;
 
   const API = () => {
-    // Ako postoji custom config, koristi njega
     if (window.KEYIFY_CONFIG?.API_BASE) return window.KEYIFY_CONFIG.API_BASE;
-
-    // Ako si na svom kompjuteru (localhost), gađaj port 3001
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       return 'http://localhost:3001/api';
     }
-
-    // Za Railway i pravi domen, koristi relativnu putanju
     return '/api';
   };
 
@@ -31,14 +26,12 @@
         const raw = localStorage.getItem('kfy_chat_email');
         if (!raw) return null;
         const { email, ts } = JSON.parse(raw);
-        // Expire after 10 minutes
         if (Date.now() - ts > 10 * 60 * 1000) {
           localStorage.removeItem('kfy_chat_email');
           return null;
         }
         return email;
       } catch {
-        // Legacy plain-string value — treat as expired, clear it
         localStorage.removeItem('kfy_chat_email');
         return null;
       }
@@ -56,7 +49,7 @@
   let _queuePoll     = null;
   let _lastMsgCount  = 0;
   let _open          = false;
-  let _adminInfo     = null;  // { name, avatar_url } when admin accepts
+  let _adminInfo     = null;
   const _autoOpenChat = (() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -67,9 +60,7 @@
   })();
 
   /* ─────────────────────────────────────────────────────────────
-     INJECT STYLES
-     All critical FAB rules use !important to override Tailwind
-     preflight (which resets button padding, border, display, etc.)
+     INJECT STYLES — Premium Redesign
   ───────────────────────────────────────────────────────────── */
   const css = `
     /* ── Keyframes ── */
@@ -83,28 +74,44 @@
       100% { transform:scale(1.75); opacity:0; }
     }
     @keyframes kfyFadeSlideUp {
-      from { transform:translateY(10px) scale(.97); opacity:0; }
-      to   { transform:translateY(0) scale(1); opacity:1; }
+      from { transform:translateY(12px); opacity:0; }
+      to   { transform:translateY(0); opacity:1; }
+    }
+    @keyframes kfyFadeIn {
+      from { opacity:0; }
+      to   { opacity:1; }
+    }
+    @keyframes kfyShimmer {
+      0%   { background-position:-200% 0; }
+      100% { background-position:200% 0; }
+    }
+    @keyframes kfyTypingDot {
+      0%,80%,100% { transform:scale(0.6); opacity:0.3; }
+      40%         { transform:scale(1); opacity:1; }
+    }
+    @keyframes kfyQueuePulse {
+      0%,100% { opacity:1; }
+      50%     { opacity:.65; }
     }
 
-    /* ── FAB – all !important to beat Tailwind preflight ── */
+    /* ── FAB ── */
     #kfy-fab {
       position:fixed !important;
       bottom:24px !important;
       right:24px !important;
       z-index:1000001 !important;
-      width:56px !important;
-      height:56px !important;
-      min-width:56px !important;
-      min-height:56px !important;
+      width:58px !important;
+      height:58px !important;
+      min-width:58px !important;
+      min-height:58px !important;
       border-radius:50% !important;
       border:none !important;
       padding:0 !important;
       margin:0 !important;
       outline:none !important;
       cursor:pointer !important;
-      background:linear-gradient(135deg,#1D6AFF 0%,#A259FF 100%) !important;
-      box-shadow:0 4px 24px rgba(29,106,255,.5),0 2px 8px rgba(0,0,0,.25) !important;
+      background:linear-gradient(135deg,#1D6AFF 0%,#7C3AED 50%,#A259FF 100%) !important;
+      box-shadow:0 6px 28px rgba(29,106,255,.45),0 2px 10px rgba(124,58,237,.2) !important;
       display:flex !important;
       align-items:center !important;
       justify-content:center !important;
@@ -116,23 +123,21 @@
     }
     #kfy-fab:hover {
       transform:scale(1.1) !important;
-      box-shadow:0 8px 32px rgba(29,106,255,.65),0 4px 12px rgba(0,0,0,.3) !important;
+      box-shadow:0 10px 36px rgba(29,106,255,.55),0 4px 16px rgba(124,58,237,.25) !important;
     }
-    #kfy-fab:active { transform:scale(.95) !important; }
+    #kfy-fab:active { transform:scale(.93) !important; }
 
-    /* Pulse ring (appears after 1.5s, repeats every 3s) */
     #kfy-fab::after {
       content:'' !important;
       position:absolute !important;
       inset:-2px !important;
       border-radius:50% !important;
-      background:rgba(29,106,255,.4) !important;
+      background:rgba(29,106,255,.35) !important;
       animation:kfyPulseRing 2.4s ease-out 1.5s infinite !important;
       pointer-events:none !important;
       z-index:-1 !important;
     }
 
-    /* ── Icon wrapper & transition ── */
     #kfy-fab-icons {
       position:relative !important;
       width:24px !important;
@@ -151,7 +156,6 @@
     }
     #kfy-icon-chat  { opacity:1 !important; transform:scale(1) rotate(0deg) !important; }
     #kfy-icon-close { opacity:0 !important; transform:scale(.5) rotate(-45deg) !important; }
-
     #kfy-fab.kfy-open #kfy-icon-chat  { opacity:0 !important; transform:scale(.5) rotate(45deg) !important; }
     #kfy-fab.kfy-open #kfy-icon-close { opacity:1 !important; transform:scale(1) rotate(0deg) !important; }
 
@@ -161,20 +165,21 @@
       bottom:92px !important;
       right:24px !important;
       z-index:1000000 !important;
-      width:368px !important;
-      height:min(82vh, 680px) !important;
-      max-height:min(82vh, 680px) !important;
-      border-radius:22px !important;
+      width:380px !important;
+      height:min(84vh, 700px) !important;
+      max-height:min(84vh, 700px) !important;
+      border-radius:20px !important;
       overflow:hidden !important;
-      box-shadow:0 32px 80px rgba(0,0,0,.32),0 8px 24px rgba(0,0,0,.16),0 0 0 1px rgba(0,0,0,.05) !important;
+      box-shadow:0 32px 80px rgba(0,0,0,.22),0 12px 32px rgba(0,0,0,.12),0 0 0 1px var(--kfy-win-ring,rgba(0,0,0,.06)) !important;
       display:flex !important;
       flex-direction:column !important;
       opacity:0 !important;
       pointer-events:none !important;
       transform:translateY(16px) scale(.96) !important;
-      transition:transform .28s cubic-bezier(.34,1.56,.64,1),
-                 opacity .22s cubic-bezier(.4,0,.2,1) !important;
-      font-family:'DM Sans','Segoe UI',system-ui,sans-serif !important;
+      transition:transform .32s cubic-bezier(.34,1.56,.64,1),
+                 opacity .24s cubic-bezier(.4,0,.2,1) !important;
+      font-family:'DM Sans','Outfit','Segoe UI',system-ui,sans-serif !important;
+      background:var(--kfy-body-bg,#f4f5f7) !important;
     }
     #kfy-chat-win.kfy-visible {
       opacity:1 !important;
@@ -182,7 +187,7 @@
       transform:translateY(0) scale(1) !important;
     }
 
-    /* ── Guest email gate (full-screen inside chat window) ── */
+    /* ── Guest Gate (welcome/email/choice/feedback) ── */
     #kfy-guest-gate {
       position:absolute !important;
       inset:0 !important;
@@ -192,344 +197,350 @@
       align-items:center !important;
       justify-content:center !important;
       overflow-y:auto !important;
-      padding:24px !important;
+      padding:32px 28px !important;
       background:var(--kfy-header-bg,#fff) !important;
       text-align:center !important;
-      transition:background .25s ease !important;
+      transition:background .3s ease !important;
     }
     #kfy-guest-gate.kfy-gate-hidden { display:none !important; }
+
     .kfy-gate-title,
     .kfy-gate-sub,
     .kfy-gate-step {
       width:100%;
-      max-width:320px;
+      max-width:310px;
     }
+
+    /* Gate icon */
     .kfy-gate-icon {
-      width:56px;height:56px;border-radius:16px;margin-bottom:16px;
-      background:linear-gradient(135deg,#3b82f6,#60a5fa);
+      width:64px;height:64px;border-radius:18px;margin-bottom:20px;
+      background:linear-gradient(135deg,#1D6AFF 0%,#7C3AED 50%,#A259FF 100%);
       display:flex;align-items:center;justify-content:center;flex-shrink:0;
-      box-shadow:0 8px 24px rgba(59,130,246,0.35);
+      box-shadow:0 10px 32px rgba(29,106,255,0.3),0 4px 12px rgba(124,58,237,0.15);
+      position:relative;
     }
+    .kfy-gate-icon::after {
+      content:'';position:absolute;inset:0;border-radius:18px;
+      background:linear-gradient(180deg,rgba(255,255,255,0.15) 0%,transparent 60%);
+      pointer-events:none;
+    }
+
     .kfy-gate-title {
-      font-size:17px;font-weight:700;margin-bottom:6px;
-      color:var(--kfy-agent-title,#111827);line-height:1.3;
+      font-size:20px;font-weight:800;margin-bottom:6px;
+      color:var(--kfy-agent-title,#111827);line-height:1.25;
+      letter-spacing:-0.02em;
     }
     .kfy-gate-sub {
-      font-size:12px;color:var(--kfy-inp-ph,#9ca3af);margin-bottom:20px;line-height:1.5;
+      font-size:13px;color:var(--kfy-inp-ph,#9ca3af);margin-bottom:24px;line-height:1.55;
     }
+
+    /* Gate input */
     .kfy-gate-input {
-      width:100%;padding:11px 14px;border:1.5px solid var(--kfy-inp-border,#e5e7eb);
-      border-radius:12px;font-size:13px;outline:none;box-sizing:border-box;
+      width:100%;padding:13px 16px;
+      border:1.5px solid var(--kfy-inp-border,#e5e7eb);
+      border-radius:14px;font-size:14px;outline:none;box-sizing:border-box;
       color:var(--kfy-inp-color,#111827);background:var(--kfy-inp-bg,#f9fafb);
-      font-family:inherit;transition:border-color .15s,box-shadow .15s;
-      margin-bottom:10px;
+      font-family:inherit;
+      transition:border-color .2s,box-shadow .2s,background .2s;
+      margin-bottom:12px;
     }
     .kfy-gate-input::placeholder { color:var(--kfy-inp-ph,#9ca3af); }
-    .kfy-gate-input:focus { border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.12);background:var(--kfy-inp-focus-bg,#fff); }
+    .kfy-gate-input:focus {
+      border-color:#1D6AFF;
+      box-shadow:0 0 0 4px rgba(29,106,255,0.1);
+      background:var(--kfy-inp-focus-bg,#fff);
+    }
+
+    /* Gate CTA button */
     .kfy-gate-btn {
-      width:100%;padding:12px;border:none;border-radius:12px;
-      background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff;
+      width:100%;padding:13px;border:none;border-radius:14px;
+      background:linear-gradient(135deg,#1D6AFF 0%,#7C3AED 100%);color:#fff;
       font-size:14px;font-weight:700;cursor:pointer;
-      box-shadow:0 4px 14px rgba(59,130,246,0.40);
-      transition:opacity .15s,transform .1s;letter-spacing:.01em;
+      box-shadow:0 6px 20px rgba(29,106,255,0.35);
+      transition:all .2s ease;letter-spacing:.01em;
+      position:relative;overflow:hidden;
     }
-    .kfy-gate-btn:hover   { opacity:.9;transform:translateY(-1px); }
-    .kfy-gate-btn:active  { transform:translateY(0); }
-    .kfy-gate-btn:disabled { opacity:.45;cursor:not-allowed;transform:none; }
-    .kfy-gate-err { font-size:11px;color:#ef4444;margin-top:6px;text-align:left;display:none; }
+    .kfy-gate-btn::after {
+      content:'';position:absolute;inset:0;
+      background:linear-gradient(180deg,rgba(255,255,255,0.12) 0%,transparent 50%);
+      pointer-events:none;
+    }
+    .kfy-gate-btn:hover { transform:translateY(-1px);box-shadow:0 8px 28px rgba(29,106,255,0.45); }
+    .kfy-gate-btn:active { transform:translateY(0);box-shadow:0 4px 14px rgba(29,106,255,0.3); }
+    .kfy-gate-btn:disabled { opacity:.45;cursor:not-allowed;transform:none;box-shadow:none; }
+
+    .kfy-gate-err { font-size:12px;color:#ef4444;margin-top:8px;text-align:left;display:none; }
+
+    /* Gate skip/back link */
     .kfy-gate-skip {
-      margin-top:12px;font-size:11px;color:var(--kfy-inp-ph,#9ca3af);
-      cursor:pointer;text-decoration:underline;background:none;border:none;
-      font-family:inherit;
+      margin-top:16px;font-size:12px;color:var(--kfy-inp-ph,#9ca3af);
+      cursor:pointer;background:none;border:none;
+      font-family:inherit;font-weight:500;
+      transition:color .15s;
+      display:inline-flex;align-items:center;gap:4px;
     }
-    .kfy-gate-skip:hover { color:#3b82f6; }
+    .kfy-gate-skip:hover { color:#1D6AFF; }
+    .kfy-gate-skip svg { transition:transform .15s; }
+    .kfy-gate-skip:hover svg { transform:translateX(-2px); }
+
     .kfy-gate-step { width:100%; flex-shrink:0; }
+
+    /* Choice grid */
     .kfy-gate-choice-grid {
       width:100%;
       display:grid;
       grid-template-columns:1fr 1fr;
-      gap:10px;
-      margin-top:8px;
+      gap:12px;
+      margin-top:4px;
     }
+
+    /* Premium action cards */
     .kfy-gate-card {
       text-align:left;
-      border:1px solid var(--kfy-gate-card-border,rgba(148,163,184,0.22));
+      border:1.5px solid var(--kfy-gate-card-border,rgba(148,163,184,0.18));
       border-radius:16px;
-      padding:14px 12px;
-      background:var(--kfy-gate-card-bg,linear-gradient(180deg,rgba(255,255,255,0.92),rgba(248,250,252,0.86)));
+      padding:18px 16px 16px;
+      background:var(--kfy-gate-card-bg,linear-gradient(180deg,rgba(255,255,255,0.95),rgba(248,250,252,0.9)));
       color:var(--kfy-gate-card-title,#0f172a);
       cursor:pointer;
-      transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease, background .25s ease;
-      box-shadow:var(--kfy-gate-card-shadow,0 10px 24px rgba(15,23,42,0.06));
+      transition:all .25s cubic-bezier(.4,0,.2,1);
+      box-shadow:var(--kfy-gate-card-shadow,0 4px 16px rgba(15,23,42,0.05));
+      position:relative;overflow:hidden;
+    }
+    .kfy-gate-card::before {
+      content:'';position:absolute;top:0;left:0;right:0;height:3px;
+      background:linear-gradient(90deg,#1D6AFF,#7C3AED);
+      opacity:0;transition:opacity .25s;border-radius:16px 16px 0 0;
     }
     .kfy-gate-card:hover {
-      transform:translateY(-2px);
-      border-color:var(--kfy-gate-card-hover-border,rgba(59,130,246,0.42));
-      box-shadow:var(--kfy-gate-card-hover-shadow,0 16px 36px rgba(59,130,246,0.16));
+      transform:translateY(-3px);
+      border-color:var(--kfy-gate-card-hover-border,rgba(29,106,255,0.35));
+      box-shadow:var(--kfy-gate-card-hover-shadow,0 12px 32px rgba(29,106,255,0.14));
     }
+    .kfy-gate-card:hover::before { opacity:1; }
+    .kfy-gate-card:active { transform:translateY(-1px); }
+
+    .kfy-gate-card-icon {
+      width:36px;height:36px;border-radius:10px;margin-bottom:10px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:18px;
+    }
+    .kfy-gate-card-icon.kfy-icon-support {
+      background:linear-gradient(135deg,rgba(29,106,255,0.12),rgba(124,58,237,0.08));
+      color:#1D6AFF;
+    }
+    .kfy-gate-card-icon.kfy-icon-feedback {
+      background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(52,211,153,0.08));
+      color:#10b981;
+    }
+
     .kfy-gate-card-title {
       font-size:13px;
-      font-weight:800;
+      font-weight:700;
       margin-bottom:4px;
       color:var(--kfy-gate-card-title,#0f172a);
+      letter-spacing:-0.01em;
     }
     .kfy-gate-card-sub {
-      font-size:11px;
-      line-height:1.45;
+      font-size:11.5px;
+      line-height:1.5;
       color:var(--kfy-gate-card-sub,#64748b);
     }
-    .kfy-gate-select,
-    .kfy-gate-textarea {
-      width:100%;
-      box-sizing:border-box;
-      border:1.5px solid var(--kfy-inp-border,#e5e7eb);
-      border-radius:12px;
-      font-size:13px;
-      outline:none;
-      color:var(--kfy-inp-color,#111827);
-      background:var(--kfy-inp-bg,#f9fafb);
-      font-family:inherit;
-      transition:border-color .15s,box-shadow .15s;
-      margin-top:10px;
-    }
-    .kfy-gate-select {
-      padding:11px 14px;
-      color-scheme:var(--kfy-gate-select-scheme,light);
-    }
-    .kfy-gate-textarea {
-      padding:12px 14px;
-      min-height:110px;
-      resize:vertical;
-    }
-    .kfy-gate-select:focus,
-    .kfy-gate-textarea:focus {
-      border-color:#3b82f6;
-      box-shadow:0 0 0 3px rgba(59,130,246,0.12);
-      background:var(--kfy-inp-focus-bg,#fff);
-    }
+
+    /* ── Feedback flow ── */
     .kfy-gate-label {
       display:block;
       text-align:left;
       font-size:11px;
       font-weight:700;
       color:var(--kfy-gate-label-color,#64748b);
-      margin-top:12px;
+      margin-top:16px;
+      margin-bottom:6px;
       text-transform:uppercase;
-      letter-spacing:.06em;
+      letter-spacing:.07em;
       transition:color .25s ease;
     }
 
-    /* ── Header (theme-aware via CSS variables) ── */
+    /* Custom select wrapper */
+    .kfy-select-wrap {
+      position:relative;width:100%;
+    }
+    .kfy-gate-select {
+      width:100%;box-sizing:border-box;
+      border:1.5px solid var(--kfy-inp-border,#e5e7eb);
+      border-radius:14px;font-size:14px;outline:none;
+      color:var(--kfy-inp-color,#111827);
+      background:var(--kfy-inp-bg,#f9fafb);
+      font-family:inherit;
+      transition:border-color .2s,box-shadow .2s,background .2s;
+      padding:13px 42px 13px 16px;
+      appearance:none;-webkit-appearance:none;-moz-appearance:none;
+      cursor:pointer;
+    }
+    .kfy-select-wrap::after {
+      content:'';position:absolute;right:16px;top:50%;transform:translateY(-50%);
+      width:0;height:0;
+      border-left:5px solid transparent;border-right:5px solid transparent;
+      border-top:5px solid var(--kfy-inp-ph,#9ca3af);
+      pointer-events:none;transition:border-color .2s;
+    }
+    .kfy-gate-select:focus {
+      border-color:#1D6AFF;
+      box-shadow:0 0 0 4px rgba(29,106,255,0.1);
+      background:var(--kfy-inp-focus-bg,#fff);
+    }
+    .kfy-gate-select:focus + .kfy-select-wrap::after,
+    .kfy-select-wrap:focus-within::after {
+      border-top-color:#1D6AFF;
+    }
+
+    .kfy-gate-textarea {
+      width:100%;box-sizing:border-box;
+      border:1.5px solid var(--kfy-inp-border,#e5e7eb);
+      border-radius:14px;font-size:14px;outline:none;
+      color:var(--kfy-inp-color,#111827);
+      background:var(--kfy-inp-bg,#f9fafb);
+      font-family:inherit;
+      transition:border-color .2s,box-shadow .2s,background .2s;
+      padding:13px 16px;
+      min-height:110px;
+      resize:vertical;
+      line-height:1.5;
+    }
+    .kfy-gate-textarea:focus {
+      border-color:#1D6AFF;
+      box-shadow:0 0 0 4px rgba(29,106,255,0.1);
+      background:var(--kfy-inp-focus-bg,#fff);
+    }
+
+    /* ── Header ── */
     .kfy-header {
       background:var(--kfy-header-bg,#fff);
-      padding:14px 16px 0;
-      border-bottom:1px solid var(--kfy-header-border,rgba(0,0,0,0.07));
+      padding:0;
+      border-bottom:1px solid var(--kfy-header-border,rgba(0,0,0,0.06));
       flex-shrink:0;
-      transition:background .25s ease,border-color .25s ease;
+      transition:background .3s ease,border-color .3s ease;
     }
-    .kfy-tabs { display:flex; gap:2px; margin-bottom:-1px; }
-    .kfy-tab {
-      padding:8px 16px;font-size:13px;font-weight:600;
-      border:none;background:none;cursor:pointer;
-      color:var(--kfy-tab-color,#9ca3af);border-bottom:2px solid transparent;
-      border-radius:6px 6px 0 0;
-      transition:color .15s,background .15s;
+    .kfy-header-top {
+      display:flex;align-items:center;justify-content:space-between;
+      padding:14px 16px 0;
     }
-    .kfy-tab.active { color:var(--kfy-tab-active,#1D6AFF); border-bottom-color:var(--kfy-tab-active,#1D6AFF); background:rgba(29,106,255,.06); }
-    .kfy-tab:hover:not(.active) { color:var(--kfy-tab-hover,#374151); }
-    .kfy-exit-btn {
-      margin-left:auto;padding:4px 10px;font-size:11px;font-weight:600;
-      border:1px solid rgba(239,68,68,0.3);border-radius:6px;background:transparent;
-      color:#ef4444;cursor:pointer;transition:all .15s;display:none;
+    .kfy-header-brand {
+      display:flex;align-items:center;gap:10px;
     }
-    .kfy-exit-btn:hover { background:rgba(239,68,68,0.08);border-color:#ef4444; }
+    .kfy-header-logo {
+      width:32px;height:32px;border-radius:10px;
+      background:linear-gradient(135deg,#1D6AFF,#7C3AED);
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 3px 10px rgba(29,106,255,0.25);
+      flex-shrink:0;
+    }
+    .kfy-header-title {
+      font-size:14px;font-weight:700;color:var(--kfy-agent-title,#111827);
+      letter-spacing:-0.01em;line-height:1.2;
+    }
+    .kfy-header-subtitle {
+      font-size:11px;color:var(--kfy-status-text,#6b7280);
+      display:flex;align-items:center;gap:5px;margin-top:1px;
+    }
+    .kfy-header-dot {
+      width:6px;height:6px;border-radius:50%;background:#10b981;
+      box-shadow:0 0 6px rgba(16,185,129,0.5);flex-shrink:0;
+    }
+    .kfy-close-btn {
+      width:32px;height:32px;border-radius:10px;border:none;
+      background:var(--kfy-close-bg,rgba(0,0,0,0.04));
+      cursor:pointer;display:flex;align-items:center;justify-content:center;
+      transition:all .15s;padding:0;flex-shrink:0;color:var(--kfy-close-color,#9ca3af);
+    }
+    .kfy-close-btn:hover {
+      background:var(--kfy-close-hover-bg,rgba(0,0,0,0.08));
+      color:var(--kfy-close-hover-color,#374151);
+    }
 
-    /* ── Agent row ── */
+    /* Segmented tabs */
+    .kfy-tabs-wrap {
+      padding:10px 16px 12px;
+    }
+    .kfy-tabs {
+      display:flex;gap:4px;
+      background:var(--kfy-tab-bg,rgba(0,0,0,0.04));
+      border-radius:12px;padding:3px;
+    }
+    .kfy-tab {
+      flex:1;padding:8px 12px;font-size:12.5px;font-weight:600;
+      border:none;background:none;cursor:pointer;
+      color:var(--kfy-tab-color,#6b7280);
+      border-radius:9px;
+      transition:all .2s cubic-bezier(.4,0,.2,1);
+      display:flex;align-items:center;justify-content:center;gap:6px;
+      position:relative;
+      letter-spacing:0.01em;
+    }
+    .kfy-tab.active {
+      color:var(--kfy-tab-active-color,#111827);
+      background:var(--kfy-tab-active-bg,#fff);
+      box-shadow:0 1px 4px rgba(0,0,0,0.08),0 0 0 1px rgba(0,0,0,0.04);
+      font-weight:700;
+    }
+    .kfy-tab:hover:not(.active) { color:var(--kfy-tab-hover,#374151); }
+    .kfy-tab svg { flex-shrink:0; }
+
+    /* Exit button */
+    .kfy-exit-btn {
+      padding:6px 12px;font-size:11px;font-weight:600;
+      border:1.5px solid rgba(239,68,68,0.25);border-radius:8px;background:transparent;
+      color:#ef4444;cursor:pointer;transition:all .2s;display:none;
+      letter-spacing:0.01em;white-space:nowrap;
+    }
+    .kfy-exit-btn:hover { background:rgba(239,68,68,0.06);border-color:rgba(239,68,68,0.5); }
+
+    /* ── Agent row (shown during active chat) ── */
     .kfy-agent-row {
       background:var(--kfy-agent-bg,#fff);
       padding:12px 16px;
       display:flex;align-items:center;gap:10px;
-      border-bottom:1px solid var(--kfy-agent-border,#f3f4f6);
+      border-bottom:1px solid var(--kfy-agent-border,rgba(0,0,0,0.05));
       flex-shrink:0;
-      transition:background .25s ease;
+      transition:background .3s ease;
     }
     .kfy-avatars { display:flex; }
     .kfy-avatar {
       width:30px;height:30px;border-radius:50%;
       border:2px solid var(--kfy-avatar-border,#fff);
-      background:linear-gradient(135deg,#1D6AFF,#A259FF);
+      background:linear-gradient(135deg,#1D6AFF,#7C3AED);
       display:flex;align-items:center;justify-content:center;
       font-size:11px;font-weight:700;color:#fff;margin-left:-7px;
     }
     .kfy-avatars .kfy-avatar:first-child { margin-left:0; }
     .kfy-agent-info { flex:1;min-width:0; }
-    .kfy-agent-title { font-size:12px;font-weight:600;color:var(--kfy-agent-title,#111827);line-height:1.3; }
+    .kfy-agent-title { font-size:12.5px;font-weight:600;color:var(--kfy-agent-title,#111827);line-height:1.3; }
     .kfy-status { display:flex;align-items:center;gap:5px;margin-top:2px; }
-    .kfy-dot { width:7px;height:7px;border-radius:50%;background:#10b981;flex-shrink:0;box-shadow:0 0 5px #10b981; }
-    .kfy-status-text { font-size:11px;color:#6b7280; }
+    .kfy-dot { width:6px;height:6px;border-radius:50%;background:#10b981;flex-shrink:0;box-shadow:0 0 6px rgba(16,185,129,0.5); }
+    .kfy-status-text { font-size:11px;color:var(--kfy-status-text,#6b7280); }
 
     #kfy-panel-chat {
-      background:var(--kfy-body-bg,#f9fafb) !important;
+      background:var(--kfy-body-bg,#f4f5f7) !important;
       min-height:0 !important;
     }
 
     /* ── Message body ── */
     .kfy-body {
       flex:1 1 auto;overflow-y:auto;
-      background:var(--kfy-body-bg,#f9fafb);
-      padding:14px;display:flex;flex-direction:column;
-      gap:8px;min-height:0;max-height:none;
-      transition:background .25s ease;
+      background:var(--kfy-body-bg,#f4f5f7);
+      padding:16px;display:flex;flex-direction:column;
+      gap:6px;min-height:0;max-height:none;
+      transition:background .3s ease;
     }
-    .kfy-body::-webkit-scrollbar { width:4px; }
+    .kfy-body::-webkit-scrollbar { width:5px; }
     .kfy-body::-webkit-scrollbar-track { background:transparent; }
-    .kfy-body::-webkit-scrollbar-thumb { background:var(--kfy-scrollbar,#d1d5db);border-radius:4px; }
+    .kfy-body::-webkit-scrollbar-thumb { background:var(--kfy-scrollbar,rgba(0,0,0,0.1));border-radius:10px; }
+    .kfy-body::-webkit-scrollbar-thumb:hover { background:var(--kfy-scrollbar-hover,rgba(0,0,0,0.18)); }
 
-    /* ── Bubbles ── */
-    .kfy-bubble {
-      max-width:82%;padding:9px 13px;border-radius:14px;
-      font-size:13px;line-height:1.5;word-break:break-word;
-      transition:background .25s ease,color .25s ease;
-    }
-    .kfy-bubble.bot,.kfy-bubble.admin {
-      background:var(--kfy-bubble-bot-bg,#fff);
-      color:var(--kfy-bubble-bot-color,#111827);
-      align-self:flex-start;
-      border-bottom-left-radius:4px;
-      border:1px solid var(--kfy-bubble-bot-bdr,transparent);
-      box-shadow:var(--kfy-bubble-bot-shad,0 1px 4px rgba(0,0,0,.07));
-    }
-    .kfy-bubble.user {
-      background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff;
-      align-self:flex-end;border-bottom-right-radius:4px;
-      box-shadow:0 4px 12px rgba(59,130,246,0.35);
-    }
-
-    /* ── System card (ask_email, confirmations) ── */
-    .kfy-system-card {
-      background:var(--kfy-email-card-bg,#fff);
-      border-radius:12px;padding:12px 14px;margin-top:4px;
-      border:1px solid rgba(59,130,246,0.25);
-      box-shadow:0 1px 6px rgba(59,130,246,.10);
-      transition:background .25s ease;
-    }
-
-    /* ── Email capture card ── */
-    .kfy-email-card {
-      background:var(--kfy-email-card-bg,#fff);
-      border-radius:14px;padding:16px;margin-top:4px;
-      border:1px solid var(--kfy-email-card-bdr,transparent);
-      box-shadow:var(--kfy-email-card-shad,0 1px 4px rgba(0,0,0,.07));
-      transition:background .25s ease;
-    }
-    .kfy-email-card h4 { font-size:13px;font-weight:700;color:var(--kfy-email-h4,#111827);margin:0 0 4px; }
-    .kfy-email-card p  { font-size:12px;color:var(--kfy-email-p,#6b7280);margin:0 0 12px;line-height:1.45; }
-    .kfy-email-input {
-      width:100%;padding:9px 12px;
-      border:1.5px solid var(--kfy-inp-border,#e5e7eb);
-      border-radius:10px;font-size:13px;outline:none;
-      transition:border-color .15s,box-shadow .15s,background .25s;
-      color:var(--kfy-inp-color,#111827);
-      background:var(--kfy-inp-bg,#f9fafb);
-      display:block;box-sizing:border-box;
-    }
-    .kfy-email-input::placeholder { color:var(--kfy-inp-ph,#9ca3af); }
-    .kfy-email-input:focus { border-color:#1D6AFF;background:var(--kfy-inp-focus-bg,#fff);box-shadow:0 0 0 3px rgba(29,106,255,0.1); }
-    .kfy-email-btn {
-      width:100%;margin-top:10px;padding:11px;border:none;border-radius:10px;
-      background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff;
-      font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .1s;
-      display:block;box-sizing:border-box;box-shadow:0 4px 14px rgba(59,130,246,0.35);
-      letter-spacing:.01em;
-    }
-    .kfy-email-btn:hover   { opacity:.88;transform:translateY(-1px); }
-    .kfy-email-btn:active  { transform:translateY(0); }
-    .kfy-email-btn:disabled { opacity:.45;cursor:not-allowed;transform:none; }
-    .kfy-email-err { font-size:11px;color:#ef4444;margin-top:6px;display:none; }
-
-    /* ── Message input row ── */
-    .kfy-input-row {
-      display:flex;align-items:center;gap:8px;padding:10px 12px;
-      background:var(--kfy-row-bg,#fff);
-      border-top:1px solid var(--kfy-row-border,#f0f0f0);
-      flex-shrink:0;
-      transition:background .25s ease;
-    }
-    .kfy-msg-input {
-      flex:1;padding:9px 12px;
-      border:1.5px solid var(--kfy-inp-border,#e5e7eb);
-      border-radius:22px;font-size:13px;outline:none;resize:none;
-      color:var(--kfy-inp-color,#111827);
-      background:var(--kfy-inp-bg,#f9fafb);
-      transition:border-color .15s,box-shadow .15s,background .25s;
-      max-height:80px;overflow-y:auto;font-family:inherit;
-    }
-    .kfy-msg-input::placeholder { color:var(--kfy-inp-ph,#9ca3af); }
-    .kfy-msg-input:focus { border-color:#1D6AFF;background:var(--kfy-inp-focus-bg,#fff);box-shadow:0 0 0 3px rgba(29,106,255,0.08); }
-    .kfy-send-btn {
-      width:36px;height:36px;min-width:36px;flex-shrink:0;
-      border:none;border-radius:50%;cursor:pointer;
-      background:linear-gradient(135deg,#3b82f6,#60a5fa);
-      display:flex;align-items:center;justify-content:center;
-      transition:opacity .15s,transform .15s;padding:0;
-      box-shadow:0 2px 8px rgba(59,130,246,0.35);
-    }
-    .kfy-send-btn:hover   { opacity:.85;transform:scale(1.08); }
-    .kfy-send-btn:active  { transform:scale(.93); }
-    .kfy-send-btn:disabled { opacity:.45;cursor:not-allowed; }
-
-    /* ── Misc ── */
-    .kfy-closed-notice {
-      padding:16px 14px;background:var(--kfy-closed-bg,#fef3c7);font-size:12px;color:var(--kfy-closed-color,#92400e);
-      text-align:center;border-top:1px solid var(--kfy-closed-bdr,#fde68a);flex-shrink:0;
-    }
-    .kfy-closed-notice .kfy-new-session-btn {
-      display:inline-block;margin-top:8px;padding:8px 20px;border:none;border-radius:8px;
-      background:#1D6AFF;color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .15s;
-    }
-    .kfy-closed-notice .kfy-new-session-btn:hover { opacity:.85; }
-    .kfy-closed-notice .kfy-new-choice { display:flex;gap:8px;justify-content:center;margin-top:10px; }
-    .kfy-closed-notice .kfy-choice-btn {
-      padding:7px 14px;border:1px solid var(--kfy-closed-bdr,#fde68a);border-radius:8px;
-      background:transparent;color:var(--kfy-closed-color,#92400e);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;
-    }
-    .kfy-closed-notice .kfy-choice-btn:hover { background:rgba(29,106,255,0.1);border-color:#1D6AFF;color:#1D6AFF; }
-    .kfy-closed-notice .kfy-guest-email-row {
-      display:flex;gap:6px;margin-top:10px;justify-content:center;
-    }
-    .kfy-closed-notice .kfy-guest-email-row input {
-      padding:6px 10px;border:1px solid var(--kfy-closed-bdr,#fde68a);border-radius:6px;
-      font-size:11px;width:180px;outline:none;background:var(--kfy-inp-bg,#fff);color:var(--kfy-inp-color,#111);
-    }
-    .kfy-closed-notice .kfy-guest-email-row input:focus { border-color:#1D6AFF; }
-    .kfy-closed-notice .kfy-guest-email-row button {
-      padding:6px 12px;border:none;border-radius:6px;background:#1D6AFF;color:#fff;font-size:11px;font-weight:600;cursor:pointer;
-    }
-    .kfy-closed-err { color:#ef4444;font-size:11px;margin-top:6px; }
-    .kfy-articles-tab { padding:24px;font-size:13px;color:var(--kfy-articles-color,#9ca3af);text-align:center;background:var(--kfy-articles-bg,#f9fafb); }
-
-    /* ── Queue indicator ── */
-    @keyframes kfyQueuePulse {
-      0%,100% { opacity:1; transform:scale(1); }
-      50%     { opacity:.7; transform:scale(1.02); }
-    }
-    .kfy-queue-indicator {
-      display:flex;align-items:center;gap:8px;
-      padding:8px 14px;margin:0;
-      background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(251,191,36,0.08));
-      border-bottom:1px solid rgba(245,158,11,0.18);
-      font-size:12px;color:#d97706;font-weight:600;
-      animation:kfyQueuePulse 2.4s ease-in-out infinite;
-      flex-shrink:0;
-    }
-    .kfy-queue-indicator .kfy-queue-dot {
-      width:8px;height:8px;border-radius:50%;background:#f59e0b;
-      box-shadow:0 0 6px rgba(245,158,11,0.6);flex-shrink:0;
-    }
-
-    /* ── Message row with avatar ── */
+    /* ── Message rows ── */
     .kfy-msg-row {
       display:flex;align-items:flex-end;gap:8px;
+      animation:kfyFadeSlideUp .25s ease both;
     }
     .kfy-msg-row.user-row {
       flex-direction:row-reverse;
@@ -537,19 +548,209 @@
     .kfy-msg-avatar {
       width:28px;height:28px;min-width:28px;border-radius:50%;
       object-fit:cover;flex-shrink:0;
-      border:1.5px solid var(--kfy-avatar-bdr,rgba(0,0,0,0.06));
+      border:1.5px solid var(--kfy-avatar-bdr,rgba(0,0,0,0.05));
     }
     .kfy-msg-avatar.kfy-logo-avatar {
-      background:linear-gradient(135deg,#1D6AFF,#A259FF);
+      background:linear-gradient(135deg,#1D6AFF,#7C3AED);
       display:flex;align-items:center;justify-content:center;
+      border:none;
     }
 
-    @media (max-width:420px) {
-      #kfy-chat-win { width:calc(100vw - 20px) !important; right:10px !important; bottom:84px !important; height:calc(100vh - 112px) !important; max-height:calc(100vh - 112px) !important; }
-      #kfy-fab      { right:14px !important; bottom:16px !important; }
+    /* ── Bubbles ── */
+    .kfy-bubble {
+      max-width:80%;padding:10px 14px;border-radius:16px;
+      font-size:13.5px;line-height:1.55;word-break:break-word;
+      transition:background .3s ease,color .3s ease;
     }
-    @media (max-height:760px) {
-      #kfy-chat-win { height:calc(100vh - 132px) !important; max-height:calc(100vh - 132px) !important; }
+    .kfy-bubble.bot,.kfy-bubble.admin {
+      background:var(--kfy-bubble-bot-bg,#fff);
+      color:var(--kfy-bubble-bot-color,#1e293b);
+      align-self:flex-start;
+      border-bottom-left-radius:4px;
+      border:1px solid var(--kfy-bubble-bot-bdr,rgba(0,0,0,0.05));
+      box-shadow:var(--kfy-bubble-bot-shad,0 1px 3px rgba(0,0,0,.04));
+    }
+    .kfy-bubble.user {
+      background:linear-gradient(135deg,#1D6AFF 0%,#4F46E5 100%);
+      color:#fff;
+      align-self:flex-end;
+      border-bottom-right-radius:4px;
+      box-shadow:0 4px 14px rgba(29,106,255,0.28);
+    }
+
+    /* ── System cards ── */
+    .kfy-system-card {
+      background:var(--kfy-system-card-bg,rgba(29,106,255,0.04));
+      border-radius:14px;padding:12px 16px;margin-top:4px;
+      border:1px solid var(--kfy-system-card-bdr,rgba(29,106,255,0.12));
+      transition:background .3s ease;
+      animation:kfyFadeIn .3s ease;
+    }
+
+    /* ── Email capture card ── */
+    .kfy-email-card {
+      background:var(--kfy-email-card-bg,#fff);
+      border-radius:16px;padding:18px;margin-top:4px;
+      border:1px solid var(--kfy-email-card-bdr,rgba(0,0,0,0.06));
+      box-shadow:var(--kfy-email-card-shad,0 2px 8px rgba(0,0,0,.04));
+      transition:background .3s ease;
+    }
+    .kfy-email-card h4 { font-size:13.5px;font-weight:700;color:var(--kfy-email-h4,#111827);margin:0 0 4px;letter-spacing:-0.01em; }
+    .kfy-email-card p  { font-size:12.5px;color:var(--kfy-email-p,#6b7280);margin:0 0 14px;line-height:1.5; }
+    .kfy-email-input {
+      width:100%;padding:12px 14px;
+      border:1.5px solid var(--kfy-inp-border,#e5e7eb);
+      border-radius:12px;font-size:13.5px;outline:none;
+      transition:border-color .2s,box-shadow .2s,background .3s;
+      color:var(--kfy-inp-color,#111827);
+      background:var(--kfy-inp-bg,#f9fafb);
+      display:block;box-sizing:border-box;font-family:inherit;
+    }
+    .kfy-email-input::placeholder { color:var(--kfy-inp-ph,#9ca3af); }
+    .kfy-email-input:focus { border-color:#1D6AFF;background:var(--kfy-inp-focus-bg,#fff);box-shadow:0 0 0 4px rgba(29,106,255,0.08); }
+    .kfy-email-btn {
+      width:100%;margin-top:12px;padding:12px;border:none;border-radius:12px;
+      background:linear-gradient(135deg,#1D6AFF,#4F46E5);color:#fff;
+      font-size:13.5px;font-weight:700;cursor:pointer;
+      transition:all .2s;display:block;box-sizing:border-box;
+      box-shadow:0 4px 16px rgba(29,106,255,0.3);
+      letter-spacing:.01em;font-family:inherit;
+    }
+    .kfy-email-btn:hover   { transform:translateY(-1px);box-shadow:0 6px 22px rgba(29,106,255,0.4); }
+    .kfy-email-btn:active  { transform:translateY(0); }
+    .kfy-email-btn:disabled { opacity:.45;cursor:not-allowed;transform:none;box-shadow:none; }
+    .kfy-email-err { font-size:11.5px;color:#ef4444;margin-top:6px;display:none; }
+
+    /* ── Composer ── */
+    .kfy-input-row {
+      display:flex;align-items:flex-end;gap:8px;padding:12px 14px;
+      background:var(--kfy-row-bg,#fff);
+      border-top:1px solid var(--kfy-row-border,rgba(0,0,0,0.05));
+      flex-shrink:0;
+      transition:background .3s ease;
+    }
+    .kfy-msg-input {
+      flex:1;padding:10px 16px;
+      border:1.5px solid var(--kfy-inp-border,#e5e7eb);
+      border-radius:22px;font-size:13.5px;outline:none;resize:none;
+      color:var(--kfy-inp-color,#111827);
+      background:var(--kfy-inp-bg,#f9fafb);
+      transition:border-color .2s,box-shadow .2s,background .3s;
+      max-height:80px;overflow-y:auto;font-family:inherit;
+      line-height:1.45;
+    }
+    .kfy-msg-input::placeholder { color:var(--kfy-inp-ph,#9ca3af); }
+    .kfy-msg-input:focus {
+      border-color:#1D6AFF;
+      background:var(--kfy-inp-focus-bg,#fff);
+      box-shadow:0 0 0 3px rgba(29,106,255,0.08);
+    }
+    .kfy-send-btn {
+      width:38px;height:38px;min-width:38px;flex-shrink:0;
+      border:none;border-radius:12px;cursor:pointer;
+      background:linear-gradient(135deg,#1D6AFF,#4F46E5);
+      display:flex;align-items:center;justify-content:center;
+      transition:all .2s;padding:0;
+      box-shadow:0 3px 12px rgba(29,106,255,0.3);
+    }
+    .kfy-send-btn:hover   { transform:translateY(-1px);box-shadow:0 5px 18px rgba(29,106,255,0.4); }
+    .kfy-send-btn:active  { transform:translateY(0) scale(.95); }
+    .kfy-send-btn:disabled { opacity:.35;cursor:not-allowed;transform:none;box-shadow:none; }
+
+    /* ── Queue indicator ── */
+    .kfy-queue-indicator {
+      display:flex;align-items:center;gap:10px;
+      padding:10px 16px;margin:0;
+      background:var(--kfy-queue-bg,linear-gradient(135deg,rgba(245,158,11,0.08),rgba(251,191,36,0.05)));
+      border-bottom:1px solid var(--kfy-queue-bdr,rgba(245,158,11,0.12));
+      font-size:12.5px;color:var(--kfy-queue-color,#d97706);font-weight:600;
+      animation:kfyQueuePulse 2.4s ease-in-out infinite;
+      flex-shrink:0;
+    }
+    .kfy-queue-indicator .kfy-queue-dot {
+      width:8px;height:8px;border-radius:50%;background:#f59e0b;
+      box-shadow:0 0 8px rgba(245,158,11,0.5);flex-shrink:0;
+    }
+
+    /* ── Closed notice ── */
+    .kfy-closed-notice {
+      padding:20px 16px;background:var(--kfy-closed-bg,rgba(245,158,11,0.06));
+      font-size:13px;color:var(--kfy-closed-color,#92400e);
+      text-align:center;border-top:1px solid var(--kfy-closed-bdr,rgba(245,158,11,0.12));flex-shrink:0;
+      line-height:1.5;
+    }
+    .kfy-closed-notice .kfy-new-session-btn {
+      display:inline-block;margin-top:10px;padding:10px 24px;border:none;border-radius:12px;
+      background:linear-gradient(135deg,#1D6AFF,#4F46E5);color:#fff;
+      font-size:12.5px;font-weight:600;cursor:pointer;
+      transition:all .2s;box-shadow:0 4px 14px rgba(29,106,255,0.25);
+      font-family:inherit;
+    }
+    .kfy-closed-notice .kfy-new-session-btn:hover { transform:translateY(-1px);box-shadow:0 6px 20px rgba(29,106,255,0.35); }
+    .kfy-closed-notice .kfy-new-choice { display:flex;gap:8px;justify-content:center;margin-top:12px; }
+    .kfy-closed-notice .kfy-choice-btn {
+      padding:8px 16px;border:1.5px solid var(--kfy-closed-bdr,rgba(245,158,11,0.2));border-radius:10px;
+      background:transparent;color:var(--kfy-closed-color,#92400e);
+      font-size:11.5px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit;
+    }
+    .kfy-closed-notice .kfy-choice-btn:hover { background:rgba(29,106,255,0.06);border-color:#1D6AFF;color:#1D6AFF; }
+    .kfy-closed-notice .kfy-guest-email-row {
+      display:flex;gap:6px;margin-top:10px;justify-content:center;
+    }
+    .kfy-closed-notice .kfy-guest-email-row input {
+      padding:8px 12px;border:1.5px solid var(--kfy-inp-border,#e5e7eb);border-radius:10px;
+      font-size:12px;width:180px;outline:none;background:var(--kfy-inp-bg,#fff);
+      color:var(--kfy-inp-color,#111);font-family:inherit;transition:border-color .2s;
+    }
+    .kfy-closed-notice .kfy-guest-email-row input:focus { border-color:#1D6AFF;box-shadow:0 0 0 3px rgba(29,106,255,0.08); }
+    .kfy-closed-notice .kfy-guest-email-row button {
+      padding:8px 14px;border:none;border-radius:10px;
+      background:linear-gradient(135deg,#1D6AFF,#4F46E5);color:#fff;
+      font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;
+      transition:all .2s;
+    }
+    .kfy-closed-notice .kfy-guest-email-row button:hover { transform:translateY(-1px); }
+    .kfy-closed-err { color:#ef4444;font-size:11.5px;margin-top:6px; }
+
+    /* ── Articles / Knowledge base ── */
+    .kfy-articles-tab {
+      padding:40px 28px;text-align:center;
+      background:var(--kfy-articles-bg,#f4f5f7);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      flex:1;min-height:200px;
+    }
+    .kfy-articles-icon-wrap {
+      width:64px;height:64px;border-radius:18px;margin-bottom:16px;
+      background:var(--kfy-articles-icon-bg,rgba(0,0,0,0.04));
+      display:flex;align-items:center;justify-content:center;
+    }
+    .kfy-articles-title {
+      font-size:15px;font-weight:700;color:var(--kfy-agent-title,#111827);
+      margin-bottom:6px;letter-spacing:-0.01em;
+    }
+    .kfy-articles-desc {
+      font-size:12.5px;color:var(--kfy-articles-color,#9ca3af);line-height:1.55;
+      max-width:240px;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width:420px) {
+      #kfy-chat-win {
+        width:calc(100vw - 16px) !important;
+        right:8px !important;
+        bottom:84px !important;
+        height:calc(100dvh - 108px) !important;
+        max-height:calc(100dvh - 108px) !important;
+        border-radius:18px !important;
+      }
+      #kfy-fab { right:14px !important; bottom:16px !important; }
+      #kfy-guest-gate { padding:24px 20px !important; }
+      .kfy-gate-choice-grid { gap:10px; }
+      .kfy-gate-card { padding:14px 12px 12px; }
+      .kfy-gate-title { font-size:18px; }
+    }
+    @media (max-height:700px) {
+      #kfy-chat-win { height:calc(100dvh - 120px) !important; max-height:calc(100dvh - 120px) !important; }
     }
   `;
 
@@ -558,22 +759,20 @@
   document.head.appendChild(styleEl);
 
   /* ─────────────────────────────────────────────────────────────
-     BUILD DOM
+     BUILD DOM — Premium Layout
   ───────────────────────────────────────────────────────────── */
   const root = document.createElement('div');
   root.setAttribute('id', 'kfy-widget-root');
 
   root.innerHTML = `
-    <!-- ── Floating action button ── -->
+    <!-- FAB -->
     <button id="kfy-fab" aria-label="Otvori chat podršku" type="button">
       <span id="kfy-fab-icons">
-        <!-- Chat icon (default) -->
         <svg id="kfy-icon-chat" width="24" height="24" viewBox="0 0 24 24"
              fill="none" stroke="#ffffff" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
         </svg>
-        <!-- Close icon (shown when open) -->
         <svg id="kfy-icon-close" width="22" height="22" viewBox="0 0 24 24"
              fill="none" stroke="#ffffff" stroke-width="2.5"
              stroke-linecap="round" stroke-linejoin="round">
@@ -583,71 +782,127 @@
       </span>
     </button>
 
-    <!-- ── Chat window ── -->
+    <!-- Chat window -->
     <div id="kfy-chat-win" role="dialog" aria-modal="true" aria-label="Live chat podrška">
 
-      <!-- Guest Email Gate (covers window until email submitted) -->
+      <!-- Guest Gate -->
       <div id="kfy-guest-gate" class="kfy-gate-hidden">
         <div class="kfy-gate-icon">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
           </svg>
         </div>
-        <div class="kfy-gate-title">Počnite razgovor</div>
-        <div class="kfy-gate-sub">Unesite email, pa izaberite da li želite live podršku ili feedback tok.</div>
+        <div class="kfy-gate-title">Kako vam možemo pomoći?</div>
+        <div class="kfy-gate-sub">Unesite email pa izaberite da li želite podršku uživo ili da ostavite feedback.</div>
+
+        <!-- Step: Email -->
         <div id="kfy-gate-step-email" class="kfy-gate-step">
           <input type="email" id="kfy-gate-inp" class="kfy-gate-input"
                  placeholder="vas@email.com" autocomplete="email"/>
           <div class="kfy-gate-err" id="kfy-gate-err"></div>
           <button class="kfy-gate-btn" id="kfy-gate-btn" type="button"
                   onclick="window._kfyGateSubmit()">
-            Nastavi →
+            Nastavi
           </button>
         </div>
+
+        <!-- Step: Choice -->
         <div id="kfy-gate-step-choice" class="kfy-gate-step" style="display:none">
           <div class="kfy-gate-choice-grid">
             <button type="button" class="kfy-gate-card" onclick="window._kfyChooseGateMode('support')">
-              <div class="kfy-gate-card-title">💬 Razgovor sa podrškom</div>
-              <div class="kfy-gate-card-sub">Pokreće live chat i ubacuje vas u red čekanja za agenta.</div>
+              <div class="kfy-gate-card-icon kfy-icon-support">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+              </div>
+              <div class="kfy-gate-card-title">Podrška uživo</div>
+              <div class="kfy-gate-card-sub">Povežite se sa agentom u realnom vremenu.</div>
             </button>
             <button type="button" class="kfy-gate-card" onclick="window._kfyChooseGateMode('feedback')">
-              <div class="kfy-gate-card-title">📝 Ostavi Feedback</div>
-              <div class="kfy-gate-card-sub">Pošaljite komentar, predlog ili žalbu bez otvaranja live chata.</div>
+              <div class="kfy-gate-card-icon kfy-icon-feedback">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+              </div>
+              <div class="kfy-gate-card-title">Ostavi feedback</div>
+              <div class="kfy-gate-card-sub">Komentar, predlog ili žalba bez chata.</div>
             </button>
           </div>
-          <button class="kfy-gate-skip" type="button" onclick="window._kfyGateBackToEmail()">Nazad na email</button>
+          <button class="kfy-gate-skip" type="button" onclick="window._kfyGateBackToEmail()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Nazad
+          </button>
         </div>
+
+        <!-- Step: Feedback -->
         <div id="kfy-gate-step-feedback" class="kfy-gate-step" style="display:none">
-          <label class="kfy-gate-label" for="kfy-feedback-category">U vezi čega je feedback?</label>
-          <select id="kfy-feedback-category" class="kfy-gate-select">
-            <option value="">Izaberite kategoriju</option>
-            <option value="nalog">Nalog</option>
-            <option value="rad_sajta">Rad sajta</option>
-            <option value="predlog">Predlog</option>
-            <option value="zalba">Žalba</option>
-          </select>
+          <label class="kfy-gate-label" for="kfy-feedback-category">Kategorija</label>
+          <div class="kfy-select-wrap">
+            <select id="kfy-feedback-category" class="kfy-gate-select">
+              <option value="">Izaberite kategoriju...</option>
+              <option value="nalog">Nalog</option>
+              <option value="rad_sajta">Rad sajta</option>
+              <option value="predlog">Predlog</option>
+              <option value="zalba">Žalba</option>
+            </select>
+          </div>
           <label class="kfy-gate-label" for="kfy-feedback-text">Poruka</label>
-          <textarea id="kfy-feedback-text" class="kfy-gate-textarea" placeholder="Napišite detaljan feedback..."></textarea>
+          <textarea id="kfy-feedback-text" class="kfy-gate-textarea" placeholder="Opišite detaljno..."></textarea>
           <div class="kfy-gate-err" id="kfy-feedback-err"></div>
           <button class="kfy-gate-btn" id="kfy-feedback-btn" type="button" onclick="window._kfySubmitFeedback()">Pošalji feedback</button>
-          <button class="kfy-gate-skip" type="button" onclick="window._kfyChooseGateMode('choice')">Nazad na izbor</button>
+          <button class="kfy-gate-skip" type="button" onclick="window._kfyChooseGateMode('choice')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Nazad na izbor
+          </button>
         </div>
       </div>
 
-      <!-- Header tabs -->
+      <!-- Header -->
       <div class="kfy-header">
-        <div class="kfy-tabs">
-          <button class="kfy-tab active" id="kfy-tab-chat"     type="button" onclick="window._kfyTab('chat')">Razgovor</button>
-          <button class="kfy-tab"        id="kfy-tab-articles" type="button" onclick="window._kfyTab('articles')">Članci</button>
-          <button class="kfy-exit-btn" id="kfy-exit-btn" type="button" onclick="window._kfyExitSession()">Izadji</button>
+        <div class="kfy-header-top">
+          <div class="kfy-header-brand">
+            <div class="kfy-header-logo">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+              </svg>
+            </div>
+            <div>
+              <div class="kfy-header-title">Keyify podrška</div>
+              <div class="kfy-header-subtitle">
+                <span class="kfy-header-dot"></span>
+                Odgovaramo za manje od sat vremena
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <button class="kfy-exit-btn" id="kfy-exit-btn" type="button" onclick="window._kfyExitSession()">Izađi</button>
+            <button class="kfy-close-btn" type="button" onclick="document.getElementById('kfy-fab').click()" aria-label="Zatvori">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="kfy-tabs-wrap">
+          <div class="kfy-tabs">
+            <button class="kfy-tab active" id="kfy-tab-chat" type="button" onclick="window._kfyTab('chat')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Razgovor
+            </button>
+            <button class="kfy-tab" id="kfy-tab-articles" type="button" onclick="window._kfyTab('articles')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              Članci
+            </button>
+          </div>
         </div>
       </div>
 
       <!-- Agent row -->
       <div class="kfy-agent-row">
         <div class="kfy-avatars">
-          <div class="kfy-avatar" style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">K</div>
-          <div class="kfy-avatar" style="background:linear-gradient(135deg,#A259FF,#ff6b9d)">S</div>
+          <div class="kfy-avatar" style="background:linear-gradient(135deg,#1D6AFF,#7C3AED)">K</div>
+          <div class="kfy-avatar" style="background:linear-gradient(135deg,#7C3AED,#EC4899)">S</div>
         </div>
         <div class="kfy-agent-info">
           <div class="kfy-agent-title">Imate pitanja? Dopisujte se sa nama!</div>
@@ -658,18 +913,17 @@
         </div>
       </div>
 
-      <!-- ── CHAT PANEL ── -->
+      <!-- CHAT PANEL -->
       <div id="kfy-panel-chat" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
 
-        <!-- Queue position indicator (hidden by default) -->
+        <!-- Queue indicator -->
         <div class="kfy-queue-indicator" id="kfy-queue-indicator" style="display:none;">
           <span class="kfy-queue-dot"></span>
-          <span id="kfy-queue-text">Trenutno ste 1 u redu čekanja.</span>
+          <span id="kfy-queue-text">Trenutno ste 1. u redu čekanja.</span>
         </div>
 
-        <!-- Scrollable message area -->
+        <!-- Message area -->
         <div class="kfy-body" id="kfy-body">
-          <!-- Welcome bubble with avatar (static, never removed) -->
           <div class="kfy-msg-row">
             <div class="kfy-msg-avatar kfy-logo-avatar">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
@@ -677,7 +931,6 @@
             <div class="kfy-bubble bot">Kako Vam možemo pomoći sa Keyify? 👋</div>
           </div>
 
-          <!-- Email capture card -->
           <div class="kfy-email-card" id="kfy-email-card" style="display:none">
             <h4>Koja je Vaša imejl adresa?</h4>
             <p>Unesite email kako bismo Vam mogli odgovoriti ako napustite stranicu.</p>
@@ -691,34 +944,34 @@
           </div>
         </div>
 
-        <!-- Message input (hidden until chat is active) -->
+        <!-- Composer -->
         <div class="kfy-input-row" id="kfy-input-row" style="display:none;">
           <textarea class="kfy-msg-input" id="kfy-msg-input" rows="1"
                     placeholder="Napišite poruku..."></textarea>
           <button class="kfy-send-btn" id="kfy-send-btn" type="button"
                   onclick="window._kfySend()" aria-label="Pošalji poruku">
-            <svg width="15" height="15" viewBox="0 0 24 24"
-                 fill="none" stroke="#ffffff" stroke-width="2.5"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13"/>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 2L11 13"/>
+              <path d="M22 2L15 22L11 13L2 9L22 2Z"/>
             </svg>
           </button>
         </div>
 
-        <!-- Closed session notice -->
+        <!-- Closed notice -->
         <div class="kfy-closed-notice" id="kfy-closed-notice" style="display:none;"></div>
       </div>
 
-      <!-- ── ARTICLES PANEL (placeholder) ── -->
-      <div id="kfy-panel-articles" style="display:none;flex:1;overflow-y:auto;background:var(--kfy-articles-bg,#f9fafb);">
+      <!-- ARTICLES PANEL -->
+      <div id="kfy-panel-articles" style="display:none;flex:1;overflow-y:auto;background:var(--kfy-articles-bg,#f4f5f7);">
         <div class="kfy-articles-tab">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
-               stroke="#d1d5db" stroke-width="1.5" stroke-linecap="round"
-               style="display:block;margin:0 auto 10px">
-            <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          <p>Baza znanja — uskoro.</p>
+          <div class="kfy-articles-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                 stroke="var(--kfy-articles-icon-color,#9ca3af)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+          </div>
+          <div class="kfy-articles-title">Baza znanja</div>
+          <div class="kfy-articles-desc">Članci i uputstva biće uskoro dostupni. U međuvremenu, pokrenite razgovor sa podrškom.</div>
         </div>
       </div>
 
@@ -774,7 +1027,7 @@
   };
 
   /* ─────────────────────────────────────────────────────────────
-     GUEST GATE (full-screen email entry before chat opens)
+     GUEST GATE
   ───────────────────────────────────────────────────────────── */
   const guestGate    = document.getElementById('kfy-guest-gate');
   const gateInp      = document.getElementById('kfy-gate-inp');
@@ -833,12 +1086,12 @@
     const loggedIn = _isLoggedInUser();
 
     if (gateTitle) {
-      gateTitle.textContent = loggedIn ? 'Izaberite opciju' : 'Počnite razgovor';
+      gateTitle.textContent = loggedIn ? 'Izaberite opciju' : 'Kako vam možemo pomoći?';
     }
     if (gateSub) {
       gateSub.textContent = loggedIn
-        ? 'Izaberite da li želite live podršku ili feedback tok.'
-        : 'Unesite email, pa izaberite da li želite live podršku ili feedback tok.';
+        ? 'Izaberite da li želite podršku uživo ili da ostavite feedback.'
+        : 'Unesite email pa izaberite da li želite podršku uživo ili da ostavite feedback.';
     }
     if (gateBackToEmailBtn) {
       gateBackToEmailBtn.style.display = loggedIn ? 'none' : '';
@@ -864,7 +1117,7 @@
     });
     if (guestGate) {
       guestGate.style.justifyContent = step === 'feedback' ? 'flex-start' : 'center';
-      guestGate.style.padding = step === 'feedback' ? '28px 24px 32px' : '24px';
+      guestGate.style.padding = step === 'feedback' ? '28px 28px 32px' : '32px 28px';
       guestGate.scrollTop = 0;
     }
   }
@@ -888,7 +1141,7 @@
     const nextStep = _resolveGateStartStep(preferredStep);
     if (gateBtn) {
       gateBtn.disabled = false;
-      gateBtn.textContent = 'Nastavi →';
+      gateBtn.textContent = 'Nastavi';
     }
     if (feedbackCategory) feedbackCategory.disabled = false;
     if (feedbackText) feedbackText.disabled = false;
@@ -929,7 +1182,7 @@
     STORAGE.setEmail(val);
     _setGateStep('choice');
     gateBtn.disabled = false;
-    gateBtn.textContent = 'Nastavi →';
+    gateBtn.textContent = 'Nastavi';
   };
 
   window._kfyGateBackToEmail = function () {
@@ -941,7 +1194,7 @@
     _clearGateErr();
     if (gateBtn) {
       gateBtn.disabled = false;
-      gateBtn.textContent = 'Nastavi →';
+      gateBtn.textContent = 'Nastavi';
     }
     _setGateStep('email');
     setTimeout(() => gateInp && gateInp.focus(), 60);
@@ -1084,7 +1337,7 @@
   }
 
   /* ─────────────────────────────────────────────────────────────
-     INIT STATE (called when window opens)
+     INIT STATE
   ───────────────────────────────────────────────────────────── */
   function _initState() {
     if (_starting) return;
@@ -1093,15 +1346,8 @@
     if (sid) {
       _resumeExistingSession(sid);
     } else {
-      // Logged-in user — skip gate entirely
       _showGate();
     }
-    /*
-      // Guest — always show the gate (email or skip)
-      _showGate();
-    }
-    }
-    */
   }
 
   if (_autoOpenChat) {
@@ -1159,13 +1405,11 @@
       if (data.anon_id) STORAGE.setAnonId(data.anon_id);
       _activateChat();
       _startPoll(data.session_id);
-      // Show queue indicator and start polling position
       const qi = document.getElementById('kfy-queue-indicator');
       if (qi) qi.style.display = 'flex';
       _startQueuePoll(data.session_id);
     } catch (err) {
       const msg = err.message || 'Greška servera. Pokušajte ponovo.';
-      // Only show gate if chat isn't already active
       if (inputRow.style.display !== 'flex') {
         _showGate();
         if (gateErr) { gateErr.textContent = msg; gateErr.style.display = 'block'; }
@@ -1176,7 +1420,7 @@
   }
 
   /* ─────────────────────────────────────────────────────────────
-     ACTIVATE CHAT UI (hide email card, show input row)
+     ACTIVATE CHAT UI
   ───────────────────────────────────────────────────────────── */
   const exitBtn = document.getElementById('kfy-exit-btn');
 
@@ -1200,7 +1444,7 @@
     sendBtn.disabled = true;
     msgInput.value   = '';
 
-    _appendBubble('user', text);   // optimistic
+    _appendBubble('user', text);
 
     try {
       const res = await fetch(`${API()}/chat/message`, {
@@ -1212,7 +1456,7 @@
         const d = await res.json();
         if (d.error?.includes('zatvorena')) _showClosed();
       }
-    } catch { /* silent – bubble already shown */ }
+    } catch { /* silent */ }
 
     sendBtn.disabled = false;
     msgInput.focus();
@@ -1269,12 +1513,10 @@
       if (!res.ok) return;
       const { messages, session_status, admin_info } = await res.json();
 
-      // Track admin info for avatar rendering
       if (admin_info) _adminInfo = admin_info;
 
       if (session_status === 'closed') { _showClosed(); _stopPoll(); _stopQueuePoll(); return; }
 
-      // Manage queue indicator
       const qi = document.getElementById('kfy-queue-indicator');
       if (session_status === 'active' && qi) {
         qi.style.display = 'none';
@@ -1288,12 +1530,11 @@
         _lastMsgCount = messages.length;
         _renderMessages(messages);
       }
-    } catch { /* ignore network errors */ }
+    } catch { /* ignore */ }
   }
 
   /* ─────────────────────────────────────────────────────────────
      RENDER MESSAGES
-     Uses data-kfy-msg to distinguish dynamic from static DOM.
   ───────────────────────────────────────────────────────────── */
   function _makeAvatar(sender) {
     if (sender === 'admin' && _adminInfo?.avatar_url) {
@@ -1303,7 +1544,6 @@
       img.alt = _adminInfo.name || 'Agent';
       return img;
     }
-    // Keyify logo avatar (for bot/system/default)
     const div = document.createElement('div');
     div.className = 'kfy-msg-avatar kfy-logo-avatar';
     div.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>';
@@ -1313,63 +1553,68 @@
   function _renderMessages(messages) {
     body.querySelectorAll('[data-kfy-msg]').forEach(el => el.remove());
     messages.forEach(m => {
-      // ── System: agent_joined ──
       if (m.sender === 'system' && m.message.startsWith('__agent_joined__')) {
         const agentName = m.message.replace('__agent_joined__', '');
         const wrap = document.createElement('div');
         wrap.dataset.kfyMsg = '1';
         wrap.className = 'kfy-system-card';
-        wrap.innerHTML = `<div style="font-size:12px;color:#10b981;font-weight:600;">✓ ${agentName} se pridružio/la razgovoru</div>`;
+        wrap.innerHTML = `<div style="font-size:12.5px;color:#10b981;font-weight:600;display:flex;align-items:center;gap:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          ${agentName} se pridružio/la razgovoru
+        </div>`;
         body.appendChild(wrap);
-        // Hide queue indicator when agent joins
         const qi = document.getElementById('kfy-queue-indicator');
         if (qi) qi.style.display = 'none';
         return;
       }
-      // ── System: chat_declined ──
       if (m.sender === 'system' && m.message === '__chat_declined__') {
         const wrap = document.createElement('div');
         wrap.dataset.kfyMsg = '1';
         wrap.className = 'kfy-system-card';
-        wrap.innerHTML = '<div style="font-size:12px;color:#ef4444;font-weight:600;">Sesija je odbijena. Pokušajte ponovo kasnije.</div>';
+        wrap.style.borderColor = 'rgba(239,68,68,0.15)';
+        wrap.style.background = 'var(--kfy-declined-bg,rgba(239,68,68,0.04))';
+        wrap.innerHTML = '<div style="font-size:12.5px;color:#ef4444;font-weight:600;">Sesija je odbijena. Pokušajte ponovo kasnije.</div>';
         body.appendChild(wrap);
         return;
       }
-      // ── System: ask_email → inline email form ──
       if (m.sender === 'system' && m.message === '__ask_email__') {
         const alreadyProvided = STORAGE.getEmail();
         const wrap = document.createElement('div');
         wrap.dataset.kfyMsg = '1';
         wrap.className = 'kfy-system-card';
         wrap.innerHTML = alreadyProvided
-          ? '<div style="font-size:12px;color:#10b981;font-weight:600;">✓ Email već poslan</div>'
-          : `<div style="font-size:12px;font-weight:600;color:var(--kfy-email-h4,#111827);margin-bottom:6px;">
-               📧 Agent traži vašu email adresu
+          ? `<div style="font-size:12.5px;color:#10b981;font-weight:600;display:flex;align-items:center;gap:6px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Email već poslan
+            </div>`
+          : `<div style="font-size:12.5px;font-weight:600;color:var(--kfy-email-h4,#111827);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+               Agent traži vašu email adresu
              </div>
              <div style="display:flex;gap:6px;">
                <input type="email" id="kfy-inline-email" class="kfy-email-input"
-                      placeholder="vas@email.com" style="flex:1;font-size:12px;padding:7px 10px;"/>
+                      placeholder="vas@email.com" style="flex:1;font-size:12.5px;padding:9px 12px;"/>
                <button onclick="window._kfyInlineEmailSubmit()" class="kfy-email-btn"
-                       style="width:auto;margin:0;padding:7px 14px;font-size:11px;">Pošalji</button>
+                       style="width:auto;margin:0;padding:9px 16px;font-size:12px;border-radius:10px;">Pošalji</button>
              </div>
-             <div id="kfy-inline-email-err" style="font-size:11px;color:#ef4444;margin-top:4px;display:none;"></div>`;
+             <div id="kfy-inline-email-err" style="font-size:11.5px;color:#ef4444;margin-top:4px;display:none;"></div>`;
         body.appendChild(wrap);
         return;
       }
-      // ── System: email_received → confirmation ──
       if (m.sender === 'system' && m.message.startsWith('__email_received__')) {
         const receivedEmail = m.message.replace('__email_received__', '');
         const wrap = document.createElement('div');
         wrap.dataset.kfyMsg = '1';
         wrap.className = 'kfy-system-card';
-        wrap.innerHTML = `<div style="font-size:12px;color:#10b981;font-weight:600;">✓ Email poslan: ${receivedEmail}</div>`;
+        wrap.innerHTML = `<div style="font-size:12.5px;color:#10b981;font-weight:600;display:flex;align-items:center;gap:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Email poslan: ${receivedEmail}
+        </div>`;
         body.appendChild(wrap);
         return;
       }
-      // ── System: user_left ──
       if (m.sender === 'system' && m.message === '__user_left__') return;
 
-      // ── Regular message with avatar ──
       const row = document.createElement('div');
       row.className = `kfy-msg-row ${m.sender === 'user' ? 'user-row' : ''}`;
       row.dataset.kfyMsg = '1';
@@ -1386,7 +1631,6 @@
     body.scrollTop = body.scrollHeight;
   }
 
-  // Inline email submit (when admin requests email)
   window._kfyInlineEmailSubmit = async function () {
     const inp = document.getElementById('kfy-inline-email');
     const errEl = document.getElementById('kfy-inline-email-err');
@@ -1406,7 +1650,6 @@
       });
       if (!res.ok) throw new Error((await res.json()).error);
       STORAGE.setEmail(val);
-      // Force re-render to show confirmation
       _lastMsgCount = 0;
       await _loadMessages(sid);
     } catch (err) {
@@ -1432,7 +1675,6 @@
 
   window._kfyExitSession = async function () {
     const sid = STORAGE.getSessionId();
-    // Notify server — admin keeps the session and messages
     if (sid) {
       try {
         await fetch(`${API()}/chat/sessions/${sid}/leave`, { method: 'POST' });
@@ -1449,7 +1691,6 @@
     inputRow.style.display     = 'none';
     closedNotice.style.display = 'none';
     if (exitBtn) exitBtn.style.display = 'none';
-    // Clear messages from UI only (server keeps them)
     const body = document.getElementById('kfy-body');
     body.querySelectorAll('.kfy-bubble:not(:first-child), .kfy-system-card').forEach(el => el.remove());
     emailCard.style.display = 'none';
@@ -1470,7 +1711,6 @@
     const isLoggedIn = _isLoggedInUser();
 
     if (isLoggedIn) {
-      // Logged-in user: just show "open new session" button
       closedNotice.innerHTML = `
         <div>Ova chat sesija je zatvorena.</div>
         <button class="kfy-new-session-btn" id="kfy-new-session-btn">Otvori novu sesiju</button>`;
@@ -1479,7 +1719,6 @@
         _showGate('choice');
       });
     } else {
-      // Guest: show choice — email or guest
       closedNotice.innerHTML = `
         <div>Ova chat sesija je zatvorena.</div>
         <div style="font-weight:600;margin-top:8px">Otvori novu sesiju:</div>
