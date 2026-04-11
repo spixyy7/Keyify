@@ -4848,12 +4848,12 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Dat
 /* ─────────────────────────────────────────
    SITE ASSET UPLOAD
    POST /api/admin/upload-asset
-   Accepts PNG/JPG/SVG (≤5 MB), stores in Supabase Storage bucket "site-assets",
+   Accepts PNG/JPG/SVG (≤10 MB), stores in Supabase Storage bucket "site-assets",
    returns the public URL for immediate use in the Live Editor.
 ───────────────────────────────────────── */
 const assetUpload = multer({
   storage: multer.memoryStorage(),
-  limits:  { fileSize: 5 * 1024 * 1024 },
+  limits:  { fileSize: 10 * 1024 * 1024 },
   fileFilter(req, file, cb) {
     const ok = file.mimetype.startsWith('image/') || file.mimetype === 'image/svg+xml';
     if (ok) cb(null, true);
@@ -4866,14 +4866,25 @@ app.post('/api/admin/upload-asset', authenticateToken, requireEditorAccess, (req
     if (err) return res.status(400).json({ error: err.message });
     if (!req.file) return res.status(400).json({ error: 'Nije priložen fajl' });
 
+    const bucketName = 'site-assets';
     const ext      = (req.file.originalname.split('.').pop() || 'bin').toLowerCase();
     const filePath = `assets/${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
+
+    /* Ensure bucket exists (auto-create on first upload) */
+    const { data: buckets } = await supabase.storage.listBuckets();
+    if (!buckets?.find(b => b.name === bucketName)) {
+      const { error: createErr } = await supabase.storage.createBucket(bucketName, { public: true });
+      if (createErr && !/already exists/i.test(createErr.message)) {
+        return res.status(500).json({ error: `Bucket kreiranje: ${createErr.message}` });
+      }
+    }
+
     const { error: upErr } = await supabase.storage
-      .from('site-assets')
+      .from(bucketName)
       .upload(filePath, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
     if (upErr) return res.status(500).json({ error: `Storage: ${upErr.message}` });
 
-    const { data: { publicUrl } } = supabase.storage.from('site-assets').getPublicUrl(filePath);
+    const { data: { publicUrl } } = supabase.storage.from(bucketName).getPublicUrl(filePath);
     return res.json({ url: publicUrl });
   });
 });

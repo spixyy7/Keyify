@@ -14,6 +14,40 @@
  */
 
 /* ─────────────────────────────────────────────────────────────
+   SESSION EXPIRY INTERCEPTOR
+   Wraps fetch to detect 401 on authenticated requests and auto-logout.
+───────────────────────────────────────────────────────────── */
+(() => {
+  const _origFetch = window.fetch;
+  let _sessionExpiredShown = false;
+  window.fetch = async function (...args) {
+    const response = await _origFetch.apply(this, args);
+    if (response.status === 401 && !_sessionExpiredShown) {
+      const req = args[1] || {};
+      const headers = req.headers || {};
+      const hasAuth = (typeof headers === 'object' && !Array.isArray(headers))
+        ? (headers.Authorization || headers.authorization || (headers instanceof Headers && headers.has('Authorization')))
+        : false;
+      if (hasAuth && localStorage.getItem('keyify_token')) {
+        _sessionExpiredShown = true;
+        ['keyify_token','keyify_name','keyify_role','keyify_rank','keyify_email','keyify_id','keyify_permissions','keyify_avatar'].forEach(k => localStorage.removeItem(k));
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px)';
+        overlay.innerHTML = `
+          <div style="background:rgba(15,17,35,0.97);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:32px 36px;text-align:center;max-width:380px;font-family:'DM Sans',sans-serif">
+            <div style="font-size:36px;margin-bottom:12px">\u26A0\uFE0F</div>
+            <h3 style="color:#fff;font-size:18px;font-weight:700;margin:0 0 8px">Sesija je istekla</h3>
+            <p style="color:#9090b8;font-size:14px;margin:0 0 20px;line-height:1.5">Vaša sesija više nije važeća. Prijavite se ponovo.</p>
+            <button onclick="window.location.href='login.html'" style="background:linear-gradient(135deg,#1d6aff,#5b8fff);color:#fff;border:none;border-radius:10px;padding:10px 28px;font-size:14px;font-weight:600;cursor:pointer">Prijavi se</button>
+          </div>`;
+        document.body.appendChild(overlay);
+      }
+    }
+    return response;
+  };
+})();
+
+/* ─────────────────────────────────────────────────────────────
    KEYIFY NAMESPACE
 ───────────────────────────────────────────────────────────── */
 const KEYIFY = (() => {

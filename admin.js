@@ -520,19 +520,24 @@
     try {
       /* Upload hero image file first if provided */
       if (hasHeroFile) {
+        const heroFile = heroImageFileInput.files[0];
+        if (heroFile.size > 10 * 1024 * 1024) {
+          throw new Error('Hero slika je prevelika (max 10 MB)');
+        }
         const heroFormData = new FormData();
-        heroFormData.append('file', heroImageFileInput.files[0]);
+        heroFormData.append('file', heroFile);
         const heroUploadRes = await fetch(`${API_BASE}/admin/upload-asset`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${localStorage.getItem('keyify_token')}` },
           body: heroFormData,
         });
-        if (heroUploadRes.ok) {
-          const heroData = await heroUploadRes.json();
-          if (heroData.url) {
-            payload.homepage_hero_image = heroData.url;
-            document.getElementById('prod-hero-image').value = heroData.url;
-          }
+        const heroData = await heroUploadRes.json();
+        if (!heroUploadRes.ok) {
+          throw new Error(heroData.error || 'Greška pri uploadu hero slike');
+        }
+        if (heroData.url) {
+          payload.homepage_hero_image = heroData.url;
+          document.getElementById('prod-hero-image').value = heroData.url;
         }
       }
 
