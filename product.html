@@ -474,6 +474,19 @@
     </div>
 </section>
 
+<!-- ── HERO BANNER (dynamic per product) ───────────────────── -->
+<div id="pdp-hero-banner" class="hidden relative overflow-hidden" style="min-height:200px">
+  <div id="pdp-hero-bg" style="position:absolute;inset:0;transition:all .5s"></div>
+  <div style="position:absolute;inset:0;background:linear-gradient(to bottom, transparent 40%, var(--hero-fade, #f9fafb) 100%)"></div>
+  <div style="position:relative;max-width:72rem;margin:0 auto;padding:3rem 1rem 2.5rem;display:flex;align-items:center;gap:1rem">
+    <span id="pdp-hero-icon" class="hidden" style="font-size:3rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3))"></span>
+    <div>
+      <h2 id="pdp-hero-title" style="font-family:'Outfit',sans-serif;font-weight:800;font-size:2rem;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,0.4);margin:0"></h2>
+      <p id="pdp-hero-subtitle" class="hidden" style="color:rgba(255,255,255,0.7);font-size:1.05rem;margin:0.25rem 0 0"></p>
+    </div>
+  </div>
+</div>
+
 <!-- ── MAIN CONTENT ─────────────────────────────────────────── -->
 <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
@@ -801,6 +814,77 @@
         document.getElementById('pdp-error').classList.remove('hidden');
     }
 
+    /* ── Hero banner rendering ── */
+    const HERO_CAT_COLORS = {
+      ai: ['#7C3AED','#1D6AFF'], design: ['#EF4444','#F97316'],
+      business: ['#059669','#0D9488'], windows: ['#2563EB','#06B6D4'],
+      music: ['#EC4899','#8B5CF6'], streaming: ['#F59E0B','#EF4444'],
+    };
+
+    function renderHeroBanner(p) {
+      const banner = document.getElementById('pdp-hero-banner');
+      if (!banner || !p.hero_enabled) return;
+
+      banner.classList.remove('hidden');
+      const bg = document.getElementById('pdp-hero-bg');
+      let colors;
+      try { colors = JSON.parse(p.hero_bg_colors || 'null'); } catch { colors = null; }
+      if (!Array.isArray(colors) || colors.length < 2) {
+        colors = HERO_CAT_COLORS[p.category] || ['#7C3AED','#1D6AFF'];
+      }
+      const intensity = parseFloat(p.hero_glow_intensity) || 0.5;
+      const blur = parseFloat(p.hero_blur) || 0;
+      let bgType = p.hero_bg_type || 'auto';
+      const style = p.hero_style || 'default';
+
+      if (bgType === 'auto') bgType = p.hero_bg_image ? 'image' : 'gradient';
+
+      if (bgType === 'image' && p.hero_bg_image) {
+        bg.style.background = "url('" + p.hero_bg_image + "') center/cover no-repeat";
+      } else if (bgType === 'glow') {
+        var a = Math.round(intensity * 255).toString(16).padStart(2, '0');
+        bg.style.background = 'radial-gradient(ellipse at 25% 50%, ' + colors[0] + a + ', transparent 55%), ' +
+          'radial-gradient(ellipse at 75% 50%, ' + colors[1] + a + ', transparent 55%), #0a0f1e';
+      } else {
+        bg.style.background = 'linear-gradient(135deg, ' + colors[0] + ', ' + colors[1] + ')';
+      }
+      if (blur) bg.style.filter = 'blur(' + blur + 'px)';
+
+      /* Style presets */
+      if (style === 'neon') {
+        banner.style.boxShadow = '0 0 30px ' + colors[0] + '30';
+      } else if (style === 'cinematic') {
+        banner.style.minHeight = '260px';
+      }
+
+      /* Content */
+      var pName = (lang === 'en' && p.name_en) ? p.name_en : (p.name_sr || '');
+      var titleEl = document.getElementById('pdp-hero-title');
+      var subtitleEl = document.getElementById('pdp-hero-subtitle');
+      var iconEl = document.getElementById('pdp-hero-icon');
+
+      if (titleEl) titleEl.textContent = p.hero_title || pName;
+      if (p.hero_subtitle && subtitleEl) {
+        subtitleEl.textContent = p.hero_subtitle;
+        subtitleEl.classList.remove('hidden');
+      }
+      if (p.hero_icon && iconEl) {
+        if (p.hero_icon.startsWith('http') || p.hero_icon.startsWith('/')) {
+          iconEl.innerHTML = '<img src="' + KEYIFY.escHtml(p.hero_icon) + '" style="width:48px;height:48px;border-radius:12px;object-fit:contain" alt="">';
+        } else {
+          iconEl.textContent = p.hero_icon;
+        }
+        iconEl.classList.remove('hidden');
+      } else if (p.image_url && iconEl) {
+        iconEl.innerHTML = '<img src="' + KEYIFY.escHtml(p.image_url) + '" style="width:48px;height:48px;border-radius:12px;object-fit:contain" alt="">';
+        iconEl.classList.remove('hidden');
+      }
+
+      /* Dark mode fade color */
+      var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      banner.style.setProperty('--hero-fade', isDark ? '#111827' : '#f9fafb');
+    }
+
     function renderProduct(p) {
         _currentProduct = p;
         window.KEYIFY_PDP_PRODUCT = p;
@@ -952,6 +1036,9 @@
                 }, 1800);
             }, 500);
         };
+
+        // Render hero banner if enabled
+        renderHeroBanner(p);
 
         // Show content
         document.getElementById('pdp-loading').classList.add('hidden');

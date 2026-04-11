@@ -2259,25 +2259,134 @@
   /* ─────────────────────────────────────────────────────────────────
      9b. HERO IMAGE MODAL  (homepage hero image)
   ──────────────────────────────────────────────────────────────────── */
+  const VE_HERO_CAT_PRESETS = {
+    ai: { colors: ['#7C3AED','#1D6AFF'], icon: '\u{1F916}', style: 'neon' },
+    design: { colors: ['#EF4444','#F97316'], icon: '\u{1F3A8}', style: 'cinematic' },
+    business: { colors: ['#059669','#0D9488'], icon: '\u{1F4BC}', style: 'default' },
+    windows: { colors: ['#2563EB','#06B6D4'], icon: '\u{1FA9F}', style: 'default' },
+    music: { colors: ['#EC4899','#8B5CF6'], icon: '\u{1F3B5}', style: 'neon' },
+    streaming: { colors: ['#F59E0B','#EF4444'], icon: '\u{1F4FA}', style: 'cinematic' },
+  };
+
   function openHeroImageModal(product, id, wrap) {
-    openHybridMediaModal(null, {
-      title: '🏠 Hero slika (naslovnica)',
-      initSrc: product.homepage_hero_image || '',
-      onApply: async (url) => {
-        flashSaved(wrap, '⏳');
-        try {
-          const res = await fetch(`${API}/products/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ homepage_hero_image: url || null }),
-          });
-          if (!res.ok) throw new Error();
-          product.homepage_hero_image = url || null;
-          flashSaved(wrap, '✓ Hero slika sačuvana');
-        } catch {
-          flashSaved(wrap, '✗ Greška', true);
+    let heroColors;
+    try { heroColors = JSON.parse(product.hero_bg_colors || 'null'); } catch { heroColors = null; }
+    if (!Array.isArray(heroColors)) heroColors = ['#7C3AED', '#1D6AFF'];
+
+    const modal = createModal('\u{1F3E0} Hero Podešavanja', `
+      <div style="display:flex;flex-direction:column;gap:12px;max-height:50vh;overflow-y:auto;padding-right:4px">
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;color:#ccc">
+          <span>Hero aktivan</span>
+          <input type="checkbox" id="kve-hero-enabled" ${product.hero_enabled ? 'checked' : ''} style="width:18px;height:18px;accent-color:#7C3AED">
+        </label>
+        <div>
+          <label style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;display:block">Tip pozadine</label>
+          <select id="kve-hero-bg-type" style="width:100%;padding:7px 10px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:white;font-size:13px">
+            <option value="auto" ${(product.hero_bg_type||'auto')==='auto'?'selected':''}>Auto</option>
+            <option value="image" ${product.hero_bg_type==='image'?'selected':''}>Slika</option>
+            <option value="gradient" ${product.hero_bg_type==='gradient'?'selected':''}>Gradijent</option>
+            <option value="glow" ${product.hero_bg_type==='glow'?'selected':''}>Glow</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;display:block">Pozadina (URL slike)</label>
+          <input type="url" id="kve-hero-bg-image" value="${product.hero_bg_image||''}" placeholder="https://..." style="width:100%;padding:7px 10px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:white;font-size:13px">
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div style="text-align:center">
+            <input type="color" id="kve-hero-c1" value="${heroColors[0]}" style="width:40px;height:32px;border:none;border-radius:6px;cursor:pointer;padding:0;background:transparent">
+            <div style="font-size:9px;color:#888;margin-top:2px">Boja 1</div>
+          </div>
+          <div style="text-align:center">
+            <input type="color" id="kve-hero-c2" value="${heroColors[1]}" style="width:40px;height:32px;border:none;border-radius:6px;cursor:pointer;padding:0;background:transparent">
+            <div style="font-size:9px;color:#888;margin-top:2px">Boja 2</div>
+          </div>
+          <button type="button" id="kve-hero-auto" style="margin-left:auto;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(124,58,237,0.15);color:#c084fc;border:none;cursor:pointer">Auto</button>
+        </div>
+        <div>
+          <label style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;display:block">Stil</label>
+          <select id="kve-hero-style" style="width:100%;padding:7px 10px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:white;font-size:13px">
+            <option value="default" ${(product.hero_style||'default')==='default'?'selected':''}>Default</option>
+            <option value="minimal" ${product.hero_style==='minimal'?'selected':''}>Minimal</option>
+            <option value="cinematic" ${product.hero_style==='cinematic'?'selected':''}>Cinematic</option>
+            <option value="neon" ${product.hero_style==='neon'?'selected':''}>Neon</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1">
+            <label style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;display:block">Naslov</label>
+            <input type="text" id="kve-hero-title" value="${product.hero_title||''}" placeholder="Custom naslov..." style="width:100%;padding:7px 10px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:white;font-size:13px">
+          </div>
+        </div>
+        <div>
+          <label style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;display:block">Podnaslov</label>
+          <input type="text" id="kve-hero-subtitle" value="${product.hero_subtitle||''}" placeholder="Kratak opis..." style="width:100%;padding:7px 10px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:white;font-size:13px">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;display:block">Ikonica (emoji ili URL)</label>
+          <input type="text" id="kve-hero-icon" value="${product.hero_icon||''}" placeholder="\u{1F916} ili https://..." style="width:100%;padding:7px 10px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:white;font-size:13px">
+        </div>
+        <div style="display:flex;gap:12px">
+          <div style="flex:1">
+            <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">Sjaj: <span id="kve-glow-v">${product.hero_glow_intensity??0.5}</span></label>
+            <input type="range" id="kve-hero-glow" min="0" max="1" step="0.05" value="${product.hero_glow_intensity??0.5}" style="width:100%;accent-color:#7C3AED"
+                   oninput="document.getElementById('kve-glow-v').textContent=this.value">
+          </div>
+          <div style="flex:1">
+            <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">Blur: <span id="kve-blur-v">${product.hero_blur??0}px</span></label>
+            <input type="range" id="kve-hero-blur" min="0" max="30" step="1" value="${product.hero_blur??0}" style="width:100%;accent-color:#7C3AED"
+                   oninput="document.getElementById('kve-blur-v').textContent=this.value+'px'">
+          </div>
+        </div>
+      </div>
+    `);
+
+    /* Auto-generate button */
+    const autoBtn = modal.overlay.querySelector('#kve-hero-auto');
+    if (autoBtn) {
+      autoBtn.addEventListener('click', () => {
+        const preset = VE_HERO_CAT_PRESETS[product.category] || VE_HERO_CAT_PRESETS.ai;
+        modal.overlay.querySelector('#kve-hero-c1').value = preset.colors[0];
+        modal.overlay.querySelector('#kve-hero-c2').value = preset.colors[1];
+        modal.overlay.querySelector('#kve-hero-style').value = preset.style;
+        if (!modal.overlay.querySelector('#kve-hero-icon').value) {
+          modal.overlay.querySelector('#kve-hero-icon').value = preset.icon;
         }
-      },
+        modal.overlay.querySelector('#kve-hero-bg-type').value = 'gradient';
+        modal.overlay.querySelector('#kve-hero-enabled').checked = true;
+      });
+    }
+
+    modal.ok.addEventListener('click', async () => {
+      const heroPayload = {
+        hero_enabled:        modal.overlay.querySelector('#kve-hero-enabled').checked,
+        hero_bg_type:        modal.overlay.querySelector('#kve-hero-bg-type').value,
+        hero_bg_image:       modal.overlay.querySelector('#kve-hero-bg-image').value.trim() || null,
+        hero_bg_colors:      JSON.stringify([
+          modal.overlay.querySelector('#kve-hero-c1').value,
+          modal.overlay.querySelector('#kve-hero-c2').value,
+        ]),
+        hero_title:          modal.overlay.querySelector('#kve-hero-title').value.trim() || null,
+        hero_subtitle:       modal.overlay.querySelector('#kve-hero-subtitle').value.trim() || null,
+        hero_icon:           modal.overlay.querySelector('#kve-hero-icon').value.trim() || null,
+        hero_glow_intensity: parseFloat(modal.overlay.querySelector('#kve-hero-glow').value) || 0.5,
+        hero_blur:           parseFloat(modal.overlay.querySelector('#kve-hero-blur').value) || 0,
+        hero_style:          modal.overlay.querySelector('#kve-hero-style').value,
+      };
+      closeModal(modal.overlay);
+      flashSaved(wrap, '\u23F3');
+      try {
+        const res = await fetch(`${API}/products/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(heroPayload),
+        });
+        if (!res.ok) throw new Error();
+        Object.assign(product, heroPayload);
+        flashSaved(wrap, '\u2713 Hero sačuvan');
+      } catch {
+        flashSaved(wrap, '\u2717 Greška', true);
+      }
     });
   }
 

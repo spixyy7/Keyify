@@ -1868,6 +1868,148 @@
         </div>
       </div>
 
+      <!-- ═══════ HERO SETTINGS (collapsible) ═══════ -->
+      <div style="border:1px solid rgba(124,58,237,0.18);border-radius:12px;overflow:hidden;margin:4px 0">
+        <button type="button" onclick="toggleHeroSettings()"
+                style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:rgba(124,58,237,0.06);border:none;cursor:pointer;color:#c084fc;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;transition:background .15s"
+                onmouseover="this.style.background='rgba(124,58,237,0.12)'" onmouseout="this.style.background='rgba(124,58,237,0.06)'">
+          <span style="display:flex;align-items:center;gap:6px">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            Hero Podešavanja
+          </span>
+          <span id="hero-settings-arrow" style="font-size:10px;transition:transform .2s">&#9660;</span>
+        </button>
+        <div id="hero-settings-body" style="display:none;padding:16px;display:flex;flex-direction:column;gap:14px;display:none">
+
+          <!-- Hero enabled toggle -->
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <label style="font-size:12px;font-weight:600;color:#d1d5db">Hero sekcija aktivna</label>
+            <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer">
+              <input type="checkbox" id="prod-hero-enabled" style="opacity:0;width:0;height:0" onchange="updateHeroPreview()">
+              <span style="position:absolute;inset:0;border-radius:22px;background:rgba(255,255,255,0.08);transition:background .2s;cursor:pointer"
+                    id="hero-toggle-track"></span>
+              <span style="position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,0.3)"
+                    id="hero-toggle-thumb"></span>
+            </label>
+          </div>
+
+          <!-- Background type -->
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Tip pozadine</label>
+            <select id="prod-hero-bg-type" class="admin-input" onchange="updateHeroPreview()">
+              <option value="auto">Auto (po kategoriji)</option>
+              <option value="image">Slika</option>
+              <option value="gradient">Gradijent</option>
+              <option value="glow">Glow / Sjaj</option>
+            </select>
+          </div>
+
+          <!-- Hero BG image (shows when type=image) -->
+          <div id="hero-bg-image-wrap" style="display:none">
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Hero pozadina (slika)</label>
+            <div style="display:flex;gap:8px">
+              <input type="url" id="prod-hero-bg-image" placeholder="https://..." class="admin-input" style="flex:1" oninput="updateHeroPreview()"/>
+              <label style="display:flex;align-items:center;gap:4px;padding:6px 12px;border-radius:8px;cursor:pointer;background:rgba(29,106,255,0.1);color:#7cb3ff;font-size:11px;font-weight:600;white-space:nowrap;border:none;transition:background .15s"
+                     onmouseover="this.style.background='rgba(29,106,255,0.2)'" onmouseout="this.style.background='rgba(29,106,255,0.1)'">
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                Upload
+                <input type="file" id="prod-hero-bg-image-file" accept="image/*" style="display:none" onchange="handleHeroBgFile(this)"/>
+              </label>
+            </div>
+          </div>
+
+          <!-- Colors -->
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Boje gradijenta / glow-a</label>
+            <div style="display:flex;gap:10px;align-items:center">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+                <input type="color" id="prod-hero-color-1" value="#7C3AED" style="width:44px;height:34px;border:none;border-radius:8px;cursor:pointer;background:transparent;padding:0" onchange="updateHeroPreview()" oninput="updateHeroPreview()"/>
+                <span style="font-size:9px;color:#9090b8">Primarna</span>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+                <input type="color" id="prod-hero-color-2" value="#1D6AFF" style="width:44px;height:34px;border:none;border-radius:8px;cursor:pointer;background:transparent;padding:0" onchange="updateHeroPreview()" oninput="updateHeroPreview()"/>
+                <span style="font-size:9px;color:#9090b8">Sekundarna</span>
+              </div>
+              <button type="button" onclick="autoGenerateHero()"
+                      style="margin-left:auto;padding:6px 14px;border-radius:8px;font-size:11px;font-weight:600;background:rgba(124,58,237,0.12);color:#c084fc;border:1px solid rgba(124,58,237,0.2);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px"
+                      onmouseover="this.style.background='rgba(124,58,237,0.22)'" onmouseout="this.style.background='rgba(124,58,237,0.12)'">
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+                Auto
+              </button>
+            </div>
+          </div>
+
+          <!-- Style preset -->
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Stil</label>
+            <select id="prod-hero-style" class="admin-input" onchange="updateHeroPreview()">
+              <option value="default">Default</option>
+              <option value="minimal">Minimal</option>
+              <option value="cinematic">Cinematic</option>
+              <option value="neon">Neon</option>
+            </select>
+          </div>
+
+          <!-- Title & Subtitle -->
+          <div style="display:flex;gap:8px">
+            <div style="flex:1">
+              <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Hero naslov</label>
+              <input type="text" id="prod-hero-title" placeholder="Custom naslov (opciono)" class="admin-input" oninput="updateHeroPreview()"/>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Hero podnaslov</label>
+            <input type="text" id="prod-hero-subtitle" placeholder="Kratak opis ispod naslova..." class="admin-input" oninput="updateHeroPreview()"/>
+          </div>
+
+          <!-- Hero icon -->
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Hero ikonica</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="text" id="prod-hero-icon" placeholder="Emoji (npr. 🤖) ili URL slike" class="admin-input" style="flex:1" oninput="updateHeroPreview()"/>
+              <span id="hero-icon-preview" style="font-size:28px;min-width:36px;text-align:center"></span>
+            </div>
+          </div>
+
+          <!-- Glow + Blur sliders -->
+          <div style="display:flex;gap:16px">
+            <div style="flex:1">
+              <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Intenzitet sjaja</label>
+              <div style="display:flex;align-items:center;gap:8px">
+                <input type="range" id="prod-hero-glow" min="0" max="1" step="0.05" value="0.5"
+                       style="flex:1;accent-color:#7C3AED" oninput="document.getElementById('hero-glow-val').textContent=this.value;updateHeroPreview()"/>
+                <span id="hero-glow-val" style="font-size:11px;color:#9090b8;min-width:28px;text-align:right">0.5</span>
+              </div>
+            </div>
+            <div style="flex:1">
+              <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Blur (px)</label>
+              <div style="display:flex;align-items:center;gap:8px">
+                <input type="range" id="prod-hero-blur" min="0" max="30" step="1" value="0"
+                       style="flex:1;accent-color:#7C3AED" oninput="document.getElementById('hero-blur-val').textContent=this.value+'px';updateHeroPreview()"/>
+                <span id="hero-blur-val" style="font-size:11px;color:#9090b8;min-width:28px;text-align:right">0px</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live preview -->
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Pregled</label>
+            <div id="hero-preview" style="height:120px;border-radius:12px;overflow:hidden;position:relative;border:1px solid rgba(255,255,255,0.06);background:#0a0f1e">
+              <div id="hero-preview-bg" style="position:absolute;inset:0;transition:all .3s"></div>
+              <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:10px;z-index:1">
+                <span id="hero-preview-icon" style="font-size:32px"></span>
+                <div>
+                  <div id="hero-preview-title" style="color:#fff;font-weight:800;font-size:16px;font-family:'Outfit',sans-serif;text-shadow:0 2px 8px rgba(0,0,0,0.4)"></div>
+                  <div id="hero-preview-subtitle" style="color:rgba(255,255,255,0.6);font-size:11px;margin-top:2px"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <!-- ═══════ END HERO SETTINGS ═══════ -->
+
       <!-- Bonus coupon template -->
       <div>
         <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wide">Bonus kupon šablon</label>
@@ -3005,6 +3147,146 @@
     document.getElementById('hero-img-preview-wrap').style.display = 'none';
   }
   window.removeHeroImage = removeHeroImage;
+
+  /* ── HERO SETTINGS HELPERS ── */
+  const HERO_CATEGORY_PRESETS = {
+    ai:        { colors: ['#7C3AED', '#1D6AFF'], icon: '\u{1F916}', style: 'neon' },
+    design:    { colors: ['#EF4444', '#F97316'], icon: '\u{1F3A8}', style: 'cinematic' },
+    business:  { colors: ['#059669', '#0D9488'], icon: '\u{1F4BC}', style: 'default' },
+    windows:   { colors: ['#2563EB', '#06B6D4'], icon: '\u{1FA9F}', style: 'default' },
+    music:     { colors: ['#EC4899', '#8B5CF6'], icon: '\u{1F3B5}', style: 'neon' },
+    streaming: { colors: ['#F59E0B', '#EF4444'], icon: '\u{1F4FA}', style: 'cinematic' },
+  };
+
+  function toggleHeroSettings() {
+    const body = document.getElementById('hero-settings-body');
+    const arrow = document.getElementById('hero-settings-arrow');
+    const open = body.style.display === 'none';
+    body.style.display = open ? 'flex' : 'none';
+    arrow.style.transform = open ? 'rotate(180deg)' : '';
+  }
+  window.toggleHeroSettings = toggleHeroSettings;
+
+  function updateHeroPreview() {
+    const bgType = document.getElementById('prod-hero-bg-type').value;
+    const c1 = document.getElementById('prod-hero-color-1').value;
+    const c2 = document.getElementById('prod-hero-color-2').value;
+    const glow = parseFloat(document.getElementById('prod-hero-glow').value) || 0.5;
+    const blur = parseFloat(document.getElementById('prod-hero-blur').value) || 0;
+    const style = document.getElementById('prod-hero-style').value;
+    const title = document.getElementById('prod-hero-title').value || document.getElementById('prod-name-sr').value || 'Hero Preview';
+    const subtitle = document.getElementById('prod-hero-subtitle').value || '';
+    const icon = document.getElementById('prod-hero-icon').value || '';
+    const bgImage = document.getElementById('prod-hero-bg-image')?.value || '';
+
+    /* Toggle BG image input visibility */
+    const bgImgWrap = document.getElementById('hero-bg-image-wrap');
+    if (bgImgWrap) bgImgWrap.style.display = bgType === 'image' ? '' : 'none';
+
+    /* Toggle track */
+    const checked = document.getElementById('prod-hero-enabled').checked;
+    const track = document.getElementById('hero-toggle-track');
+    const thumb = document.getElementById('hero-toggle-thumb');
+    if (track) track.style.background = checked ? 'rgba(124,58,237,0.6)' : 'rgba(255,255,255,0.08)';
+    if (thumb) thumb.style.transform = checked ? 'translateX(18px)' : 'translateX(0)';
+
+    const bg = document.getElementById('hero-preview-bg');
+    if (!bg) return;
+
+    let effectiveType = bgType;
+    if (bgType === 'auto') {
+      const cat = document.getElementById('prod-category').value;
+      const preset = HERO_CATEGORY_PRESETS[cat];
+      if (preset) {
+        effectiveType = 'gradient';
+        bg.style.background = 'linear-gradient(135deg, ' + preset.colors[0] + ', ' + preset.colors[1] + ')';
+      } else {
+        bg.style.background = 'linear-gradient(135deg, ' + c1 + ', ' + c2 + ')';
+      }
+    }
+    if (effectiveType === 'gradient' && bgType !== 'auto') {
+      bg.style.background = 'linear-gradient(135deg, ' + c1 + ', ' + c2 + ')';
+    } else if (effectiveType === 'glow') {
+      const a = Math.round(glow * 255).toString(16).padStart(2, '0');
+      bg.style.background = 'radial-gradient(ellipse at 30% 50%, ' + c1 + a + ', transparent 60%), radial-gradient(ellipse at 70% 50%, ' + c2 + a + ', transparent 60%), #0a0f1e';
+    } else if (effectiveType === 'image' && bgImage) {
+      bg.style.background = "url('" + bgImage + "') center/cover no-repeat";
+    }
+    bg.style.filter = blur ? 'blur(' + blur + 'px)' : '';
+
+    /* Neon style: add animated border glow */
+    const preview = document.getElementById('hero-preview');
+    if (style === 'neon') {
+      preview.style.boxShadow = '0 0 20px ' + c1 + '40, inset 0 0 20px ' + c1 + '20';
+    } else if (style === 'cinematic') {
+      preview.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)';
+    } else {
+      preview.style.boxShadow = '';
+    }
+
+    /* Content */
+    const pTitle = document.getElementById('hero-preview-title');
+    const pSubtitle = document.getElementById('hero-preview-subtitle');
+    const pIcon = document.getElementById('hero-preview-icon');
+    if (pTitle) pTitle.textContent = title;
+    if (pSubtitle) pSubtitle.textContent = subtitle;
+    if (pIcon) {
+      if (icon && (icon.startsWith('http') || icon.startsWith('/'))) {
+        pIcon.innerHTML = '<img src="' + icon + '" style="width:32px;height:32px;border-radius:8px;object-fit:contain" alt="">';
+      } else {
+        pIcon.textContent = icon;
+      }
+    }
+    /* Icon preview next to input */
+    const iconPrev = document.getElementById('hero-icon-preview');
+    if (iconPrev) {
+      if (icon && (icon.startsWith('http') || icon.startsWith('/'))) {
+        iconPrev.innerHTML = '<img src="' + icon + '" style="width:28px;height:28px;border-radius:6px;object-fit:contain" alt="">';
+      } else {
+        iconPrev.textContent = icon;
+      }
+    }
+  }
+  window.updateHeroPreview = updateHeroPreview;
+
+  function autoGenerateHero() {
+    const cat = document.getElementById('prod-category').value;
+    const preset = HERO_CATEGORY_PRESETS[cat] || HERO_CATEGORY_PRESETS.ai;
+    document.getElementById('prod-hero-color-1').value = preset.colors[0];
+    document.getElementById('prod-hero-color-2').value = preset.colors[1];
+    document.getElementById('prod-hero-style').value = preset.style;
+    if (!document.getElementById('prod-hero-icon').value) {
+      document.getElementById('prod-hero-icon').value = preset.icon;
+    }
+    document.getElementById('prod-hero-bg-type').value = 'gradient';
+    document.getElementById('prod-hero-enabled').checked = true;
+    updateHeroPreview();
+  }
+  window.autoGenerateHero = autoGenerateHero;
+
+  async function handleHeroBgFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { showToast('Slika prevelika (max 10 MB)', 'error'); return; }
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch((window.ADMIN_API_BASE || API_BASE) + '/admin/upload-asset', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + localStorage.getItem('keyify_token') },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload error');
+      document.getElementById('prod-hero-bg-image').value = data.url;
+      document.getElementById('prod-hero-bg-type').value = 'image';
+      updateHeroPreview();
+      showToast('Hero pozadina uploadovana!');
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  }
+  window.handleHeroBgFile = handleHeroBgFile;
 
   /* ── PRODUCT MODAL ── */
   async function openProductModal(product) {

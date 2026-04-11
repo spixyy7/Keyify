@@ -411,6 +411,33 @@
     document.getElementById('prod-required-inputs').value = fullProduct?.required_user_inputs || 'none';
     document.getElementById('prod-warranty').value = fullProduct?.warranty_text || '';
 
+    /* ── Hero settings ── */
+    const heroEnabledEl = document.getElementById('prod-hero-enabled');
+    if (heroEnabledEl) {
+      heroEnabledEl.checked = fullProduct?.hero_enabled || false;
+      document.getElementById('prod-hero-bg-type').value = fullProduct?.hero_bg_type || 'auto';
+      document.getElementById('prod-hero-bg-image').value = fullProduct?.hero_bg_image || '';
+      document.getElementById('prod-hero-title').value = fullProduct?.hero_title || '';
+      document.getElementById('prod-hero-subtitle').value = fullProduct?.hero_subtitle || '';
+      document.getElementById('prod-hero-icon').value = fullProduct?.hero_icon || '';
+      document.getElementById('prod-hero-glow').value = fullProduct?.hero_glow_intensity ?? 0.5;
+      document.getElementById('hero-glow-val').textContent = fullProduct?.hero_glow_intensity ?? 0.5;
+      document.getElementById('prod-hero-blur').value = fullProduct?.hero_blur ?? 0;
+      document.getElementById('hero-blur-val').textContent = (fullProduct?.hero_blur ?? 0) + 'px';
+      document.getElementById('prod-hero-style').value = fullProduct?.hero_style || 'default';
+      let heroColors;
+      try { heroColors = JSON.parse(fullProduct?.hero_bg_colors || 'null'); } catch { heroColors = null; }
+      if (!Array.isArray(heroColors)) heroColors = ['#7C3AED', '#1D6AFF'];
+      document.getElementById('prod-hero-color-1').value = heroColors[0] || '#7C3AED';
+      document.getElementById('prod-hero-color-2').value = heroColors[1] || '#1D6AFF';
+      /* Collapse hero section by default */
+      const heroBody = document.getElementById('hero-settings-body');
+      if (heroBody) heroBody.style.display = 'none';
+      const heroArrow = document.getElementById('hero-settings-arrow');
+      if (heroArrow) heroArrow.style.transform = '';
+      if (typeof window.updateHeroPreview === 'function') window.updateHeroPreview();
+    }
+
     const categorySelect = document.getElementById('prod-category');
     categorySelect.dataset.selectedCategory = fullProduct?.category || fullProduct?.category_slug || '';
     categorySelect.dataset.selectedCategoryId = fullProduct?.category_id || '';
@@ -502,6 +529,19 @@
       warranty_text: document.getElementById('prod-warranty').value || null,
       variants: JSON.stringify(variants),
       features: JSON.stringify(features),
+      hero_enabled: document.getElementById('prod-hero-enabled')?.checked || false,
+      hero_bg_type: document.getElementById('prod-hero-bg-type')?.value || 'auto',
+      hero_bg_image: document.getElementById('prod-hero-bg-image')?.value?.trim() || '',
+      hero_bg_colors: JSON.stringify([
+        document.getElementById('prod-hero-color-1')?.value || '#7C3AED',
+        document.getElementById('prod-hero-color-2')?.value || '#1D6AFF',
+      ]),
+      hero_title: document.getElementById('prod-hero-title')?.value?.trim() || '',
+      hero_subtitle: document.getElementById('prod-hero-subtitle')?.value?.trim() || '',
+      hero_icon: document.getElementById('prod-hero-icon')?.value?.trim() || '',
+      hero_glow_intensity: document.getElementById('prod-hero-glow')?.value || '0.5',
+      hero_blur: document.getElementById('prod-hero-blur')?.value || '0',
+      hero_style: document.getElementById('prod-hero-style')?.value || 'default',
     };
 
     const endpoint = id ? `${API_BASE}/products/${id}` : `${API_BASE}/products`;

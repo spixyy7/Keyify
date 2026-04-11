@@ -2517,6 +2517,13 @@ const KEYIFY = (() => {
         }
         if (bestSeller && bestCount > 0) { product = bestSeller; }
 
+        // a.5) Product with hero_enabled flag
+        if (!product) {
+          for (var h = 0; h < products.length; h++) {
+            if (products[h].hero_enabled) { product = products[h]; break; }
+          }
+        }
+
         // b) Manually featured product (badge = 'Bestseller' or 'Featured')
         if (!product) {
           for (var j = 0; j < products.length; j++) {
@@ -2564,8 +2571,33 @@ const KEYIFY = (() => {
     const badgeEl = document.getElementById('hero-fp-badge');
     const atcBtn = document.getElementById('hero-fp-atc-btn');
 
-    if (titleEl) titleEl.textContent = name;
-    if (descEl) descEl.textContent = desc;
+    /* ── Apply hero background system ── */
+    if (product.hero_enabled) {
+      var _heroCatColors = {
+        ai: ['#7C3AED','#1D6AFF'], design: ['#EF4444','#F97316'],
+        business: ['#059669','#0D9488'], windows: ['#2563EB','#06B6D4'],
+        music: ['#EC4899','#8B5CF6'], streaming: ['#F59E0B','#EF4444'],
+      };
+      var _hColors; try { _hColors = JSON.parse(product.hero_bg_colors || 'null'); } catch { _hColors = null; }
+      if (!Array.isArray(_hColors) || _hColors.length < 2) _hColors = _heroCatColors[product.category] || ['#7C3AED','#1D6AFF'];
+      var _hBgType = product.hero_bg_type || 'auto';
+      var _hIntensity = parseFloat(product.hero_glow_intensity) || 0.5;
+      var imgArea = container.querySelector('.hero-fp-img-area') || container.querySelector('.hero-product-card');
+      if (imgArea) {
+        if (_hBgType === 'auto') _hBgType = product.hero_bg_image ? 'image' : 'gradient';
+        if (_hBgType === 'image' && product.hero_bg_image) {
+          imgArea.style.background = "url('" + product.hero_bg_image + "') center/cover no-repeat";
+        } else if (_hBgType === 'glow') {
+          var _a = Math.round(_hIntensity * 255).toString(16).padStart(2, '0');
+          imgArea.style.background = 'radial-gradient(ellipse at 30% 50%, ' + _hColors[0] + _a + ', transparent 60%), radial-gradient(ellipse at 70% 50%, ' + _hColors[1] + _a + ', transparent 60%), #0a0f1e';
+        } else {
+          imgArea.style.background = 'linear-gradient(135deg, ' + _hColors[0] + ', ' + _hColors[1] + ')';
+        }
+      }
+    }
+
+    if (titleEl) titleEl.textContent = product.hero_title || name;
+    if (descEl) descEl.textContent = product.hero_subtitle || desc;
     if (priceEl) priceEl.innerHTML = '&euro; ' + escHtml(price);
 
     if (origPriceEl && origPrice) {

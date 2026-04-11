@@ -1796,7 +1796,12 @@ async function persistProductRecord(mode, id, payload) {
     return query.select().single();
   };
 
-  const optionalColumns = ['category_id', 'required_user_inputs', 'homepage_hero_image', 'warranty_text'];
+  const optionalColumns = [
+    'category_id', 'required_user_inputs', 'homepage_hero_image', 'warranty_text',
+    'hero_enabled', 'hero_bg_type', 'hero_bg_image', 'hero_bg_colors',
+    'hero_title', 'hero_subtitle', 'hero_icon',
+    'hero_glow_intensity', 'hero_blur', 'hero_style',
+  ];
   let current = { ...payload };
   let result = await apply(current);
 
@@ -1988,6 +1993,16 @@ app.post('/api/products', authenticateToken, requireAdmin, (req, res, next) => {
       required_user_inputs: requiredUserInputs,
       warranty_text:    req.body.warranty_text || null,
       homepage_hero_image: homepage_hero_image || null,
+      hero_enabled:        req.body.hero_enabled === 'true' || req.body.hero_enabled === true || false,
+      hero_bg_type:        req.body.hero_bg_type || 'auto',
+      hero_bg_image:       req.body.hero_bg_image || null,
+      hero_bg_colors:      req.body.hero_bg_colors || null,
+      hero_title:          req.body.hero_title || null,
+      hero_subtitle:       req.body.hero_subtitle || null,
+      hero_icon:           req.body.hero_icon || null,
+      hero_glow_intensity: req.body.hero_glow_intensity != null ? parseFloat(req.body.hero_glow_intensity) : 0.5,
+      hero_blur:           req.body.hero_blur != null ? parseFloat(req.body.hero_blur) : 0,
+      hero_style:          req.body.hero_style || 'default',
       created_at:     new Date().toISOString(),
     });
 
@@ -2054,6 +2069,16 @@ app.put('/api/products/:id', authenticateToken, requireAdmin, (req, res, next) =
   if (req.body.required_user_inputs !== undefined) updates.required_user_inputs = normalizeRequiredUserInputs(req.body.required_user_inputs);
   if (req.body.warranty_text !== undefined) updates.warranty_text = req.body.warranty_text || null;
   if (req.body.homepage_hero_image !== undefined) updates.homepage_hero_image = req.body.homepage_hero_image || null;
+  if (req.body.hero_enabled !== undefined) updates.hero_enabled = req.body.hero_enabled === 'true' || req.body.hero_enabled === true;
+  if (req.body.hero_bg_type !== undefined) updates.hero_bg_type = req.body.hero_bg_type || 'auto';
+  if (req.body.hero_bg_image !== undefined) updates.hero_bg_image = req.body.hero_bg_image || null;
+  if (req.body.hero_bg_colors !== undefined) updates.hero_bg_colors = req.body.hero_bg_colors || null;
+  if (req.body.hero_title !== undefined) updates.hero_title = req.body.hero_title || null;
+  if (req.body.hero_subtitle !== undefined) updates.hero_subtitle = req.body.hero_subtitle || null;
+  if (req.body.hero_icon !== undefined) updates.hero_icon = req.body.hero_icon || null;
+  if (req.body.hero_glow_intensity !== undefined) updates.hero_glow_intensity = parseFloat(req.body.hero_glow_intensity) || 0.5;
+  if (req.body.hero_blur !== undefined) updates.hero_blur = parseFloat(req.body.hero_blur) || 0;
+  if (req.body.hero_style !== undefined) updates.hero_style = req.body.hero_style || 'default';
 
   if (category !== undefined || category_slug !== undefined || category_id !== undefined) {
     const resolvedCategory = await resolveCategoryInput({ category, category_slug, category_id });
