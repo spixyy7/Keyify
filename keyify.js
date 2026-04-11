@@ -2508,20 +2508,20 @@ const KEYIFY = (() => {
         const products = await res.json();
         if (!products.length) return;
 
-        // a) Highest purchase_count (best seller)
-        var bestSeller = null;
-        var bestCount = 0;
-        for (var i = 0; i < products.length; i++) {
-          var pc = parseInt(products[i].purchase_count, 10) || 0;
-          if (pc > bestCount) { bestCount = pc; bestSeller = products[i]; }
+        // a) Product with hero_enabled flag (highest priority)
+        for (var h = 0; h < products.length; h++) {
+          if (products[h].hero_enabled) { product = products[h]; break; }
         }
-        if (bestSeller && bestCount > 0) { product = bestSeller; }
 
-        // a.5) Product with hero_enabled flag
+        // b) Highest purchase_count (best seller)
         if (!product) {
-          for (var h = 0; h < products.length; h++) {
-            if (products[h].hero_enabled) { product = products[h]; break; }
+          var bestSeller = null;
+          var bestCount = 0;
+          for (var i = 0; i < products.length; i++) {
+            var pc = parseInt(products[i].purchase_count, 10) || 0;
+            if (pc > bestCount) { bestCount = pc; bestSeller = products[i]; }
           }
+          if (bestSeller && bestCount > 0) { product = bestSeller; }
         }
 
         // b) Manually featured product (badge = 'Bestseller' or 'Featured')
@@ -2582,11 +2582,12 @@ const KEYIFY = (() => {
       if (!Array.isArray(_hColors) || _hColors.length < 2) _hColors = _heroCatColors[product.category] || ['#7C3AED','#1D6AFF'];
       var _hBgType = product.hero_bg_type || 'auto';
       var _hIntensity = parseFloat(product.hero_glow_intensity) || 0.5;
+      var _hBgImg = product.hero_bg_image || product.homepage_hero_image || '';
       var imgArea = container.querySelector('.hero-fp-img-area') || container.querySelector('.hero-product-card');
       if (imgArea) {
-        if (_hBgType === 'auto') _hBgType = product.hero_bg_image ? 'image' : 'gradient';
-        if (_hBgType === 'image' && product.hero_bg_image) {
-          imgArea.style.background = "url('" + product.hero_bg_image + "') center/cover no-repeat";
+        if (_hBgType === 'auto') _hBgType = _hBgImg ? 'image' : 'gradient';
+        if (_hBgType === 'image' && _hBgImg) {
+          imgArea.style.background = "url('" + _hBgImg + "') center/cover no-repeat";
         } else if (_hBgType === 'glow') {
           var _a = Math.round(_hIntensity * 255).toString(16).padStart(2, '0');
           imgArea.style.background = 'radial-gradient(ellipse at 30% 50%, ' + _hColors[0] + _a + ', transparent 60%), radial-gradient(ellipse at 70% 50%, ' + _hColors[1] + _a + ', transparent 60%), #0a0f1e';

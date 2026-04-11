@@ -836,11 +836,12 @@
       const blur = parseFloat(p.hero_blur) || 0;
       let bgType = p.hero_bg_type || 'auto';
       const style = p.hero_style || 'default';
+      const bgImg = p.hero_bg_image || p.homepage_hero_image || '';
 
-      if (bgType === 'auto') bgType = p.hero_bg_image ? 'image' : 'gradient';
+      if (bgType === 'auto') bgType = bgImg ? 'image' : 'gradient';
 
-      if (bgType === 'image' && p.hero_bg_image) {
-        bg.style.background = "url('" + p.hero_bg_image + "') center/cover no-repeat";
+      if (bgType === 'image' && bgImg) {
+        bg.style.background = "url('" + bgImg + "') center/cover no-repeat";
       } else if (bgType === 'glow') {
         var a = Math.round(intensity * 255).toString(16).padStart(2, '0');
         bg.style.background = 'radial-gradient(ellipse at 25% 50%, ' + colors[0] + a + ', transparent 55%), ' +
