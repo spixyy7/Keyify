@@ -1997,7 +1997,7 @@ app.post('/api/products', authenticateToken, requireAdmin, (req, res, next) => {
 
   if (error) {
     console.error('Product create error:', error);
-    return res.status(500).json({ error: 'Greška pri kreiranju proizvoda' });
+    return res.status(500).json({ error: `Greška pri kreiranju: ${error.message || JSON.stringify(error)}` });
   }
 
   // Save variants and features if provided
@@ -2096,7 +2096,7 @@ app.put('/api/products/:id', authenticateToken, requireAdmin, (req, res, next) =
 
   if (error) {
     console.error('Product update error:', error);
-    return res.status(500).json({ error: 'Greška pri ažuriranju' });
+    return res.status(500).json({ error: `Greška pri ažuriranju: ${error.message || JSON.stringify(error)}` });
   }
 
   // Update variants and features if provided
