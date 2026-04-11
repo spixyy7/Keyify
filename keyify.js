@@ -1306,6 +1306,21 @@ const KEYIFY = (() => {
         --kfy-queue-bg:        linear-gradient(135deg,rgba(245,158,11,0.08),rgba(251,191,36,0.05));
         --kfy-queue-bdr:       rgba(245,158,11,0.12);
         --kfy-queue-color:     #d97706;
+        /* KB articles */
+        --kfy-kb-cat-bg:       rgba(0,0,0,0.04);
+        --kfy-kb-cat-color:    #6b7280;
+        --kfy-kb-cat-hover:    #374151;
+        --kfy-kb-cat-active-bg:rgba(29,106,255,0.1);
+        --kfy-kb-cat-active-color:#1D6AFF;
+        --kfy-kb-card-bg:      #ffffff;
+        --kfy-kb-card-bdr:     rgba(0,0,0,0.05);
+        --kfy-kb-card-shad:    0 1px 3px rgba(0,0,0,.03);
+        --kfy-kb-card-hover-bdr:rgba(29,106,255,0.25);
+        --kfy-kb-card-excerpt: #6b7280;
+        --kfy-kb-tag-bg:       rgba(29,106,255,0.06);
+        --kfy-kb-tag-color:    #1D6AFF;
+        --kfy-kb-skel-from:    rgba(0,0,0,0.06);
+        --kfy-kb-skel-to:      rgba(0,0,0,0.02);
         /* Gate cards */
         --kfy-gate-card-bg:    linear-gradient(180deg,rgba(255,255,255,0.95),rgba(248,250,252,0.9));
         --kfy-gate-card-border:rgba(148,163,184,0.18);
@@ -1393,6 +1408,21 @@ const KEYIFY = (() => {
         --kfy-queue-bg:        linear-gradient(135deg,rgba(245,158,11,0.1),rgba(251,191,36,0.06));
         --kfy-queue-bdr:       rgba(245,158,11,0.15);
         --kfy-queue-color:     #fbbf24;
+        /* KB articles */
+        --kfy-kb-cat-bg:       rgba(255,255,255,0.06);
+        --kfy-kb-cat-color:    rgba(255,255,255,0.45);
+        --kfy-kb-cat-hover:    rgba(255,255,255,0.65);
+        --kfy-kb-cat-active-bg:rgba(99,102,241,0.15);
+        --kfy-kb-cat-active-color:#818cf8;
+        --kfy-kb-card-bg:      rgba(20,24,48,0.8);
+        --kfy-kb-card-bdr:     rgba(99,102,241,0.1);
+        --kfy-kb-card-shad:    0 2px 6px rgba(0,0,0,.15);
+        --kfy-kb-card-hover-bdr:rgba(99,102,241,0.35);
+        --kfy-kb-card-excerpt: rgba(255,255,255,0.45);
+        --kfy-kb-tag-bg:       rgba(99,102,241,0.12);
+        --kfy-kb-tag-color:    #818cf8;
+        --kfy-kb-skel-from:    rgba(255,255,255,0.06);
+        --kfy-kb-skel-to:      rgba(255,255,255,0.02);
         /* Gate cards */
         --kfy-gate-card-bg:    linear-gradient(180deg,rgba(20,24,48,0.9),rgba(15,18,38,0.85));
         --kfy-gate-card-border:rgba(99,102,241,0.18);

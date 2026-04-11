@@ -713,25 +713,206 @@
     .kfy-closed-err { color:#ef4444;font-size:11.5px;margin-top:6px; }
 
     /* ── Articles / Knowledge base ── */
-    .kfy-articles-tab {
-      padding:40px 28px;text-align:center;
+    .kfy-kb-panel {
+      display:flex;flex-direction:column;flex:1;overflow:hidden;
       background:var(--kfy-articles-bg,#f4f5f7);
-      display:flex;flex-direction:column;align-items:center;justify-content:center;
-      flex:1;min-height:200px;
     }
-    .kfy-articles-icon-wrap {
-      width:64px;height:64px;border-radius:18px;margin-bottom:16px;
+    .kfy-kb-header {
+      padding:14px 16px 12px;flex-shrink:0;
+      background:var(--kfy-header-bg,#fff);
+      border-bottom:1px solid var(--kfy-header-border,rgba(0,0,0,0.06));
+    }
+    .kfy-kb-search-wrap {
+      position:relative;
+    }
+    .kfy-kb-search {
+      width:100%;padding:10px 14px 10px 36px;box-sizing:border-box;
+      border:1.5px solid var(--kfy-inp-border,#e5e7eb);
+      border-radius:12px;font-size:13px;outline:none;
+      color:var(--kfy-inp-color,#111827);
+      background:var(--kfy-inp-bg,#f9fafb);
+      font-family:inherit;transition:border-color .2s,box-shadow .2s,background .2s;
+    }
+    .kfy-kb-search::placeholder { color:var(--kfy-inp-ph,#9ca3af); }
+    .kfy-kb-search:focus {
+      border-color:#1D6AFF;box-shadow:0 0 0 3px rgba(29,106,255,0.08);
+      background:var(--kfy-inp-focus-bg,#fff);
+    }
+    .kfy-kb-search-icon {
+      position:absolute;left:12px;top:50%;transform:translateY(-50%);
+      pointer-events:none;color:var(--kfy-inp-ph,#9ca3af);
+    }
+    .kfy-kb-cats {
+      display:flex;gap:6px;padding:10px 16px 2px;flex-shrink:0;
+      overflow-x:auto;scrollbar-width:none;
+    }
+    .kfy-kb-cats::-webkit-scrollbar { display:none; }
+    .kfy-kb-cat {
+      padding:5px 12px;border-radius:20px;font-size:11.5px;font-weight:600;
+      white-space:nowrap;cursor:pointer;border:none;
+      background:var(--kfy-kb-cat-bg,rgba(0,0,0,0.04));
+      color:var(--kfy-kb-cat-color,#6b7280);
+      transition:all .2s;font-family:inherit;
+    }
+    .kfy-kb-cat:hover { color:var(--kfy-kb-cat-hover,#374151); }
+    .kfy-kb-cat.active {
+      background:var(--kfy-kb-cat-active-bg,rgba(29,106,255,0.1));
+      color:var(--kfy-kb-cat-active-color,#1D6AFF);
+    }
+
+    /* Scrollable article list */
+    .kfy-kb-body {
+      flex:1;overflow-y:auto;padding:12px 16px 16px;
+      display:flex;flex-direction:column;gap:8px;
+    }
+    .kfy-kb-body::-webkit-scrollbar { width:5px; }
+    .kfy-kb-body::-webkit-scrollbar-track { background:transparent; }
+    .kfy-kb-body::-webkit-scrollbar-thumb { background:var(--kfy-scrollbar,rgba(0,0,0,0.1));border-radius:10px; }
+
+    /* Section label */
+    .kfy-kb-section-label {
+      font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+      color:var(--kfy-inp-ph,#9ca3af);padding:6px 0 2px;
+    }
+
+    /* Article card */
+    .kfy-kb-card {
+      background:var(--kfy-kb-card-bg,#fff);
+      border:1px solid var(--kfy-kb-card-bdr,rgba(0,0,0,0.05));
+      border-radius:14px;padding:14px 16px;cursor:pointer;
+      transition:all .2s cubic-bezier(.4,0,.2,1);
+      box-shadow:var(--kfy-kb-card-shad,0 1px 3px rgba(0,0,0,.03));
+    }
+    .kfy-kb-card:hover {
+      border-color:var(--kfy-kb-card-hover-bdr,rgba(29,106,255,0.25));
+      box-shadow:0 4px 14px rgba(29,106,255,0.08);
+      transform:translateY(-1px);
+    }
+    .kfy-kb-card-title {
+      font-size:13.5px;font-weight:700;color:var(--kfy-agent-title,#111827);
+      line-height:1.35;margin-bottom:4px;letter-spacing:-0.01em;
+      display:flex;align-items:flex-start;gap:6px;
+    }
+    .kfy-kb-card-title .kfy-kb-featured-badge {
+      flex-shrink:0;font-size:10px;padding:2px 6px;border-radius:6px;
+      background:rgba(245,158,11,0.1);color:#d97706;font-weight:700;
+      letter-spacing:0;
+    }
+    .kfy-kb-card-excerpt {
+      font-size:12px;color:var(--kfy-kb-card-excerpt,#6b7280);
+      line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;
+      -webkit-box-orient:vertical;overflow:hidden;
+    }
+    .kfy-kb-card-meta {
+      display:flex;align-items:center;gap:8px;margin-top:8px;
+      font-size:11px;color:var(--kfy-inp-ph,#9ca3af);
+    }
+    .kfy-kb-card-cat {
+      padding:2px 8px;border-radius:6px;font-weight:600;font-size:10.5px;
+      background:var(--kfy-kb-tag-bg,rgba(29,106,255,0.06));
+      color:var(--kfy-kb-tag-color,#1D6AFF);
+    }
+
+    /* Article detail view */
+    .kfy-kb-detail {
+      display:flex;flex-direction:column;flex:1;overflow:hidden;
+      background:var(--kfy-articles-bg,#f4f5f7);
+    }
+    .kfy-kb-detail-header {
+      padding:14px 16px;flex-shrink:0;
+      background:var(--kfy-header-bg,#fff);
+      border-bottom:1px solid var(--kfy-header-border,rgba(0,0,0,0.06));
+      display:flex;align-items:center;gap:10px;
+    }
+    .kfy-kb-back-btn {
+      width:32px;height:32px;border-radius:10px;border:none;
+      background:var(--kfy-close-bg,rgba(0,0,0,0.04));
+      cursor:pointer;display:flex;align-items:center;justify-content:center;
+      transition:all .15s;padding:0;flex-shrink:0;
+      color:var(--kfy-close-color,#9ca3af);
+    }
+    .kfy-kb-back-btn:hover {
+      background:var(--kfy-close-hover-bg,rgba(0,0,0,0.08));
+      color:var(--kfy-close-hover-color,#374151);
+    }
+    .kfy-kb-detail-title {
+      font-size:14px;font-weight:700;color:var(--kfy-agent-title,#111827);
+      letter-spacing:-0.01em;line-height:1.3;flex:1;min-width:0;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    }
+    .kfy-kb-detail-body {
+      flex:1;overflow-y:auto;padding:20px 18px 24px;
+    }
+    .kfy-kb-detail-body::-webkit-scrollbar { width:5px; }
+    .kfy-kb-detail-body::-webkit-scrollbar-track { background:transparent; }
+    .kfy-kb-detail-body::-webkit-scrollbar-thumb { background:var(--kfy-scrollbar,rgba(0,0,0,0.1));border-radius:10px; }
+
+    .kfy-kb-detail-meta {
+      display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;
+    }
+    .kfy-kb-detail-cat {
+      padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;
+      background:var(--kfy-kb-tag-bg,rgba(29,106,255,0.06));
+      color:var(--kfy-kb-tag-color,#1D6AFF);
+    }
+    .kfy-kb-detail-date {
+      font-size:11px;color:var(--kfy-inp-ph,#9ca3af);
+    }
+    .kfy-kb-detail-content {
+      font-size:13.5px;line-height:1.7;color:var(--kfy-bubble-bot-color,#1e293b);
+    }
+    .kfy-kb-detail-content p { margin:0 0 12px; }
+    .kfy-kb-detail-content strong { font-weight:700;color:var(--kfy-agent-title,#111827); }
+    .kfy-kb-detail-content ul,
+    .kfy-kb-detail-content ol { margin:0 0 12px;padding-left:20px; }
+    .kfy-kb-detail-content li { margin-bottom:4px; }
+    .kfy-kb-detail-content h2,
+    .kfy-kb-detail-content h3 {
+      font-size:14px;font-weight:700;color:var(--kfy-agent-title,#111827);
+      margin:16px 0 8px;letter-spacing:-0.01em;
+    }
+    .kfy-kb-detail-content a {
+      color:#1D6AFF;text-decoration:underline;text-underline-offset:2px;
+    }
+    .kfy-kb-detail-content hr {
+      border:none;border-top:1px solid var(--kfy-header-border,rgba(0,0,0,0.06));
+      margin:16px 0;
+    }
+
+    /* Empty state */
+    .kfy-kb-empty {
+      padding:40px 24px;text-align:center;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      flex:1;
+    }
+    .kfy-kb-empty-icon {
+      width:56px;height:56px;border-radius:16px;margin-bottom:14px;
       background:var(--kfy-articles-icon-bg,rgba(0,0,0,0.04));
       display:flex;align-items:center;justify-content:center;
     }
-    .kfy-articles-title {
-      font-size:15px;font-weight:700;color:var(--kfy-agent-title,#111827);
-      margin-bottom:6px;letter-spacing:-0.01em;
+    .kfy-kb-empty-title {
+      font-size:14px;font-weight:700;color:var(--kfy-agent-title,#111827);
+      margin-bottom:4px;
     }
-    .kfy-articles-desc {
+    .kfy-kb-empty-desc {
       font-size:12.5px;color:var(--kfy-articles-color,#9ca3af);line-height:1.55;
-      max-width:240px;
+      max-width:220px;
     }
+
+    /* Loading skeleton */
+    .kfy-kb-skeleton {
+      background:var(--kfy-kb-card-bg,#fff);border-radius:14px;padding:16px;
+      border:1px solid var(--kfy-kb-card-bdr,rgba(0,0,0,0.05));
+    }
+    .kfy-kb-skeleton-line {
+      height:12px;border-radius:6px;
+      background:linear-gradient(90deg,var(--kfy-kb-skel-from,rgba(0,0,0,0.06)) 25%,var(--kfy-kb-skel-to,rgba(0,0,0,0.02)) 50%,var(--kfy-kb-skel-from,rgba(0,0,0,0.06)) 75%);
+      background-size:200% 100%;
+      animation:kfyShimmer 1.5s infinite;
+    }
+    .kfy-kb-skeleton-line.w60 { width:60%; }
+    .kfy-kb-skeleton-line.w80 { width:80%;margin-top:8px; }
+    .kfy-kb-skeleton-line.w40 { width:40%;margin-top:8px; }
 
     /* ── Responsive ── */
     @media (max-width:420px) {
@@ -962,17 +1143,40 @@
       </div>
 
       <!-- ARTICLES PANEL -->
-      <div id="kfy-panel-articles" style="display:none;flex:1;overflow-y:auto;background:var(--kfy-articles-bg,#f4f5f7);">
-        <div class="kfy-articles-tab">
-          <div class="kfy-articles-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
-                 stroke="var(--kfy-articles-icon-color,#9ca3af)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-            </svg>
+      <div id="kfy-panel-articles" style="display:none;flex:1;overflow:hidden;">
+
+        <!-- Article list view -->
+        <div id="kfy-kb-list-view" class="kfy-kb-panel">
+          <div class="kfy-kb-header">
+            <div class="kfy-kb-search-wrap">
+              <svg class="kfy-kb-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input type="text" class="kfy-kb-search" id="kfy-kb-search" placeholder="Pretražite članke..." autocomplete="off"/>
+            </div>
           </div>
-          <div class="kfy-articles-title">Baza znanja</div>
-          <div class="kfy-articles-desc">Članci i uputstva biće uskoro dostupni. U međuvremenu, pokrenite razgovor sa podrškom.</div>
+          <div class="kfy-kb-cats" id="kfy-kb-cats">
+            <button class="kfy-kb-cat active" type="button" data-cat="">Sve</button>
+          </div>
+          <div class="kfy-kb-body" id="kfy-kb-body">
+            <!-- Loading skeletons -->
+            <div class="kfy-kb-skeleton"><div class="kfy-kb-skeleton-line w60"></div><div class="kfy-kb-skeleton-line w80"></div><div class="kfy-kb-skeleton-line w40"></div></div>
+            <div class="kfy-kb-skeleton"><div class="kfy-kb-skeleton-line w80"></div><div class="kfy-kb-skeleton-line w60"></div><div class="kfy-kb-skeleton-line w40"></div></div>
+            <div class="kfy-kb-skeleton"><div class="kfy-kb-skeleton-line w60"></div><div class="kfy-kb-skeleton-line w80"></div><div class="kfy-kb-skeleton-line w40"></div></div>
+          </div>
         </div>
+
+        <!-- Article detail view -->
+        <div id="kfy-kb-detail-view" class="kfy-kb-detail" style="display:none;">
+          <div class="kfy-kb-detail-header">
+            <button class="kfy-kb-back-btn" type="button" id="kfy-kb-back-btn" aria-label="Nazad">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <div class="kfy-kb-detail-title" id="kfy-kb-detail-title"></div>
+          </div>
+          <div class="kfy-kb-detail-body" id="kfy-kb-detail-body"></div>
+        </div>
+
       </div>
 
     </div>
@@ -1024,7 +1228,238 @@
     document.getElementById('kfy-panel-articles').style.display = !isChat ? 'flex' : 'none';
     document.getElementById('kfy-tab-chat').classList.toggle('active', isChat);
     document.getElementById('kfy-tab-articles').classList.toggle('active', !isChat);
+    if (!isChat && !_kbLoaded) _kbInit();
   };
+
+  /* ─────────────────────────────────────────────────────────────
+     KNOWLEDGE BASE (Articles Tab)
+  ───────────────────────────────────────────────────────────── */
+  let _kbLoaded = false;
+  let _kbArticles = [];
+  let _kbCategories = {};
+  let _kbActiveCategory = '';
+  let _kbSearchQuery = '';
+
+  const _kbCatLabels = {
+    opste: 'Opšte', kupovina: 'Kupovina', aktivacija: 'Aktivacija',
+    licence: 'Licence', podrska: 'Podrška', garancija: 'Garancija',
+    'ai-alati': 'AI alati', streaming: 'Streaming', software: 'Software',
+  };
+
+  async function _kbInit() {
+    _kbLoaded = true;
+    try {
+      const [artRes, catRes] = await Promise.all([
+        fetch(`${API()}/kb/articles`),
+        fetch(`${API()}/kb/categories`),
+      ]);
+      _kbArticles = await artRes.json();
+      _kbCategories = await catRes.json();
+      if (!Array.isArray(_kbArticles)) _kbArticles = [];
+    } catch {
+      _kbArticles = [];
+      _kbCategories = {};
+    }
+    _kbRenderCategories();
+    _kbRenderList();
+    _kbBindEvents();
+  }
+
+  function _kbRenderCategories() {
+    const wrap = document.getElementById('kfy-kb-cats');
+    if (!wrap) return;
+    let html = '<button class="kfy-kb-cat active" type="button" data-cat="">Sve</button>';
+    const cats = Object.keys(_kbCategories).sort();
+    cats.forEach(cat => {
+      const label = _kbCatLabels[cat] || cat;
+      const count = _kbCategories[cat] || 0;
+      html += `<button class="kfy-kb-cat" type="button" data-cat="${cat}">${label} (${count})</button>`;
+    });
+    wrap.innerHTML = html;
+
+    wrap.querySelectorAll('.kfy-kb-cat').forEach(btn => {
+      btn.addEventListener('click', () => {
+        wrap.querySelectorAll('.kfy-kb-cat').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        _kbActiveCategory = btn.dataset.cat;
+        _kbRenderList();
+      });
+    });
+  }
+
+  function _kbFilterArticles() {
+    let list = _kbArticles;
+    if (_kbActiveCategory) {
+      list = list.filter(a => a.category === _kbActiveCategory);
+    }
+    if (_kbSearchQuery) {
+      const q = _kbSearchQuery.toLowerCase();
+      list = list.filter(a =>
+        (a.title || '').toLowerCase().includes(q) ||
+        (a.excerpt || '').toLowerCase().includes(q) ||
+        (a.tags || []).some(t => t.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }
+
+  function _kbRenderList() {
+    const container = document.getElementById('kfy-kb-body');
+    if (!container) return;
+
+    const filtered = _kbFilterArticles();
+    const featured = filtered.filter(a => a.featured);
+    const rest = filtered.filter(a => !a.featured);
+
+    if (!filtered.length) {
+      container.innerHTML = `
+        <div class="kfy-kb-empty">
+          <div class="kfy-kb-empty-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--kfy-articles-icon-color,#9ca3af)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </div>
+          <div class="kfy-kb-empty-title">${_kbSearchQuery ? 'Nema rezultata' : 'Nema članaka'}</div>
+          <div class="kfy-kb-empty-desc">${_kbSearchQuery ? 'Pokušajte sa drugim pojmom za pretragu.' : 'Članci će uskoro biti dostupni.'}</div>
+        </div>`;
+      return;
+    }
+
+    let html = '';
+
+    if (featured.length && !_kbSearchQuery) {
+      html += '<div class="kfy-kb-section-label">Istaknuti članci</div>';
+      featured.forEach(a => { html += _kbCardHtml(a); });
+    }
+
+    if (rest.length) {
+      if (featured.length && !_kbSearchQuery) {
+        html += '<div class="kfy-kb-section-label" style="margin-top:6px">Svi članci</div>';
+      }
+      rest.forEach(a => { html += _kbCardHtml(a); });
+    }
+
+    // If only featured and no "rest" visible
+    if (featured.length && !rest.length && _kbSearchQuery) {
+      featured.forEach(a => { html += _kbCardHtml(a); });
+    }
+
+    container.innerHTML = html;
+
+    container.querySelectorAll('.kfy-kb-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const slug = card.dataset.slug;
+        if (slug) _kbOpenArticle(slug);
+      });
+    });
+  }
+
+  function _kbCardHtml(article) {
+    const catLabel = _kbCatLabels[article.category] || article.category;
+    const excerpt = article.excerpt || '';
+    const featuredBadge = article.featured ? '<span class="kfy-kb-featured-badge">Istaknuto</span>' : '';
+    return `
+      <div class="kfy-kb-card" data-slug="${article.slug}">
+        <div class="kfy-kb-card-title">
+          <span>${_escHtml(article.title)}</span>
+          ${featuredBadge}
+        </div>
+        ${excerpt ? `<div class="kfy-kb-card-excerpt">${_escHtml(excerpt)}</div>` : ''}
+        <div class="kfy-kb-card-meta">
+          <span class="kfy-kb-card-cat">${_escHtml(catLabel)}</span>
+          <span>${article.view_count || 0} pregleda</span>
+        </div>
+      </div>`;
+  }
+
+  async function _kbOpenArticle(slug) {
+    const listView = document.getElementById('kfy-kb-list-view');
+    const detailView = document.getElementById('kfy-kb-detail-view');
+    const titleEl = document.getElementById('kfy-kb-detail-title');
+    const bodyEl = document.getElementById('kfy-kb-detail-body');
+
+    listView.style.display = 'none';
+    detailView.style.display = 'flex';
+    titleEl.textContent = 'Učitavanje...';
+    bodyEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--kfy-inp-ph,#9ca3af);font-size:13px;">Učitavanje članka...</div>';
+
+    try {
+      const res = await fetch(`${API()}/kb/articles/${slug}`);
+      if (!res.ok) throw new Error('Članak nije pronađen');
+      const article = await res.json();
+
+      titleEl.textContent = article.title;
+      const catLabel = _kbCatLabels[article.category] || article.category;
+      const dateStr = article.created_at ? new Date(article.created_at).toLocaleDateString('sr-Latn-RS', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
+
+      bodyEl.innerHTML = `
+        <div class="kfy-kb-detail-meta">
+          <span class="kfy-kb-detail-cat">${_escHtml(catLabel)}</span>
+          ${dateStr ? `<span class="kfy-kb-detail-date">${dateStr}</span>` : ''}
+          <span class="kfy-kb-detail-date">${article.view_count || 0} pregleda</span>
+        </div>
+        <div class="kfy-kb-detail-content">${_kbMarkdown(article.content || '')}</div>`;
+    } catch (err) {
+      titleEl.textContent = 'Greška';
+      bodyEl.innerHTML = `<div style="padding:20px;text-align:center;color:#ef4444;font-size:13px;">${err.message}</div>`;
+    }
+  }
+
+  function _kbBackToList() {
+    document.getElementById('kfy-kb-list-view').style.display = 'flex';
+    document.getElementById('kfy-kb-detail-view').style.display = 'none';
+  }
+
+  function _kbBindEvents() {
+    const searchEl = document.getElementById('kfy-kb-search');
+    if (searchEl) {
+      let debounce;
+      searchEl.addEventListener('input', () => {
+        clearTimeout(debounce);
+        debounce = setTimeout(() => {
+          _kbSearchQuery = searchEl.value.trim();
+          _kbRenderList();
+        }, 200);
+      });
+    }
+    const backBtn = document.getElementById('kfy-kb-back-btn');
+    if (backBtn) backBtn.addEventListener('click', _kbBackToList);
+  }
+
+  // Simple markdown to HTML
+  function _kbMarkdown(text) {
+    return text
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+      .replace(/^# (.+)$/gm, '<h2>$1</h2>')
+      .replace(/^- (.+)$/gm, '<li>$1</li>')
+      .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
+      .replace(/(<li>.*<\/li>)/gs, (match) => {
+        if (!match.startsWith('<ul>') && !match.startsWith('<ol>')) {
+          return '<ul>' + match + '</ul>';
+        }
+        return match;
+      })
+      .replace(/<\/ul>\s*<ul>/g, '')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/^---$/gm, '<hr>')
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n/g, '<br>')
+      .replace(/^/, '<p>')
+      .replace(/$/, '</p>')
+      .replace(/<p><(h[23]|ul|ol|hr|li)/g, '<$1')
+      .replace(/<\/(h[23]|ul|ol|hr|li)><\/p>/g, '</$1>')
+      .replace(/<p><\/p>/g, '');
+  }
+
+  function _escHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+  }
 
   /* ─────────────────────────────────────────────────────────────
      GUEST GATE

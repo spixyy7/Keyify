@@ -6430,6 +6430,409 @@ app.put('/api/admin/verifications/:id/reject', authenticateToken, checkPermissio
   return res.json({ ok: true, message: 'Uplata odbijena, korisnik obavešten' });
 });
 
+/* ══════════════════════════════════════════════════════════════
+   Knowledge Base Articles
+══════════════════════════════════════════════════════════════ */
+
+// ── Public: list published articles ──
+app.get('/api/kb/articles', async (req, res) => {
+  try {
+    const { category, search, featured } = req.query;
+
+    let query = supabase
+      .from('kb_articles')
+      .select('id, title, slug, excerpt, category, tags, featured, view_count, created_at')
+      .eq('status', 'published')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (category) query = query.eq('category', category);
+    if (featured === '1') query = query.eq('featured', true);
+
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+
+    let articles = data || [];
+
+    // Client-side search (title + excerpt)
+    if (search) {
+      const q = search.toLowerCase().trim();
+      articles = articles.filter(a =>
+        (a.title || '').toLowerCase().includes(q) ||
+        (a.excerpt || '').toLowerCase().includes(q) ||
+        (a.tags || []).some(t => t.toLowerCase().includes(q))
+      );
+    }
+
+    return res.json(articles);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Public: get single article by slug ──
+app.get('/api/kb/articles/:slug', async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    const { data, error } = await supabase
+      .from('kb_articles')
+      .select('*')
+      .eq('slug', slug)
+      .eq('status', 'published')
+      .maybeSingle();
+
+    if (error) return res.status(500).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'Članak nije pronađen' });
+
+    // Increment view count async
+    supabase
+      .from('kb_articles')
+      .update({ view_count: (data.view_count || 0) + 1 })
+      .eq('id', data.id)
+      .then(() => {})
+      .catch(() => {});
+
+    return res.json(data);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Public: list categories ──
+app.get('/api/kb/categories', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('kb_articles')
+      .select('category')
+      .eq('status', 'published');
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    const counts = {};
+    (data || []).forEach(r => {
+      counts[r.category] = (counts[r.category] || 0) + 1;
+    });
+
+    return res.json(counts);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Admin: list all articles ──
+app.get('/api/admin/kb/articles', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  try {
+    const { category, status } = req.query;
+
+    let query = supabase
+      .from('kb_articles')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (category) query = query.eq('category', category);
+    if (status) query = query.eq('status', status);
+
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.json(data || []);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Admin: create article ──
+app.post('/api/admin/kb/articles', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  try {
+    const { title, slug, excerpt, content, category, tags, status: artStatus, featured, sort_order, cover_image } = req.body;
+
+    if (!title || !slug || !content || !category) {
+      return res.status(400).json({ error: 'Naslov, slug, sadržaj i kategorija su obavezni.' });
+    }
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+      return res.status(400).json({ error: 'Slug mora biti mala slova, brojevi i crtice.' });
+    }
+
+    const { data, error } = await supabase
+      .from('kb_articles')
+      .insert({
+        title: title.trim(),
+        slug: slug.toLowerCase().trim(),
+        excerpt: (excerpt || '').trim() || null,
+        content,
+        category,
+        tags: Array.isArray(tags) ? tags : [],
+        status: artStatus === 'published' ? 'published' : 'draft',
+        featured: featured === true,
+        sort_order: parseInt(sort_order) || 0,
+        cover_image: cover_image || null,
+        author_id: req.user.id,
+      })
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(201).json(data);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Admin: update article ──
+app.put('/api/admin/kb/articles/:id', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, slug, excerpt, content, category, tags, status: artStatus, featured, sort_order, cover_image } = req.body;
+
+    const update = { updated_at: new Date().toISOString() };
+    if (title !== undefined)      update.title = title.trim();
+    if (slug !== undefined) {
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+        return res.status(400).json({ error: 'Slug mora biti mala slova, brojevi i crtice.' });
+      }
+      update.slug = slug.toLowerCase().trim();
+    }
+    if (excerpt !== undefined)    update.excerpt = excerpt.trim() || null;
+    if (content !== undefined)    update.content = content;
+    if (category !== undefined)   update.category = category;
+    if (tags !== undefined)       update.tags = Array.isArray(tags) ? tags : [];
+    if (artStatus !== undefined)  update.status = artStatus;
+    if (featured !== undefined)   update.featured = featured === true;
+    if (sort_order !== undefined) update.sort_order = parseInt(sort_order) || 0;
+    if (cover_image !== undefined) update.cover_image = cover_image || null;
+
+    const { data, error } = await supabase
+      .from('kb_articles')
+      .update(update)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Admin: delete article ──
+app.delete('/api/admin/kb/articles/:id', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { error } = await supabase
+      .from('kb_articles')
+      .delete()
+      .eq('id', id);
+
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true, message: 'Članak obrisan' });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Admin: toggle featured ──
+app.patch('/api/admin/kb/articles/:id/featured', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { featured } = req.body;
+
+    const { data, error } = await supabase
+      .from('kb_articles')
+      .update({ featured: featured === true, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Admin: toggle status ──
+app.patch('/api/admin/kb/articles/:id/status', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status: newStatus } = req.body;
+
+    if (!['draft', 'published'].includes(newStatus)) {
+      return res.status(400).json({ error: 'Status mora biti draft ili published.' });
+    }
+
+    const { data, error } = await supabase
+      .from('kb_articles')
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Admin: seed default articles ──
+app.post('/api/admin/kb/seed', authenticateToken, checkPermission('can_manage_support'), async (req, res) => {
+  try {
+    // Check if articles already exist
+    const { data: existing } = await supabase.from('kb_articles').select('id').limit(1);
+    if (existing && existing.length > 0) {
+      return res.status(400).json({ error: 'Članci već postoje. Seed je dozvoljen samo na praznu tabelu.' });
+    }
+
+    const seedArticles = [
+      {
+        title: 'Kako funkcioniše kupovina digitalnog ključa?',
+        slug: 'kako-funkcionise-kupovina',
+        excerpt: 'Saznajte kako brzo i lako kupiti digitalni ključ na Keyify platformi.',
+        content: `Kupovina na Keyify je jednostavna i brza.\n\n**1. Izaberite proizvod**\nPregledajte našu ponudu softverskih licenci, streaming pretplata i AI alata. Svaki proizvod ima detaljan opis, cenu i informacije o isporuci.\n\n**2. Dodajte u korpu**\nKliknite na "Dodaj u korpu" i pregledajte svoju narudžbinu.\n\n**3. Checkout**\nUnesite svoje podatke i izaberite način plaćanja. Podržavamo PayPal, kartice i kripto plaćanja.\n\n**4. Primite licencu**\nNakon potvrde uplate, licencu ćete dobiti na email ili direktno na profilu. Instant proizvodi stižu odmah, a ručna isporuka u roku od nekoliko sati.\n\n**5. Aktivirajte**\nPratite uputstvo za aktivaciju koje dolazi uz svaki proizvod.`,
+        category: 'kupovina',
+        tags: ['kupovina', 'početak', 'kako kupiti'],
+        status: 'published',
+        featured: true,
+        sort_order: 1,
+      },
+      {
+        title: 'Kada i kako dobijam licencu nakon kupovine?',
+        slug: 'isporuka-licence',
+        excerpt: 'Sve o rokovima i načinu isporuke digitalnih licenci.',
+        content: `Način isporuke zavisi od tipa proizvoda:\n\n**Instant isporuka**\nVećina proizvoda se isporučuje automatski. Odmah nakon potvrde uplate, licenca se pojavljuje:\n- Na vašem Keyify profilu u sekciji "Moje kupovine"\n- Na email adresi koju ste naveli pri kupovini\n\n**Ručna isporuka**\nNeki premium proizvodi zahtevaju ručnu verifikaciju. U tom slučaju:\n- Dobićete email potvrdu da je narudžbina primljena\n- Naš tim obrađuje narudžbinu u roku od 1-12 sati\n- Licencu šaljemo na vaš email sa detaljnim uputstvom\n\n**Šta ako ne dobijem licencu?**\nAko nakon isteka očekivanog roka niste dobili licencu:\n1. Proverite spam/junk folder\n2. Proverite sekciju "Moje kupovine" na profilu\n3. Kontaktirajte podršku putem live chata`,
+        category: 'kupovina',
+        tags: ['isporuka', 'licenca', 'rokovi'],
+        status: 'published',
+        featured: false,
+        sort_order: 2,
+      },
+      {
+        title: 'Šta znači da je licenca originalna?',
+        slug: 'originalne-licence',
+        excerpt: 'Objašnjenje autentičnosti i porekla licenci na Keyify.',
+        content: `Sve licence na Keyify su 100% originalne i legalne.\n\n**Šta to znači?**\n- Svaka licenca dolazi direktno od ovlašćenog distributera ili partnera\n- Ključevi su nekorišćeni i validni za aktivaciju\n- Dobijate punu funkcionalnost softvera bez ograničenja\n- Licence su trajne (osim ako je naznačeno drugačije, npr. godišnje pretplate)\n\n**Kako garantujemo autentičnost?**\n- Radimo samo sa proverenim dobavljačima\n- Svaki ključ prolazi verifikaciju pre prodaje\n- Nudimo garanciju zamene ako ključ ne radi\n\n**Razlika između naše i "retail" cene**\nNaše cene su niže jer kupujemo licence u većim količinama direktno od distributera, čime izbegavamo maloprodajne marže. Kvalitet i funkcionalnost su identični.`,
+        category: 'licence',
+        tags: ['originalnost', 'autentičnost', 'garancija'],
+        status: 'published',
+        featured: false,
+        sort_order: 3,
+      },
+      {
+        title: 'Kako aktivirati Adobe Creative Cloud nalog?',
+        slug: 'aktivacija-adobe-cc',
+        excerpt: 'Korak po korak uputstvo za aktivaciju Adobe Creative Cloud licence.',
+        content: `**Aktivacija Adobe Creative Cloud licence**\n\nNakon kupovine Adobe CC licence na Keyify, pratite ove korake:\n\n**Korak 1: Proverite email**\nNa vašu email adresu stići će podaci za pristup — email i lozinka za Adobe nalog, ili pozivnica za pristup timu.\n\n**Korak 2: Prijavite se**\nIdite na [creative.adobe.com](https://creative.adobe.com) i prijavite se sa podacima koje ste dobili.\n\n**Korak 3: Preuzmite aplikacije**\nNakon prijave, otvorite Adobe Creative Cloud desktop aplikaciju i preuzmite željene programe (Photoshop, Illustrator, Premiere Pro, itd.).\n\n**Korak 4: Počnite sa radom**\nSve aplikacije su odmah spremne za korišćenje sa punom funkcionalnošću.\n\n**Važne napomene:**\n- Ne menjajte lozinku naloga\n- Ne dodajte drugi email na nalog\n- Ako imate problem sa prijavom, kontaktirajte našu podršku odmah`,
+        category: 'aktivacija',
+        tags: ['adobe', 'creative cloud', 'aktivacija', 'uputstvo'],
+        status: 'published',
+        featured: true,
+        sort_order: 4,
+      },
+      {
+        title: 'Kako aktivirati Figma Professional licencu?',
+        slug: 'aktivacija-figma',
+        excerpt: 'Uputstvo za aktivaciju i korišćenje Figma Professional naloga.',
+        content: `**Aktivacija Figma Professional licence**\n\nFigma Professional licenca vam daje pristup svim naprednim funkcijama za dizajn i prototipiranje.\n\n**Korak 1: Pozivnica**\nNakon kupovine, dobićete pozivnicu na email za pristup Figma Professional timu.\n\n**Korak 2: Prihvatite pozivnicu**\nKliknite na link u emailu i prijavite se na Figma sa vašim postojećim nalogom ili kreirajte novi.\n\n**Korak 3: Pristupite timu**\nNakon prihvatanja pozivnice, automatski dobijate Professional pristup sa svim funkcijama:\n- Neograničen broj projekata\n- Napredni prototipiranje alati\n- Team biblioteke i komponente\n- Dev Mode pristup\n- Verzionisanje i istorija\n\n**Česta pitanja:**\n- *Da li mogu koristiti desktop aplikaciju?* — Da, prijavite se sa istim nalogom.\n- *Koliko dugo traje licenca?* — Prema opisu proizvoda (mesečno ili godišnje).\n- *Mogu li koristiti postojeće projekte?* — Da, svi vaši projekti ostaju dostupni.`,
+        category: 'aktivacija',
+        tags: ['figma', 'dizajn', 'aktivacija'],
+        status: 'published',
+        featured: false,
+        sort_order: 5,
+      },
+      {
+        title: 'Šta ako licenca ne radi?',
+        slug: 'licenca-ne-radi',
+        excerpt: 'Šta uraditi ako imate problem sa aktivacijom kupljene licence.',
+        content: `Ako imate problem sa licencom, ne brinite — tu smo da pomognemo.\n\n**Prvo probajte ovo:**\n\n1. **Proverite da li ste ispravno uneli ključ** — Kopirajte ključ direktno iz emaila ili profila, ne kucajte ručno\n2. **Proverite region** — Neki proizvodi su region-specifični (proverite opis proizvoda)\n3. **Proverite da li je proizvod za pravu platformu** — Windows/Mac/oba\n4. **Restartujte aplikaciju** posle unosa ključa\n5. **Proverite internet konekciju** — Većina aktivacija zahteva online verifikaciju\n\n**Ako i dalje ne radi:**\n\nKontaktirajte našu podršku sa sledećim informacijama:\n- Broj narudžbine ili email korišćen pri kupovini\n- Screenshot greške koju dobijate\n- Naziv proizvoda\n\n**Naša garancija:**\n- Zamena ključa ako je neispravan\n- Pun refund ako ne možemo da rešimo problem\n- Odgovor podrške u roku od sat vremena`,
+        category: 'podrska',
+        tags: ['problem', 'aktivacija', 'ne radi', 'pomoć'],
+        status: 'published',
+        featured: true,
+        sort_order: 6,
+      },
+      {
+        title: 'Kako mogu kontaktirati podršku?',
+        slug: 'kontakt-podrska',
+        excerpt: 'Svi načini da dođete do Keyify tima za podršku.',
+        content: `**Keyify podrška je dostupna putem više kanala:**\n\n**1. Live Chat (najbrži način)**\nKliknite na ikonu za chat u donjem desnom uglu bilo koje stranice. Možete:\n- Pokrenuti razgovor sa podrškom u realnom vremenu\n- Ostaviti feedback ili prijaviti problem\n- Odgovor dobijate obično za manje od sat vremena\n\n**2. Email**\nPošaljite email na adresu navedenu na kontakt stranici. Odgovaramo u roku od 24 sata.\n\n**3. Kontakt forma**\nPopunite formu na stranici "Kontakt" sa detaljnim opisom vašeg upita.\n\n**4. Društvene mreže**\nPratite nas i pišite nam na Instagram za brze odgovore.\n\n**Saveti za bržu podršku:**\n- Navedite broj narudžbine\n- Opišite problem detaljno\n- Priložite screenshot ako je moguće\n- Koristite isti email sa kojim ste kupili proizvod`,
+        category: 'podrska',
+        tags: ['kontakt', 'podrška', 'chat', 'email'],
+        status: 'published',
+        featured: false,
+        sort_order: 7,
+      },
+      {
+        title: 'Da li su licence globalne ili region-locked?',
+        slug: 'region-licence',
+        excerpt: 'Informacije o regionalnim ograničenjima digitalnih licenci.',
+        content: `**Regionalna dostupnost licenci**\n\nVećina proizvoda na Keyify je globalna i funkcioniše bez regionalnih ograničenja.\n\n**Globalne licence (većina):**\n- Adobe Creative Cloud\n- Figma\n- Microsoft Office 365\n- AI alati (ChatGPT Plus, Midjourney, itd.)\n- Većina streaming servisa\n\n**Region-specifične licence:**\nNeki proizvodi mogu imati regionalna ograničenja. U tom slučaju:\n- Jasno je naznačeno u opisu proizvoda\n- Navedeni su podržani regioni\n- Cena može varirati po regionu\n\n**Kako da znam?**\nSvaki proizvod na Keyify ima jasno naznačeno:\n- "Globalna licenca" — radi svuda\n- "EU/US/Region" — radi samo u navedenom regionu\n\n**Šta ako kupim pogrešan region?**\nKontaktirajte podršku — zamenićemo licencu ili izdati refund.`,
+        category: 'licence',
+        tags: ['region', 'globalna', 'ograničenja'],
+        status: 'published',
+        featured: false,
+        sort_order: 8,
+      },
+      {
+        title: 'Razlika između instant i ručne isporuke',
+        slug: 'instant-vs-rucna-isporuka',
+        excerpt: 'Objašnjenje dva tipa isporuke digitalnih proizvoda na Keyify.',
+        content: `**Dva tipa isporuke na Keyify:**\n\n**⚡ Instant isporuka**\nProizvodi sa instant isporukom se dostavljaju automatski odmah nakon potvrde uplate.\n\n*Kako funkcioniše:*\n- Sistem automatski generiše i šalje licencu\n- Licenca se pojavljuje na profilu i emailu u roku od par sekundi\n- Dostupno 24/7 bez čekanja\n\n*Koji proizvodi:*\n- Softverski ključevi (Windows, Office)\n- Neki streaming nalozi\n- Gift kartice\n\n**🕐 Ručna isporuka**\nPremium proizvodi koji zahtevaju ručnu pripremu i verifikaciju.\n\n*Kako funkcioniše:*\n- Narudžbina se registruje i naš tim je obrađuje\n- Priprema traje od 1 do 12 sati (obično mnogo brže)\n- Licencu šaljemo na email sa detaljnim uputstvom\n\n*Koji proizvodi:*\n- Adobe Creative Cloud nalozi\n- Figma Professional\n- Enterprise licence\n- AI alati sa nalogom\n\n**Kako da znam koji tip?**\nSvaki proizvod jasno prikazuje tip isporuke na stranici proizvoda.`,
+        category: 'kupovina',
+        tags: ['isporuka', 'instant', 'ručna', 'rokovi'],
+        status: 'published',
+        featured: false,
+        sort_order: 9,
+      },
+      {
+        title: 'Kako funkcioniše refundacija i garancija?',
+        slug: 'refundacija-garancija',
+        excerpt: 'Politika povrata novca i garancija na Keyify platformi.',
+        content: `**Keyify garancija i refund politika**\n\nVaše zadovoljstvo nam je prioritet. Evo kako funkcioniše naša garancija:\n\n**Garancija zamene**\nAko licenca koju ste kupili ne radi iz tehničkih razloga:\n- Kontaktirajte podršku sa dokazom o problemu\n- Dobićete zamenu ključa besplatno\n- Obrada zamene: do 24 sata\n\n**Refund (povrat novca)**\nPovrat novca je moguć u sledećim slučajevima:\n- Licenca ne radi i zamena nije moguća\n- Proizvod nije isporučen u navedenom roku\n- Opis proizvoda ne odgovara stvarnosti\n\n*Refund se NE odobrava ako:*\n- Ste već aktivirali i koristili licencu\n- Ste prekršili uslove korišćenja (npr. promenili lozinku naloga)\n- Je prošlo više od 7 dana od kupovine bez prijave problema\n\n**Kako zatražiti refund:**\n1. Otvorite live chat ili pošaljite email\n2. Navedite broj narudžbine i razlog\n3. Naš tim obrađuje zahtev u roku od 48 sati\n4. Povrat ide na originalni način plaćanja`,
+        category: 'garancija',
+        tags: ['refund', 'garancija', 'povrat', 'zamena'],
+        status: 'published',
+        featured: true,
+        sort_order: 10,
+      },
+      {
+        title: 'Kako koristiti AI alate kupljene na Keyify?',
+        slug: 'koriscenje-ai-alata',
+        excerpt: 'Vodič za pristup i korišćenje AI alata i pretplata.',
+        content: `**AI alati na Keyify**\n\nNudimo pristup najmodernijim AI alatima po pristupačnim cenama.\n\n**ChatGPT Plus**\nNakon kupovine dobijate pristup ChatGPT Plus nalogu:\n- Prijavite se na chat.openai.com sa dostavljenim podacima\n- Pristup GPT-4, DALL-E, naprednim pluginima\n- Brži odgovori i prioritetni pristup\n\n**Midjourney**\nPristup Midjourney nalogu za generisanje slika:\n- Pristupite Discord serveru sa dostavljenim podacima\n- Koristite /imagine komandu za generisanje\n- Pun pristup svim Midjourney funkcijama\n\n**Ostali AI alati**\nZa svaki AI alat dobijate:\n- Detaljno uputstvo za pristup\n- Podatke za prijavu\n- Informacije o trajanju pretplate\n- Kontakt za podršku ako imate pitanja\n\n**Važno:**\n- Ne menjajte podatke naloga (email, lozinka)\n- Koristite alat u skladu sa uslovima servisa\n- Za produženje pretplate, kupite novi paket na Keyify`,
+        category: 'ai-alati',
+        tags: ['AI', 'ChatGPT', 'Midjourney', 'uputstvo'],
+        status: 'published',
+        featured: false,
+        sort_order: 11,
+      },
+      {
+        title: 'Najčešća pitanja o digitalnim proizvodima',
+        slug: 'najcesca-pitanja',
+        excerpt: 'Odgovori na najčešće postavljena pitanja o kupovini na Keyify.',
+        content: `**Najčešća pitanja (FAQ)**\n\n**Da li je kupovina bezbedna?**\nDa. Koristimo enkripciju za sve transakcije i ne čuvamo podatke o karticama.\n\n**Da li dobijam račun?**\nDa, automatski račun se šalje na email nakon svake kupovine.\n\n**Mogu li kupiti kao gost?**\nDa, omogućena je kupovina bez registracije. Ipak, preporučujemo kreiranje naloga radi lakšeg pristupa licencama.\n\n**Koliko dugo važi licenca?**\nZavisi od proizvoda:\n- Trajne licence: zauvek\n- Godišnje pretplate: 12 meseci od aktivacije\n- Mesečne pretplate: 30 dana od aktivacije\n\n**Mogu li koristiti licencu na više uređaja?**\nZavisi od tipa licence. Svaki proizvod ima jasno naznačen broj dozvoljenih uređaja.\n\n**Šta ako zaboravim podatke za pristup?**\nPodaci su uvek dostupni na vašem Keyify profilu u sekciji "Moje kupovine". Takođe ih možete pronaći u emailu koji ste dobili nakon kupovine.\n\n**Da li nudite popuste za veće količine?**\nDa, kontaktirajte nas za volume pricing.\n\n**Koji su načini plaćanja?**\n- PayPal\n- Kreditne/debitne kartice\n- Kripto (Bitcoin, USDT)\n- Bankarski transfer (za veće iznose)`,
+        category: 'opste',
+        tags: ['FAQ', 'pitanja', 'odgovori', 'početak'],
+        status: 'published',
+        featured: true,
+        sort_order: 12,
+      },
+    ];
+
+    const { data, error } = await supabase
+      .from('kb_articles')
+      .insert(seedArticles.map(a => ({ ...a, author_id: req.user.id })))
+      .select();
+
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(201).json({ ok: true, count: data.length, articles: data });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 /* ─────────────────────────────────────────
    Start server
 ───────────────────────────────────────── */

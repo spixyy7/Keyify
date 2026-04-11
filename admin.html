@@ -363,6 +363,10 @@
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h8M8 14h5M21 12c0 4.97-4.03 9-9 9a9.79 9.79 0 01-4-.84L3 21l.84-5A9.79 9.79 0 013 12c0-4.97 4.03-9 9-9s9 4.03 9 9z"/></svg>
       <span>User Feedback</span>
     </a>
+    <a class="sidebar-link" onclick="showSection('kb')" id="nav-kb">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+      <span>Baza znanja</span>
+    </a>
     <a class="sidebar-link" onclick="showSection('promos')">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
       <span>Promo kodovi</span>
@@ -1551,6 +1555,137 @@
       </div>
     </div>
 
+    <!-- ═══════════════════════ KNOWLEDGE BASE ═══════════════════════ -->
+    <div id="section-kb" class="section space-y-5">
+
+      <!-- Create / Edit form -->
+      <div class="glass rounded-2xl p-6 space-y-4" id="kb-form-card">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="font-display font-semibold text-white" id="kb-form-title">Kreiraj novi članak</h3>
+            <p class="text-xs text-dark-300 mt-0.5">Popunite polja i kliknite kreiraj</p>
+          </div>
+          <button onclick="kbResetForm()" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-dark-200 transition-all hover:text-white" style="background:rgba(255,255,255,0.06);display:none" id="kb-cancel-edit">
+            ✕ Otkaži izmenu
+          </button>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wider">Naslov *</label>
+            <input type="text" id="kb-title" placeholder="Kako kupiti digitalni ključ?" class="admin-input"/>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wider">Slug *</label>
+            <input type="text" id="kb-slug" placeholder="kako-kupiti-kljuc" class="admin-input font-mono text-sm"/>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wider">Kategorija *</label>
+            <select id="kb-category" class="admin-input">
+              <option value="opste">Opšte</option>
+              <option value="kupovina">Kupovina</option>
+              <option value="aktivacija">Aktivacija</option>
+              <option value="licence">Licence</option>
+              <option value="podrska">Podrška</option>
+              <option value="garancija">Garancija</option>
+              <option value="ai-alati">AI alati</option>
+              <option value="streaming">Streaming</option>
+              <option value="software">Software</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wider">Tagovi (razdvojeni zarezom)</label>
+            <input type="text" id="kb-tags" placeholder="kupovina, licenca, početak" class="admin-input"/>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wider">Kratak opis (excerpt)</label>
+          <input type="text" id="kb-excerpt" placeholder="Kratak opis članka za prikaz u listi..." class="admin-input"/>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wider">Sadržaj * (Markdown)</label>
+          <textarea id="kb-content" rows="10" placeholder="Pišite sadržaj članka u Markdown formatu..." class="admin-input resize-y font-mono text-sm" style="line-height:1.7"></textarea>
+        </div>
+        <div class="flex items-center gap-6">
+          <label class="flex items-center gap-2.5 cursor-pointer">
+            <input type="checkbox" id="kb-published" checked class="w-4 h-4 rounded accent-blue-500"/>
+            <span class="text-sm text-dark-200">Objavi odmah</span>
+          </label>
+          <label class="flex items-center gap-2.5 cursor-pointer">
+            <input type="checkbox" id="kb-featured" class="w-4 h-4 rounded accent-purple-500"/>
+            <span class="text-sm text-dark-200">Istaknuti članak</span>
+          </label>
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-semibold text-dark-300">Redosled:</label>
+            <input type="number" id="kb-sort-order" value="0" min="0" class="admin-input w-20 text-center" style="padding:6px 8px"/>
+          </div>
+        </div>
+        <div id="kb-form-msg" style="display:none" class="px-3 py-2 rounded-lg text-xs font-semibold"></div>
+        <div class="flex gap-3">
+          <button onclick="kbSaveArticle()" id="kb-save-btn" class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all"
+                  style="background:linear-gradient(135deg,#1D6AFF,#A259FF)">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 4v16m8-8H4"/></svg>
+            <span id="kb-save-btn-text">Kreiraj članak</span>
+          </button>
+          <button onclick="kbSeedArticles()" id="kb-seed-btn" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-dark-200 text-sm font-semibold hover:text-white transition-all"
+                  style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08)">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Seed početnih članaka
+          </button>
+        </div>
+      </div>
+
+      <!-- Articles list -->
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="p-5 border-b flex items-center justify-between" style="border-color:rgba(255,255,255,0.06)">
+          <div>
+            <h3 class="font-display font-semibold text-white">Članci</h3>
+            <p class="text-xs text-dark-300 mt-0.5" id="kb-count-label">Svi članci u bazi znanja</p>
+          </div>
+          <div class="flex items-center gap-3 flex-wrap">
+            <select id="kb-filter-category" class="admin-input" style="width:auto" onchange="loadKbArticles()">
+              <option value="">Sve kategorije</option>
+              <option value="opste">Opšte</option>
+              <option value="kupovina">Kupovina</option>
+              <option value="aktivacija">Aktivacija</option>
+              <option value="licence">Licence</option>
+              <option value="podrska">Podrška</option>
+              <option value="garancija">Garancija</option>
+              <option value="ai-alati">AI alati</option>
+              <option value="streaming">Streaming</option>
+              <option value="software">Software</option>
+            </select>
+            <select id="kb-filter-status" class="admin-input" style="width:auto" onchange="loadKbArticles()">
+              <option value="">Svi statusi</option>
+              <option value="published">Objavljeni</option>
+              <option value="draft">Nacrt</option>
+            </select>
+            <button onclick="loadKbArticles()" class="px-4 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all"
+                    style="background:rgba(29,106,255,0.2);border:1px solid rgba(29,106,255,0.3)">↻ Osvježi</button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Naslov</th>
+                <th>Kategorija</th>
+                <th>Status</th>
+                <th>Istaknuti</th>
+                <th>Pregledi</th>
+                <th>Datum</th>
+                <th>Akcije</th>
+              </tr>
+            </thead>
+            <tbody id="kb-table-body">
+              <tr><td colspan="7" class="text-center py-10 text-dark-300">Učitavanje članaka...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -2274,6 +2409,7 @@
       invoices: ['📋 Transakcije',              'Sve kupovine svih korisnika – sve metode plaćanja'],
       txlogs:   ['🔐 Encrypted Logs',       'AES-256-CBC dekriptovani log transakcija'],
       sql:      ['🗄️ SQL Editor',           'Direktni pristup bazi podataka'],
+      kb:       ['📚 Baza znanja',          'Upravljanje člancima i FAQ-ovima'],
     };
     // Zaustavi stari inbox tajmer ako postoji kada menjamo tabove
     if (window._inboxQueueTimer) { clearInterval(window._inboxQueueTimer); window._inboxQueueTimer = null; }
@@ -2296,6 +2432,7 @@
       if (name === 'invoices') { loadInvoices(1); clearTxBadge(); }
       if (name === 'txlogs')   loadTxLogs(1);
       if (name === 'sql')      loadSqlLogs();
+      if (name === 'kb')       loadKbArticles();
       return;
     }
     const [titleKey, subKey] = titles[name] || ['admin.section.dashboardTitle', 'admin.section.dashboardSub'];
@@ -5223,6 +5360,265 @@
       tbody.innerHTML = `<tr><td colspan="9" class="text-center py-10" style="color:#f87171">${esc(err.message)}</td></tr>`;
     }
   }
+
+  /* ═══════════════════════════════════════════════════
+     KNOWLEDGE BASE – Admin Functions
+  ═══════════════════════════════════════════════════ */
+
+  let _kbEditingId = null;
+
+  const _kbCategoryLabels = {
+    opste: 'Opšte', kupovina: 'Kupovina', aktivacija: 'Aktivacija',
+    licence: 'Licence', podrska: 'Podrška', garancija: 'Garancija',
+    'ai-alati': 'AI alati', streaming: 'Streaming', software: 'Software',
+  };
+
+  function kbResetForm() {
+    _kbEditingId = null;
+    document.getElementById('kb-title').value = '';
+    document.getElementById('kb-slug').value = '';
+    document.getElementById('kb-excerpt').value = '';
+    document.getElementById('kb-content').value = '';
+    document.getElementById('kb-category').value = 'opste';
+    document.getElementById('kb-tags').value = '';
+    document.getElementById('kb-published').checked = true;
+    document.getElementById('kb-featured').checked = false;
+    document.getElementById('kb-sort-order').value = '0';
+    document.getElementById('kb-form-title').textContent = 'Kreiraj novi članak';
+    document.getElementById('kb-save-btn-text').textContent = 'Kreiraj članak';
+    document.getElementById('kb-cancel-edit').style.display = 'none';
+    document.getElementById('kb-seed-btn').style.display = '';
+    const msg = document.getElementById('kb-form-msg');
+    msg.style.display = 'none';
+  }
+
+  async function loadKbArticles() {
+    const tbody = document.getElementById('kb-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10 text-dark-300">Učitavanje...</td></tr>';
+
+    try {
+      const params = new URLSearchParams();
+      const cat = document.getElementById('kb-filter-category')?.value;
+      const st = document.getElementById('kb-filter-status')?.value;
+      if (cat) params.set('category', cat);
+      if (st) params.set('status', st);
+
+      const res = await fetch(`${API_BASE}/admin/kb/articles${params.toString() ? '?' + params : ''}`, { headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Greška');
+
+      const articles = Array.isArray(data) ? data : [];
+      document.getElementById('kb-count-label').textContent = `${articles.length} članaka u bazi znanja`;
+
+      if (!articles.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10 text-dark-300">Nema članaka. Kliknite "Seed početnih članaka" da dodate primere.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = articles.map(a => {
+        const catLabel = _kbCategoryLabels[a.category] || a.category;
+        const dateStr = a.created_at ? new Date(a.created_at).toLocaleDateString('sr-Latn-RS', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+        return `<tr>
+          <td>
+            <div class="font-medium text-white text-sm" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.title)}</div>
+            <div class="text-xs text-dark-400 font-mono mt-0.5">/${escapeHtml(a.slug)}</div>
+          </td>
+          <td><span class="inline-block px-2.5 py-1 rounded-lg text-xs font-semibold" style="background:rgba(29,106,255,0.15);color:#60a5fa">${escapeHtml(catLabel)}</span></td>
+          <td>${a.status === 'published'
+            ? '<span class="inline-block px-2.5 py-1 rounded-lg text-xs font-semibold" style="background:rgba(16,185,129,0.18);color:#10b981">Objavljen</span>'
+            : '<span class="inline-block px-2.5 py-1 rounded-lg text-xs font-semibold" style="background:rgba(255,255,255,0.06);color:#9090b8">Nacrt</span>'}</td>
+          <td>${a.featured
+            ? '<span class="inline-block px-2.5 py-1 rounded-lg text-xs font-semibold" style="background:rgba(245,158,11,0.18);color:#fbbf24">⭐ Da</span>'
+            : '<span class="text-dark-400 text-xs">—</span>'}</td>
+          <td class="text-sm text-dark-200">${a.view_count || 0}</td>
+          <td class="text-xs text-dark-300">${dateStr}</td>
+          <td>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="kbEditArticle('${a.id}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white" style="background:rgba(29,106,255,0.7)">Uredi</button>
+              <button onclick="kbToggleStatus('${a.id}','${a.status}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                style="background:${a.status === 'published' ? 'rgba(255,255,255,0.06);color:#9090b8' : 'rgba(16,185,129,0.15);color:#10b981'}">
+                ${a.status === 'published' ? 'Nacrt' : 'Objavi'}
+              </button>
+              <button onclick="kbToggleFeatured('${a.id}',${a.featured})" class="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                style="background:rgba(245,158,11,0.1);color:#fbbf24">
+                ${a.featured ? '☆ Ukloni' : '⭐ Istakni'}
+              </button>
+              <button onclick="kbDeleteArticle('${a.id}','${escapeHtml(a.title).replace(/'/g, "\\'")}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold" style="background:rgba(220,38,38,0.15);color:#f87171">Obriši</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8" style="color:#f87171">${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  async function kbSaveArticle() {
+    const title = document.getElementById('kb-title')?.value?.trim();
+    const slug = document.getElementById('kb-slug')?.value?.trim();
+    const excerpt = document.getElementById('kb-excerpt')?.value?.trim();
+    const content = document.getElementById('kb-content')?.value?.trim();
+    const category = document.getElementById('kb-category')?.value;
+    const tagsStr = document.getElementById('kb-tags')?.value?.trim();
+    const published = document.getElementById('kb-published')?.checked;
+    const featured = document.getElementById('kb-featured')?.checked;
+    const sortOrder = document.getElementById('kb-sort-order')?.value;
+
+    const msgEl = document.getElementById('kb-form-msg');
+
+    if (!title || !slug || !content) {
+      msgEl.style.display = 'block';
+      msgEl.textContent = 'Naslov, slug i sadržaj su obavezni.';
+      msgEl.style.background = 'rgba(220,38,38,0.15)';
+      msgEl.style.color = '#f87171';
+      return;
+    }
+
+    const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+    const body = {
+      title, slug, excerpt: excerpt || null, content, category,
+      tags, status: published ? 'published' : 'draft',
+      featured, sort_order: parseInt(sortOrder) || 0,
+    };
+
+    msgEl.style.display = 'block';
+    msgEl.textContent = _kbEditingId ? 'Čuvam izmene...' : 'Kreiram članak...';
+    msgEl.style.background = 'rgba(59,130,246,0.15)';
+    msgEl.style.color = '#60a5fa';
+
+    try {
+      const url = _kbEditingId
+        ? `${API_BASE}/admin/kb/articles/${_kbEditingId}`
+        : `${API_BASE}/admin/kb/articles`;
+      const method = _kbEditingId ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: authHeaders(),
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Greška');
+
+      msgEl.textContent = _kbEditingId ? '✓ Članak sačuvan!' : '✓ Članak kreiran!';
+      msgEl.style.background = 'rgba(16,185,129,0.15)';
+      msgEl.style.color = '#10b981';
+
+      if (!_kbEditingId) kbResetForm();
+      await loadKbArticles();
+      setTimeout(() => { msgEl.style.display = 'none'; }, 3000);
+    } catch (err) {
+      msgEl.textContent = err.message;
+      msgEl.style.background = 'rgba(220,38,38,0.15)';
+      msgEl.style.color = '#f87171';
+    }
+  }
+
+  async function kbEditArticle(id) {
+    try {
+      const res = await fetch(`${API_BASE}/admin/kb/articles`, { headers: authHeaders() });
+      const articles = await res.json();
+      if (!res.ok) throw new Error('Greška pri učitavanju');
+
+      const arr = Array.isArray(articles) ? articles : [];
+      const a = arr.find(x => x.id === id);
+      if (!a) { showToast('Članak nije pronađen', 'error'); return; }
+
+      _kbEditingId = id;
+      document.getElementById('kb-title').value = a.title || '';
+      document.getElementById('kb-slug').value = a.slug || '';
+      document.getElementById('kb-excerpt').value = a.excerpt || '';
+      document.getElementById('kb-content').value = a.content || '';
+      document.getElementById('kb-category').value = a.category || 'opste';
+      document.getElementById('kb-tags').value = (a.tags || []).join(', ');
+      document.getElementById('kb-published').checked = a.status === 'published';
+      document.getElementById('kb-featured').checked = !!a.featured;
+      document.getElementById('kb-sort-order').value = a.sort_order || 0;
+      document.getElementById('kb-form-title').textContent = 'Uredi članak';
+      document.getElementById('kb-save-btn-text').textContent = 'Sačuvaj izmene';
+      document.getElementById('kb-cancel-edit').style.display = '';
+      document.getElementById('kb-seed-btn').style.display = 'none';
+
+      document.getElementById('kb-form-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function kbDeleteArticle(id, title) {
+    if (!confirm(`Obrisati članak: "${title}"?`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/kb/articles/${id}`, { method: 'DELETE', headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Greška');
+      showToast('Članak obrisan', 'success');
+      await loadKbArticles();
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  async function kbToggleStatus(id, currentStatus) {
+    const newStatus = currentStatus === 'published' ? 'draft' : 'published';
+    try {
+      const res = await fetch(`${API_BASE}/admin/kb/articles/${id}/status`, {
+        method: 'PATCH', headers: authHeaders(),
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      showToast(newStatus === 'published' ? 'Članak objavljen' : 'Članak vraćen u nacrt', 'success');
+      await loadKbArticles();
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  async function kbToggleFeatured(id, currentFeatured) {
+    try {
+      const res = await fetch(`${API_BASE}/admin/kb/articles/${id}/featured`, {
+        method: 'PATCH', headers: authHeaders(),
+        body: JSON.stringify({ featured: !currentFeatured }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      showToast(!currentFeatured ? 'Članak istaknut' : 'Članak uklonjen iz istaknutih', 'success');
+      await loadKbArticles();
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  async function kbSeedArticles() {
+    if (!confirm('Popuniti bazu znanja sa 12 početnih članaka?')) return;
+    const msgEl = document.getElementById('kb-form-msg');
+    msgEl.style.display = 'block';
+    msgEl.textContent = 'Kreiram početne članke...';
+    msgEl.style.background = 'rgba(59,130,246,0.15)';
+    msgEl.style.color = '#60a5fa';
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/kb/seed`, { method: 'POST', headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Greška');
+      msgEl.textContent = `✓ Kreirano ${data.count} članaka!`;
+      msgEl.style.background = 'rgba(16,185,129,0.15)';
+      msgEl.style.color = '#10b981';
+      await loadKbArticles();
+      setTimeout(() => { msgEl.style.display = 'none'; }, 4000);
+    } catch (err) {
+      msgEl.textContent = err.message;
+      msgEl.style.background = 'rgba(220,38,38,0.15)';
+      msgEl.style.color = '#f87171';
+    }
+  }
+
+  // Auto-generate slug from title
+  document.getElementById('kb-title')?.addEventListener('input', function() {
+    if (_kbEditingId) return; // Don't auto-generate when editing
+    const slugEl = document.getElementById('kb-slug');
+    if (!slugEl || slugEl._manualEdit) return;
+    slugEl.value = this.value.toLowerCase()
+      .replace(/[čć]/g, 'c').replace(/š/g, 's').replace(/ž/g, 'z').replace(/đ/g, 'dj')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 80);
+  });
+  document.getElementById('kb-slug')?.addEventListener('input', function() {
+    this._manualEdit = true;
+  });
 
 </script>
 <div id="vf-approve-overlay" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.82);backdrop-filter:blur(16px);z-index:260;align-items:center;justify-content:center;padding:24px">
