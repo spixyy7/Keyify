@@ -1796,21 +1796,17 @@ async function persistProductRecord(mode, id, payload) {
     return query.select().single();
   };
 
-  let result = await apply(payload);
-  if (result.error && payload.category_id && /category_id/i.test(result.error.message || '')) {
-    const legacyPayload = { ...payload };
-    delete legacyPayload.category_id;
-    result = await apply(legacyPayload);
-  }
-  if (result.error && payload.required_user_inputs && /required_user_inputs/i.test(result.error.message || '')) {
-    const legacyPayload = { ...payload };
-    delete legacyPayload.required_user_inputs;
-    result = await apply(legacyPayload);
-  }
-  if (result.error && payload.homepage_hero_image !== undefined && /homepage_hero_image/i.test(result.error.message || '')) {
-    const legacyPayload = { ...payload };
-    delete legacyPayload.homepage_hero_image;
-    result = await apply(legacyPayload);
+  const optionalColumns = ['category_id', 'required_user_inputs', 'homepage_hero_image', 'warranty_text'];
+  let current = { ...payload };
+  let result = await apply(current);
+
+  /* If a column doesn't exist in DB, strip it and retry */
+  while (result.error) {
+    const errText = (result.error.message || '') + ' ' + (result.error.details || '') + ' ' + JSON.stringify(result.error);
+    const bad = optionalColumns.find(col => current[col] !== undefined && new RegExp(col, 'i').test(errText));
+    if (!bad) break;
+    delete current[bad];
+    result = await apply(current);
   }
 
   return result;
