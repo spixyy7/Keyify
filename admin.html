@@ -5421,10 +5421,10 @@
         const dateStr = a.created_at ? new Date(a.created_at).toLocaleDateString('sr-Latn-RS', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
         return `<tr>
           <td>
-            <div class="font-medium text-white text-sm" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.title)}</div>
-            <div class="text-xs text-dark-400 font-mono mt-0.5">/${escapeHtml(a.slug)}</div>
+            <div class="font-medium text-white text-sm" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(a.title)}</div>
+            <div class="text-xs text-dark-400 font-mono mt-0.5">/${escHtml(a.slug)}</div>
           </td>
-          <td><span class="inline-block px-2.5 py-1 rounded-lg text-xs font-semibold" style="background:rgba(29,106,255,0.15);color:#60a5fa">${escapeHtml(catLabel)}</span></td>
+          <td><span class="inline-block px-2.5 py-1 rounded-lg text-xs font-semibold" style="background:rgba(29,106,255,0.15);color:#60a5fa">${escHtml(catLabel)}</span></td>
           <td>${a.status === 'published'
             ? '<span class="inline-block px-2.5 py-1 rounded-lg text-xs font-semibold" style="background:rgba(16,185,129,0.18);color:#10b981">Objavljen</span>'
             : '<span class="inline-block px-2.5 py-1 rounded-lg text-xs font-semibold" style="background:rgba(255,255,255,0.06);color:#9090b8">Nacrt</span>'}</td>
@@ -5444,13 +5444,13 @@
                 style="background:rgba(245,158,11,0.1);color:#fbbf24">
                 ${a.featured ? '☆ Ukloni' : '⭐ Istakni'}
               </button>
-              <button onclick="kbDeleteArticle('${a.id}','${escapeHtml(a.title).replace(/'/g, "\\'")}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold" style="background:rgba(220,38,38,0.15);color:#f87171">Obriši</button>
+              <button onclick="kbDeleteArticle('${a.id}','${escHtml(a.title).replace(/'/g, "\\'")}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold" style="background:rgba(220,38,38,0.15);color:#f87171">Obriši</button>
             </div>
           </td>
         </tr>`;
       }).join('');
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8" style="color:#f87171">${escapeHtml(err.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8" style="color:#f87171">${escHtml(err.message)}</td></tr>`;
     }
   }
 
