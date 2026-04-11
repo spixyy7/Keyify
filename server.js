@@ -4870,13 +4870,19 @@ app.post('/api/admin/upload-asset', authenticateToken, requireEditorAccess, (req
     const ext      = (req.file.originalname.split('.').pop() || 'bin').toLowerCase();
     const filePath = `assets/${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
 
-    /* Ensure bucket exists (auto-create on first upload) */
+    /* Ensure bucket exists with correct file size limit */
     const { data: buckets } = await supabase.storage.listBuckets();
-    if (!buckets?.find(b => b.name === bucketName)) {
-      const { error: createErr } = await supabase.storage.createBucket(bucketName, { public: true });
+    const existing = buckets?.find(b => b.name === bucketName);
+    if (!existing) {
+      const { error: createErr } = await supabase.storage.createBucket(bucketName, {
+        public: true,
+        fileSizeLimit: 10 * 1024 * 1024,
+      });
       if (createErr && !/already exists/i.test(createErr.message)) {
         return res.status(500).json({ error: `Bucket kreiranje: ${createErr.message}` });
       }
+    } else if (existing.file_size_limit && existing.file_size_limit < 10 * 1024 * 1024) {
+      await supabase.storage.updateBucket(bucketName, { fileSizeLimit: 10 * 1024 * 1024 });
     }
 
     const { error: upErr } = await supabase.storage
